@@ -63,9 +63,11 @@ export default function PricingModal({ user, onClose }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId, userId: user.id, userEmail: user.email, planId: plan.id }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      window.location.href = data.url
+const data = await res.json()
+alert(JSON.stringify(data, null, 2))
+if (!res.ok) throw new Error(data.error || 'checkout api error')
+if (!data.url) throw new Error('data.url が空です')
+window.location.href = data.url
     } catch (e) { setError(e.message); setLoading(null) }
   }
 
