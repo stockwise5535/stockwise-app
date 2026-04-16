@@ -18,8 +18,8 @@ export default async function handler(req, res) {
         trial_period_days: 14,
         metadata: { userId, planId: planId || 'basic' },
       },
-      success_url: `${process.env.VITE_APP_URL}?payment=success`,
-      cancel_url:  `${process.env.VITE_APP_URL}?payment=cancelled`,
+success_url: 'https://stockwise-app-1qz9.vercel.app/?payment=success',
+cancel_url:  'https://stockwise-app-1qz9.vercel.app/?payment=cancelled',
       metadata: { userId, planId: planId || 'basic' },
       locale: 'auto',
     })
