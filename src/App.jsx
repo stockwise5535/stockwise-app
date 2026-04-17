@@ -159,7 +159,18 @@ function Btn({ children, onClick, variant='primary', disabled, style:extra }) {
 // ── メインアプリ ────────────────────────────────────────────
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const payment = params.get('payment')
 
+  if (payment === 'success') {
+    alert('支払い成功！')
+  }
+
+  if (payment === 'cancelled') {
+    alert('キャンセルされました')
+  }
+}, [])
   const [tab,     setTab]        = useState('dashboard')
   const [skus,    setSkus]       = useState([])
   const [asns,    setAsns]       = useState([])
