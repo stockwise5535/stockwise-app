@@ -64,7 +64,6 @@ export default function PricingModal({ user, onClose }) {
         body: JSON.stringify({ priceId, userId: user.id, userEmail: user.email, planId: plan.id }),
       })
 const data = await res.json()
-alert(JSON.stringify(data, null, 2))
 if (!res.ok) throw new Error(data.error || 'checkout api error')
 if (!data.url) throw new Error('data.url が空です')
 window.location.href = data.url
