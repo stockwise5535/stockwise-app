@@ -1,80 +1,50 @@
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-const ALLOWED_PRICE_IDS = new Set([
-  process.env.VITE_STRIPE_PRICE_BASIC,
-  process.env.VITE_STRIPE_PRICE_PRO,
-  process.env.VITE_STRIPE_PRICE_ENTERPRISE,
-].filter(Boolean));
+import Stripe from 'stripe'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
-    const { priceId, userId, userEmail, planId } = req.body || {};
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY
 
-    if (!priceId) {
-      return res.status(400).json({ error: 'priceId が送られていません' });
+    // ローカル開発では env が読めなくても 3000 を使う
+    const appUrl =
+      process.env.VITE_APP_URL ||
+      process.env.APP_URL ||
+      'http://localhost:3000'
+
+    if (!stripeSecretKey) {
+      return res.status(500).json({ error: 'STRIPE_SECRET_KEY が未設定です' })
     }
 
-    if (!ALLOWED_PRICE_IDS.has(priceId)) {
-      return res.status(400).json({ error: '許可されていない priceId です' });
-    }
+    const stripe = new Stripe(stripeSecretKey)
 
-    const origin =
-      req.headers.origin || 'https://stockwise-app-1qz9.vercel.app';
+    const { priceId, userId, userEmail, planId } = req.body || {}
+
+    if (!priceId) return res.status(400).json({ error: 'priceId がありません' })
+    if (!userId) return res.status(400).json({ error: 'userId がありません' })
+    if (!userEmail) return res.status(400).json({ error: 'userEmail がありません' })
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-
-      customer_email: userEmail || undefined,
-
-      client_reference_id: userId
-        ? String(userId)
-        : undefined,
-
-      // checkout session用 metadata
+      payment_method_types: ['card'],
+      customer_email: userEmail,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${appUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/?checkout=cancel`,
       metadata: {
-        userId: userId ? String(userId) : '',
-        planId: planId || '',
+        userId,
+        planId: planId || 'basic',
       },
+      allow_promotion_codes: true,
+    })
 
-      // ★ これが重要（subscriptionイベント用）
-      subscription_data: {
-        metadata: {
-          userId: userId ? String(userId) : '',
-          planId: planId || '',
-        },
-      },
-
-      success_url:
-        `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-
-      cancel_url:
-        `${origin}/pricing?canceled=true`,
-    });
-
-    return res.status(200).json({
-      url: session.url,
-    });
-
+    return res.status(200).json({ url: session.url })
   } catch (error) {
-    console.error('Stripe checkout session error:', error);
-
+    console.error('create-checkout-session error:', error)
     return res.status(500).json({
-      error:
-        error.message ||
-        'Checkout Session作成に失敗しました',
-    });
+      error: error?.message || 'create-checkout-session で不明なエラーが発生しました',
+    })
   }
 }
