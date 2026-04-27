@@ -1,0 +1,4 @@
+ssn_id,superset,subset,supplier,ship_qty,arrival_qty,ship_date,eta_date,status,confidence,vessel,bl_number,origin_port,dest_port
+SSN-2026-001,イヤホン,A社 イヤホンA,Supplier-A,500,500,2026-05-01,2026-05-15,booked,0.85,EVER GRACE,BL240501,Shenzhen,Los Angeles
+SSN-2026-002,イヤホン,B社 イヤホンB,Supplier-B,300,300,2026-05-05,2026-05-20,in_transit,0.70,MSC OSCAR,BL240505,Taipei,Long Beach
+SSN-2026-003,イヤホン,A社 イヤホンA,Supplier-A,200,200,2026-05-10,2026-05-25,booked,0.65,COSCO FAITH,BL240510,Shenzhen,Seattle
