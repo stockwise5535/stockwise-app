@@ -104,6 +104,73 @@ function weekNumberFromHeader(h, fallback) {
   const m = x.match(/^(?:w)?(\d+)(?:週)?$/)
   return m ? Number(m[1]) : fallback
 }
+
+const textKey = v => String(v ?? '').trim().toLowerCase()
+function productKeysOf(s) {
+  return [s?.name, s?.name_en, s?.sku].map(textKey).filter(Boolean)
+}
+function sameProduct(a, b) {
+  const ak = productKeysOf(a)
+  const bk = productKeysOf(b)
+  return ak.length > 0 && bk.length > 0 && ak.some(x => bk.includes(x))
+}
+function inboundMatchesSku(row, sku) {
+  const key = textKey(row?.sku_name)
+  return key && productKeysOf(sku).includes(key)
+}
+function supplierKey(v) { return textKey(v || 'Supplier') }
+function sameSupplier(a, b) { return supplierKey(a) === supplierKey(b) }
+function findMatchingItem(items, target) {
+  if (!target) return null
+  return (items || []).find(s => sameProduct(s, target) && sameSupplier(s.supplier || s.subset, target.supplier || target.subset))
+    || (items || []).find(s => sameProduct(s, target))
+    || null
+}
+function uniqueProductOptions(items) {
+  const map = new Map()
+  ;(items || []).forEach(s => {
+    const key = textKey(s.name || s.sku)
+    if (!key) return
+    const current = map.get(key)
+    if (!current || calcWeeks(s) < calcWeeks(current)) map.set(key, s)
+  })
+  return [...map.values()]
+}
+function includeInboundOnlySuppliers(items, inboundRows) {
+  const out = [...(items || [])]
+  ;(inboundRows || []).forEach((r, idx) => {
+    if (!r?.sku_name || !r?.supplier) return
+    const exact = out.find(s => inboundMatchesSku(r, s) && sameSupplier(s.supplier || s.subset, r.supplier))
+    if (exact) {
+      if (r.supplier_info && !exact.supplier_info) exact.supplier_info = r.supplier_info
+      if (r.factory && !exact.factory) exact.factory = r.factory
+      return
+    }
+    const template = out.find(s => inboundMatchesSku(r, s)) || null
+    out.push({
+      ...(template || {}),
+      id: `inbound-${textKey(r.sku_name).replace(/[^a-z0-9]+/g,'-')}-${textKey(r.supplier).replace(/[^a-z0-9]+/g,'-')}-${idx}`,
+      name: template?.name || r.sku_name,
+      name_en: template?.name_en || r.sku_name,
+      sku: template?.sku || r.sku_name,
+      superset: template?.superset || '',
+      subset: r.supplier,
+      supplier: r.supplier,
+      stock_qty: template && sameSupplier(template.supplier || template.subset, r.supplier) ? Number(template.stock_qty || 0) : 0,
+      daily_usage: Number(template?.daily_usage || template?.actual_consumption || 0),
+      actual_consumption: Number(template?.actual_consumption || template?.daily_usage || 0),
+      lead_time: Number(template?.lead_time || 7),
+      safety_stock: Number(template?.safety_stock || 0) || null,
+      moq: Number(template?.moq || 0) || null,
+      unit_cost: Number(template?.unit_cost || 0) || null,
+      supplier_info: r.supplier_info || template?.supplier_info || '',
+      factory: r.factory || template?.factory || '',
+      icon: template?.icon || 'box',
+    })
+  })
+  return mergeByItemSupplier([], out)
+}
+
 function statusByWeeks(w) {
   if (w < 1) return 'alert'
   if (w < 2) return 'attention'
@@ -124,7 +191,7 @@ function buildForecast(sku, incrementals, weeks = 13) {
   return Array.from({ length: weeks }, (_, i) => {
     const week = i + 1
     const inbound = (incrementals || [])
-      .filter(r => (r.sku_name === sku.name || r.sku_name === sku.name_en || r.sku_name === sku.sku) && (!r.supplier || !sku.supplier || r.supplier === sku.supplier) && Number(r.week) === week)
+      .filter(r => inboundMatchesSku(r, sku) && (!r.supplier || !sku.supplier || sameSupplier(r.supplier, sku.supplier)) && Number(r.week) === week)
       .reduce((a, r) => a + Number(r.qty || 0), 0)
     const daily = consumptionPerDay(sku)
     stock = Math.max(0, stock - daily * 7 + inbound)
@@ -252,8 +319,7 @@ function TemplateSection({ title, children }) {
 
 function getSupplierSkuRows(items, selectedSku, incrementals, lang) {
   if (!selectedSku) return []
-  const selectedKey = String(selectedSku.name || selectedSku.sku || '').trim()
-  const sameItem = items.filter(s => String(s.name || s.sku || '').trim() === selectedKey)
+  const sameItem = items.filter(s => sameProduct(s, selectedSku))
   const rows = sameItem.length ? sameItem : [selectedSku]
   return rows.map((sku, i) => {
     const supplier = sku.supplier || sku.subset || (lang === JP ? `仕入先${i + 1}` : `Supplier ${i + 1}`)
@@ -265,7 +331,7 @@ function getSupplierSkuRows(items, selectedSku, incrementals, lang) {
       : weeks < 2 ? (lang === JP ? '発注を検討' : 'Consider order')
       : Number(sku.stock_qty || 0) === 0 ? (lang === JP ? '新規発注先を検討' : 'Find supplier')
       : (lang === JP ? '通常発注計画でOK' : 'Normal plan OK')
-    const inboundSum = incrementals.filter(r => (r.sku_name === sku.name || r.sku_name === sku.name_en || r.sku_name === sku.sku) && (!r.supplier || r.supplier === supplier)).reduce((a, r) => a + Number(r.qty || 0), 0)
+    const inboundSum = incrementals.filter(r => inboundMatchesSku(r, sku) && (!r.supplier || sameSupplier(r.supplier, supplier))).reduce((a, r) => a + Number(r.qty || 0), 0)
     return { sku, supplier, weeks, status: statusByWeeks(weeks), alert, action, inboundSum }
   })
 }
@@ -420,7 +486,7 @@ function Forecast13Visual({ forecast, lang }) {
 function OrderSimulationPanel({ items, selectedSku, incrementals, lang }) {
   const rows = getSupplierSkuRows(items, selectedSku, incrementals, lang).sort((a,b)=>a.weeks-b.weeks)
   const top = rows[0]
-  const totalInbound = incrementals.filter(r => !selectedSku || r.sku_name === selectedSku.name || r.sku_name === selectedSku.name_en || r.sku_name === selectedSku.sku).reduce((a,r)=>a+Number(r.qty||0),0)
+  const totalInbound = incrementals.filter(r => !selectedSku || inboundMatchesSku(r, selectedSku)).reduce((a,r)=>a+Number(r.qty||0),0)
   const actualWeeklyConsumption = selectedSku ? Math.max(0, consumptionPerDay(selectedSku) * 7) : 0
   const leadTimeWeeks = selectedSku ? Math.max(1, Math.ceil(Number(selectedSku.lead_time||7) / 7)) : 1
   const safetyWeeks = 2
@@ -498,11 +564,11 @@ export default function App() {
       supplier: s.supplier || s.subset || 'Supplier',
       name_en: s.name_en || s.name,
     }))
-    const merged = mergeByItemSupplier(base, normalizedLocal)
+    const merged = includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound)
     setUploadedItems(localItems)
     setSkus(merged)
     setIncrementals(localInbound)
-    setSelected(prev => prev || pickDemoFocus(merged))
+    setSelected(prev => findMatchingItem(merged, prev) || pickDemoFocus(merged))
   }
 
   function downloadSkuTemplate() {
@@ -524,7 +590,7 @@ export default function App() {
       const itemName = s.name
       const supplier = s.supplier || s.subset || ''
       const vals = Array.from({ length:13 }, (_, i) =>
-        incrementals.filter(r => (r.sku_name === itemName || r.sku_name === s.name_en || r.sku_name === s.sku) && (r.supplier || supplier) === supplier && Number(r.week) === i+1).reduce((a,r)=>a+Number(r.qty||0),0)
+        incrementals.filter(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier || supplier, supplier) && Number(r.week) === i+1).reduce((a,r)=>a+Number(r.qty||0),0)
       )
       const info = s.supplier_info || ''
       const factory = s.factory || ''
@@ -572,10 +638,10 @@ export default function App() {
       const saved = mergeByItemSupplier(currentLocal, rows)
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(saved))
       setUploadedItems(saved)
-      const nextItems = mergeByItemSupplier(skus.length ? skus : sampleSkus, rows)
+      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier(skus.length ? skus : sampleSkus, saved), incrementals)
       setSkus(nextItems)
-      const sameSelected = selectedSku && rows.find(r => r.name === selectedSku.name && (r.supplier || r.subset || '') === (selectedSku.supplier || selectedSku.subset || ''))
-      setSelected(sameSelected || pickDemoFocus(nextItems))
+      const preferred = rows[0] || selectedSku
+      setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
       try { if (rows.length) await supabase.from('skus').upsert(rows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' }) } catch (_) {}
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + rows.length)
       e.target.value = ''
@@ -613,14 +679,16 @@ export default function App() {
       localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(parsed))
       setIncrementals(parsed)
       const applyInboundMeta = s => {
-        const hit = parsed.find(r => (r.sku_name === s.name || r.sku_name === s.name_en || r.sku_name === s.sku) && r.supplier === (s.supplier || s.subset || ''))
+        const hit = parsed.find(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
         return hit ? { ...s, supplier_info: hit.supplier_info, factory: hit.factory } : s
       }
-      const nextItems = (skus.length ? skus : sampleSkus).map(applyInboundMeta)
+      const nextItems = includeInboundOnlySuppliers((skus.length ? skus : sampleSkus).map(applyInboundMeta), parsed)
       setSkus(nextItems)
       const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(currentLocal.map(applyInboundMeta)))
-      setSelected(prev => prev ? applyInboundMeta(prev) : pickDemoFocus(nextItems))
+      const preferredInbound = parsed.find(r => Number(r.qty || 0) > 0) || parsed[0]
+      const preferredItem = preferredInbound ? { name: preferredInbound.sku_name, supplier: preferredInbound.supplier } : null
+      setSelected(prev => findMatchingItem(nextItems, preferredItem) || findMatchingItem(nextItems, prev ? applyInboundMeta(prev) : null) || pickDemoFocus(nextItems))
       e.target.value = ''
       alert(copy(lang, 'csvUpload') + ': ' + fmt(parsed.reduce((a,r)=>a+r.qty,0)) + (lang === JP ? '個' : ' units'))
     }
@@ -628,7 +696,8 @@ export default function App() {
   }
 
   const items = skus.length ? skus : sampleSkus
-  const selectedSku = selected || items[0]
+  const productOptions = useMemo(() => uniqueProductOptions(items), [items])
+  const selectedSku = findMatchingItem(items, selected) || selected || productOptions[0] || items[0]
   const alertItems = items.filter(s => statusOf(s) === 'alert')
   const reorder = items.filter(s => Number(s.stock_qty || 0) < calcRp(s))
   const inboundTotal = incrementals.reduce((a,r)=>a+Number(r.qty||0),0) || 1400
@@ -661,7 +730,7 @@ export default function App() {
 
         <div style={{ marginTop:18, display:'flex', flexWrap:'wrap', background:'linear-gradient(90deg,rgba(7,43,76,.9),rgba(5,34,62,.95))', border:`1px solid ${T.line}`, borderRadius:10 }}>
           <MiniMetric icon="⇣" title={copy(lang, 'inbound')} value={`${fmt(inboundTotal)}${lang === JP ? '個' : ' units'}`} note={lang === JP ? '登録済みの輸入数量予定' : 'Registered inbound plan'} />
-          <MiniMetric icon="◎" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`ⓘ ${items.length} ${copy(lang, 'activeItems')}`} />
+          <MiniMetric icon="◎" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`ⓘ ${productOptions.length} ${copy(lang, 'activeItems')}`} />
         </div>
 
         <Panel title={copy(lang, 'reorderItems')}>
@@ -680,7 +749,7 @@ export default function App() {
 
         <Panel title={copy(lang, 'heatmap')}>
           <p style={{ color:'#cbd9e8', marginTop:-6 }}>{copy(lang, 'heatmapHint')}</p>
-          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{items.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={s.id===selectedSku?.id} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
+          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{productOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
           <div style={{ display:'flex', gap:18, flexWrap:'wrap', color:'#c9d8e8', fontSize:14 }}>{Object.entries(statusMeta).map(([k,m])=><span key={k}><b style={{ color:m.color }}>● {m[lang]}</b>：{lang === JP ? m.descJa : m.descEn}</span>)}</div>
         </Panel>
       </>}
@@ -691,7 +760,7 @@ export default function App() {
 
         <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12, background:'rgba(0,0,0,.12)', marginBottom:14 }}>
           <div style={{ fontWeight:900, marginBottom:10 }}>{copy(lang, 'selectItem')}</div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>{items.map(s => <Btn key={s.id} small kind={s.id === selectedSku?.id ? 'blue' : 'ghost'} onClick={()=>setSelected(s)}>{displayName(s, lang)}</Btn>)}</div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>{productOptions.map(s => <Btn key={s.id} small kind={sameProduct(s, selectedSku) ? 'blue' : 'ghost'} onClick={()=>setSelected(s)}>{displayName(s, lang)}</Btn>)}</div>
         </div>
 
         {selectedSku && <>
