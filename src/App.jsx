@@ -54,16 +54,42 @@ function parseCSV(text) {
 
 
 function normalizedHeader(v) { return String(v || '').replace(/^\ufeff/, '').trim().toLowerCase() }
+function headerIncludes(headers, words) {
+  const joined = headers.map(normalizedHeader).join('|')
+  return words.some(w => joined.includes(String(w).toLowerCase()))
+}
 function isSkuCSV(headers) {
   const h = headers.map(normalizedHeader)
-  return (h.includes('品目名') || h.includes('name')) && (h.includes('現在在庫数') || h.includes('stock_qty')) && !(h.includes('生産工場') || h.includes('factory'))
+  const hasSkuSignal = headerIncludes(headers, ['品目', 'name', '現在在庫', 'stock_qty', '1日使用', 'daily_usage', '実際消費', 'actual_consumption'])
+  const hasInboundSignal = h.some(x => /^w\d+$/.test(x) || /^\d+週$/.test(x)) || headerIncludes(headers, ['輸入数量', '入荷', 'factory', '生産工場'])
+  return hasSkuSignal && !hasInboundSignal
 }
 function isInboundCSV(headers) {
   const h = headers.map(normalizedHeader)
-  const hasItem = h.includes('品目名') || h.includes('item')
-  const hasSupplier = h.includes('仕入先') || h.includes('supplier')
   const hasWeek = h.some(x => /^w\d+$/.test(x) || /^\d+週$/.test(x))
-  return hasItem && hasSupplier && hasWeek && !(h.includes('現在在庫数') || h.includes('stock_qty'))
+  const hasInboundSignal = hasWeek || headerIncludes(headers, ['輸入数量', '入荷', 'supplier_info', 'サプライヤー情報', 'factory', '生産工場'])
+  const hasSkuStockSignal = headerIncludes(headers, ['現在在庫', 'stock_qty', '1日使用', 'daily_usage', 'actual_consumption', '実際消費'])
+  return hasInboundSignal && !hasSkuStockSignal
+}
+function readCsvText(file, onLoad) {
+  const reader = new FileReader()
+  reader.onload = ev => {
+    const buffer = ev.target.result
+    let utf8 = ''
+    let sjis = ''
+    try { utf8 = new TextDecoder('utf-8').decode(buffer) } catch (_) {}
+    try { sjis = new TextDecoder('shift-jis').decode(buffer) } catch (_) {}
+    const score = txt => {
+      const head = (txt || '').slice(0, 300)
+      return (head.match(/品目|仕入先|現在在庫|実際消費|生産工場|サプライヤー|週|name|supplier|stock_qty|daily_usage|actual_consumption|factory|W\d/gi) || []).length - (head.match(/�/g) || []).length * 3
+    }
+    onLoad(score(sjis) > score(utf8) ? sjis : utf8)
+  }
+  reader.readAsArrayBuffer(file)
+}
+function isProbablyInboundByShape(headers) {
+  const h = headers.map(normalizedHeader)
+  return h.some(x => /^w\d+$/.test(x) || /^\d+週$/.test(x)) || headers.length >= 17
 }
 function mergeByItemSupplier(base, updates) {
   const map = new Map()
@@ -603,15 +629,16 @@ export default function App() {
   }
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = async ev => {
-      const table = parseCSV(String(ev.target.result))
+    readCsvText(file, async text => {
+      const table = parseCSV(String(text))
       const headers = table[0] || []
-      if (!isSkuCSV(headers)) {
-        alert(lang === JP ? '発注候補品目のCSVのみアップロードできます。発注候補品目の「ダウンロード」から取得したCSVを使用してください。' : 'Only the Order Candidate Items CSV can be uploaded here. Please use the CSV downloaded from this section.')
+      if (isInboundCSV(headers) || isProbablyInboundByShape(headers)) {
+        alert(lang === JP ? 'これは輸入数量予定CSVの形式です。輸入数量予定のアップロード欄からアップロードしてください。' : 'This looks like an Inbound Plan CSV. Please upload it from the Inbound Plan upload button.')
         e.target.value = ''
         return
       }
+      // 発注候補品目CSVは、このアップロード欄から選んだ時点で発注候補品目として扱います。
+      // Excel / Numbersで保存したCSVは文字コードやヘッダーが変わる場合があるため、ヘッダー完全一致では止めません。
       const h = headers.map(normalizedHeader)
       const idx = name => h.findIndex(x => x === name)
       const get = (cols, names, fallbackIndex) => {
@@ -645,27 +672,31 @@ export default function App() {
       try { if (rows.length) await supabase.from('skus').upsert(rows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' }) } catch (_) {}
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + rows.length)
       e.target.value = ''
-    }
-    reader.readAsText(file)
+    })
   }
 
   function uploadCsv(e) {
     const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const table = parseCSV(String(ev.target.result))
+    readCsvText(file, text => {
+      const table = parseCSV(String(text))
       const headers = table[0] || []
-      if (!isInboundCSV(headers)) {
-        alert(lang === JP ? '輸入数量予定のCSVのみアップロードできます。輸入数量予定の「ダウンロード」から取得したCSVを使用してください。' : 'Only the Inbound Plan CSV can be uploaded here. Please use the CSV downloaded from this section.')
+      if (isSkuCSV(headers) && !isProbablyInboundByShape(headers)) {
+        alert(lang === JP ? 'これは発注候補品目CSVの形式です。発注候補品目のアップロード欄からアップロードしてください。' : 'This looks like an Order Candidate Items CSV. Please upload it from the Order Candidate Items upload button.')
         e.target.value = ''
         return
       }
+      // 輸入数量予定CSVは、週列があれば日本語/英語どちらのヘッダーでも受け付けます。
       const h = headers.map(normalizedHeader)
-      const itemIdx = h.findIndex(x => x === '品目名' || x === 'item')
-      const supplierIdx = h.findIndex(x => x === '仕入先' || x === 'supplier')
-      const infoIdx = h.findIndex(x => x === 'サプライヤー情報' || x === 'supplier_info')
-      const factoryIdx = h.findIndex(x => x === '生産工場' || x === 'factory')
-      const weekIndexes = h.map((x, i) => ({ i, week: weekNumberFromHeader(x, null) })).filter(x => x.week >= 1 && x.week <= 13)
+      let itemIdx = h.findIndex(x => x === '品目名' || x === 'item')
+      let supplierIdx = h.findIndex(x => x === '仕入先' || x === 'supplier')
+      let infoIdx = h.findIndex(x => x === 'サプライヤー情報' || x === 'supplier_info')
+      let factoryIdx = h.findIndex(x => x === '生産工場' || x === 'factory')
+      if (itemIdx < 0) itemIdx = 0
+      if (supplierIdx < 0) supplierIdx = 1
+      if (infoIdx < 0 && headers.length >= 16) infoIdx = 2
+      if (factoryIdx < 0 && headers.length >= 17) factoryIdx = 3
+      let weekIndexes = h.map((x, i) => ({ i, week: weekNumberFromHeader(x, null) })).filter(x => x.week >= 1 && x.week <= 13)
+      if (!weekIndexes.length && headers.length >= 5) weekIndexes = Array.from({ length: Math.min(13, headers.length - 4) }, (_, i) => ({ i: i + 4, week: i + 1 }))
       const parsed = []
       table.slice(1).forEach(cols => {
         const name = cols[itemIdx]?.trim(); const supplier = cols[supplierIdx]?.trim(); if (!name || !supplier) return
@@ -691,8 +722,7 @@ export default function App() {
       setSelected(prev => findMatchingItem(nextItems, preferredItem) || findMatchingItem(nextItems, prev ? applyInboundMeta(prev) : null) || pickDemoFocus(nextItems))
       e.target.value = ''
       alert(copy(lang, 'csvUpload') + ': ' + fmt(parsed.reduce((a,r)=>a+r.qty,0)) + (lang === JP ? '個' : ' units'))
-    }
-    reader.readAsText(file)
+    })
   }
 
   const items = skus.length ? skus : sampleSkus
