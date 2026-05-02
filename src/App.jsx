@@ -226,6 +226,83 @@ function buildForecast(sku, incrementals, weeks = 13) {
   })
 }
 
+function aggregateSkuForProduct(items, selectedSku, lang) {
+  const rows = (items || []).filter(s => sameProduct(s, selectedSku))
+  const source = rows.length ? rows : (selectedSku ? [selectedSku] : [])
+  const totalStock = source.reduce((a, s) => a + Number(s.stock_qty || 0), 0)
+  const daily = selectedSku ? consumptionPerDay(selectedSku) : source.reduce((a, s) => a + consumptionPerDay(s), 0)
+  const lead = selectedSku ? Number(selectedSku.lead_time || 7) : Math.max(7, ...source.map(s => Number(s.lead_time || 7)))
+  const safety = source.reduce((a, s) => a + Number(s.safety_stock || 0), 0)
+  return {
+    ...(selectedSku || source[0] || {}),
+    id: `aggregate-${textKey(selectedSku?.name || source[0]?.name || 'item')}`,
+    name: selectedSku?.name || source[0]?.name || (lang === JP ? '品目合計' : 'Item Total'),
+    name_en: selectedSku?.name_en || source[0]?.name_en || selectedSku?.name || source[0]?.name,
+    supplier: lang === JP ? '全仕入先合計' : 'All suppliers total',
+    subset: lang === JP ? '全仕入先合計' : 'All suppliers total',
+    stock_qty: totalStock,
+    daily_usage: daily,
+    actual_consumption: daily,
+    lead_time: lead,
+    safety_stock: safety,
+    moq: selectedSku?.moq || source[0]?.moq || null,
+    unit_cost: selectedSku?.unit_cost || source[0]?.unit_cost || null,
+  }
+}
+
+function buildAggregateForecast(items, selectedSku, incrementals, weeks = 13, lang = JP) {
+  const agg = aggregateSkuForProduct(items, selectedSku, lang)
+  let stock = Number(agg.stock_qty || 0)
+  const daily = consumptionPerDay(agg)
+  return Array.from({ length: weeks }, (_, i) => {
+    const week = i + 1
+    const inbound = (incrementals || [])
+      .filter(r => selectedSku ? inboundMatchesSku(r, selectedSku) : true)
+      .filter(r => Number(r.week) === week)
+      .reduce((a, r) => a + Number(r.qty || 0), 0)
+    // 入荷予定CSVの内容がすぐ見えるよう、週の在庫は「前週在庫 + 当週入荷 - 当週所要」で計算
+    stock = Math.max(0, stock + inbound - daily * 7)
+    const wos = daily > 0 ? stock / (daily * 7) : 99
+    return { week, stock: Math.round(stock), inbound, requirement: Math.round(daily * 7), wos, status: statusByWeeks(wos) }
+  })
+}
+
+function makeOrderPlanRows(items, selectedSku, incrementals, lang) {
+  const rows = getSupplierSkuRows(items, selectedSku, incrementals, lang).sort((a, b) => a.weeks - b.weeks)
+  const target = aggregateSkuForProduct(items, selectedSku, lang)
+  const weeklyNeed = consumptionPerDay(target) * 7
+  const targetLevel = Math.max(Number(target.safety_stock || 0), weeklyNeed * (Math.max(1, Math.ceil(Number(target.lead_time || 7) / 7)) + 2))
+  const currentTotal = rows.reduce((a, r) => a + Number(r.sku.stock_qty || 0), 0)
+  const recommended = Math.max(Number(target.moq || 0), Math.max(0, Math.round(targetLevel - currentTotal)))
+  return rows.map((r, i) => ({
+    product: selectedSku?.name || r.sku.name,
+    supplier: r.supplier,
+    factory: r.sku.factory || '',
+    priority: i + 1,
+    recommendedQty: i === 0 ? recommended : 0,
+    note: r.status === 'over'
+      ? (lang === JP ? '在庫過多につき追加注文停止' : 'Overstock: stop additional orders')
+      : r.weeks < 1
+        ? (lang === JP ? '欠品リスクが高いため優先発注' : 'High stockout risk: priority order')
+        : r.weeks < 2
+          ? (lang === JP ? '必要に応じて追加発注' : 'Additional order if needed')
+          : (lang === JP ? '通常計画を継続' : 'Keep normal plan')
+  }))
+}
+
+function downloadOrderPlanCsv(items, selectedSku, incrementals, lang) {
+  const weekHeaders = Array.from({ length:13 }, (_, i) => weekLabel(i+1, lang))
+  const headers = lang === JP
+    ? ['品目名','仕入先','生産工場','優先順位','提案メモ',...weekHeaders]
+    : ['item','supplier','factory','priority','proposal_note',...weekHeaders]
+  const planRows = makeOrderPlanRows(items, selectedSku, incrementals, lang)
+  const rows = planRows.map(r => [r.product, r.supplier, r.factory, r.priority, r.note, r.recommendedQty, ...Array(12).fill(0)])
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(csvBlob([csvLine(headers), ...rows.map(csvLine)]))
+  a.download = 'stockwise_inbound_plan.csv'
+  a.click()
+}
+
 function copy(lang, key) {
   const d = {
     dashboard: { ja:'ダッシュボード', en:'Dashboard' },
@@ -253,6 +330,9 @@ function copy(lang, key) {
     status: { ja:'状態', en:'Status' },
     statusGuide: { ja:'状態の目安', en:'Status Guide' },
     sku: { ja:'品目', en:'Item' },
+    itemLabel: { ja:'品目', en:'Item' },
+    orderPlanDownload: { ja:'発注計画を作成', en:'Create order plan' },
+    paidFromSecond: { ja:'2品目目から $49.99/月', en:'From the 2nd Superset: $49.99/mo' },
     supplier: { ja:'仕入先', en:'Supplier' },
     stockWeek: { ja:'在庫週数', en:'Weeks of Stock' },
     itemTemplateDownload: { ja:'ダウンロード', en:'Download' },
@@ -269,7 +349,7 @@ function copy(lang, key) {
     csvSettings: { ja:'CSV設定', en:'CSV Settings' },
     csvSettingsDesc: { ja:'発注候補品目と輸入数量予定のCSVをここで管理できます。', en:'Manage order candidate and inbound plan CSV files here.' },
     aiSimulationTitle: { ja:'発注シミュレーション', en:'Order Simulation' },
-    aiSimulationDesc: { ja:'StockwiseのAI機能を通して、CSVに登録された現在在庫・実際消費量・13週入荷予定をもとに、適切な在庫水準、優先仕入先、推奨発注量を表示します。', en:'Through Stockwise AI, this simulation uses CSV-based current stock, actual consumption, and the 13-week inbound plan to show the appropriate stock level, priority supplier, and recommended order quantity.' },
+    aiSimulationDesc: { ja:'CSVに登録された現在在庫・実際消費量・13週入荷予定をもとに、適切な在庫水準、優先仕入先、推奨発注量を表示します。', en:'Uses CSV-based current stock, actual consumption, and the 13-week inbound plan to show the appropriate stock level, priority supplier, and recommended order quantity.' },
   }
   return d[key]?.[lang] || d[key]?.en || key
 }
@@ -310,7 +390,7 @@ function MetricCard({ tone, icon, title, sub, value, note, button, onClick, lang
 
 function MiniMetric({ icon, title, value, note }) {
   return <div style={{ flex:1, minWidth:280, padding:'22px 32px', display:'flex', gap:24, alignItems:'center', borderRight:`1px solid ${T.line}` }}>
-    <div style={{ fontSize:42, color:T.blue }}>{icon}</div>
+    {icon ? <div style={{ fontSize:42, color:T.blue }}>{icon}</div> : null}
     <div><div style={{ color:T.blue, fontSize:18, fontWeight:900 }}>{title}</div><div style={{ fontSize:34, fontWeight:900 }}>{value}</div><div style={{ color:'#c6d8e8', fontSize:15 }}>{note}</div></div>
   </div>
 }
@@ -353,7 +433,8 @@ function getSupplierSkuRows(items, selectedSku, incrementals, lang) {
     const alert = weeks < 1 ? (lang === JP ? '7日以内に欠品リスク' : 'Stockout risk within 7 days')
       : weeks < 2 ? (lang === JP ? '14日以内に欠品リスク' : 'Stockout risk within 14 days')
       : Number(sku.stock_qty || 0) === 0 ? (lang === JP ? '供給なし' : 'No supply') : '—'
-    const action = weeks < 1 ? (lang === JP ? '緊急発注を検討' : 'Consider urgent order')
+    const action = weeks > 8 ? (lang === JP ? '在庫過多につき追加注文停止' : 'Overstock: stop additional orders')
+      : weeks < 1 ? (lang === JP ? '緊急発注を検討' : 'Consider urgent order')
       : weeks < 2 ? (lang === JP ? '発注を検討' : 'Consider order')
       : Number(sku.stock_qty || 0) === 0 ? (lang === JP ? '新規発注先を検討' : 'Find supplier')
       : (lang === JP ? '通常発注計画でOK' : 'Normal plan OK')
@@ -383,7 +464,7 @@ function ProductDetailHeader({ selectedSku, items, incrementals, lang, onBack })
     <button onClick={onBack} style={{ background:'none', border:'none', color:'#d7e7f7', fontFamily:T.font, cursor:'pointer', margin:'0 0 16px', padding:0 }}>← {lang === JP ? '戻る' : 'Back'}</button>
     <div style={{ display:'flex', gap:22, alignItems:'center', flexWrap:'wrap' }}>
       <div style={{ width:112, height:88, borderRadius:10, background:'rgba(11,39,70,.9)', border:`1px solid ${T.line}`, display:'grid', placeItems:'center' }}><ProductIcon type={selectedSku.icon || 'box'} active /></div>
-      <div><h2 style={{ margin:'0 0 8px', fontSize:28 }}>{displayName(selectedSku, lang)}</h2><div style={{ color:T.muted, fontSize:16 }}>SKU: {selectedSku.sku || selectedSku.name}</div></div>
+      <div><h2 style={{ margin:'0 0 8px', fontSize:28 }}>{displayName(selectedSku, lang)}</h2><div style={{ color:T.muted, fontSize:16 }}>{copy(lang, 'itemLabel')}: {selectedSku.name}</div></div>
     </div>
     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12, marginTop:16 }}>
       <DetailMetric title={copy(lang, 'currentStock')} value={fmt(totalStock || selectedSku.stock_qty)} suffix={copy(lang, 'units')} />
@@ -403,7 +484,7 @@ function SupplierStatusDetail({ items, selectedSku, incrementals, lang }) {
       <table style={{ width:'100%', minWidth:850, borderCollapse:'collapse' }}>
         <thead><tr>{[lang === JP ? '仕入先' : 'Supplier', lang === JP ? '在庫数（個）' : 'Stock Units', lang === JP ? '入荷予定' : 'Inbound', lang === JP ? '在庫週数' : 'Weeks of Stock', lang === JP ? '状態' : 'Status', lang === JP ? 'アラート' : 'Alert', lang === JP ? '推奨アクション' : 'Recommended Action'].map(h => <th key={h} style={{ textAlign:'left', padding:'12px 14px', background:'rgba(255,255,255,.04)', color:'#d7e7f7', borderBottom:`1px solid ${T.line}`, fontSize:13 }}>{h}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => { const m = statusMeta[r.status]; return <tr key={`${r.supplier}-${i}`}>
-          <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{r.supplier}{i===0 && <div style={{ display:'inline-block', marginLeft:8, padding:'3px 7px', borderRadius:4, background:'rgba(255,70,93,.2)', color:'#ffb3bd', fontSize:11 }}>{lang === JP ? '主力仕入先' : 'Primary'}</div>}</td>
+          <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{r.supplier}</td>
           <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{fmt(r.sku.stock_qty)}</td>
           <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{fmt(r.inboundSum)} {copy(lang, 'units')}</td>
           <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, color:m.color, fontWeight:900, fontSize:20 }}>{fmtWeeks(r.weeks)} {copy(lang, 'week')} <span style={{ display:'inline-block', width:52, height:8, borderRadius:99, background:`linear-gradient(90deg,${m.color} 60%,rgba(255,255,255,.12) 60%)`, marginLeft:10 }} /></td>
@@ -447,15 +528,15 @@ function ForecastLineChart({ forecast, lang }) {
   </div>
 }
 
-function RecommendationCards({ rows, lang }) {
+function RecommendationCards({ rows, lang, onCreatePlan }) {
   const sorted = [...rows].sort((a,b)=>a.weeks-b.weeks)
   const high = sorted[0]
   const mid = sorted.find(r => r.weeks >= 1 && r.weeks < 2) || sorted[1]
   const low = sorted.find(r => r.weeks >= 2) || sorted[2]
   const cards = [
-    { level: lang === JP ? '優先度：高' : 'Priority: High', row: high, color:T.red, title: high ? `${high.supplier}${lang === JP ? 'の緊急発注を検討' : ': consider urgent order'}` : '', body: lang === JP ? '在庫日数が不足し、欠品リスクが高い状態です。' : 'Stock coverage is low and stockout risk is high.' },
-    { level: lang === JP ? '優先度：中' : 'Priority: Medium', row: mid, color:T.orange, title: mid ? `${mid.supplier}${lang === JP ? 'からの追加調達を検討' : ': consider additional order'}` : '', body: lang === JP ? '条件に余裕があるため、代替調達として検討できます。' : 'Can be used as a backup supply option.' },
-    { level: lang === JP ? '優先度：低' : 'Priority: Low', row: low, color:T.green, title: low ? `${low.supplier}${lang === JP ? 'は通常計画を継続' : ': keep normal plan'}` : '', body: lang === JP ? '現時点では安定しており、通常の発注計画で問題ありません。' : 'Currently stable; normal order planning is acceptable.' },
+    { level: lang === JP ? '優先度：高' : 'Priority: High', row: high, color:high?.status === 'over' ? T.blue : T.red, title: high ? (high.status === 'over' ? `${high.supplier}${lang === JP ? 'は在庫過多' : ': overstock'}` : `${high.supplier}${lang === JP ? 'の緊急発注を検討' : ': consider urgent order'}`) : '', body: high?.status === 'over' ? (lang === JP ? '在庫過多につき追加注文停止。既存在庫の消化を優先します。' : 'Overstock: stop additional orders and prioritize consuming existing inventory.') : (lang === JP ? '在庫日数が不足し、欠品リスクが高い状態です。' : 'Stock coverage is low and stockout risk is high.') },
+    { level: lang === JP ? '優先度：中' : 'Priority: Medium', row: mid, color:mid?.status === 'over' ? T.blue : T.orange, title: mid ? (mid.status === 'over' ? `${mid.supplier}${lang === JP ? 'は追加注文停止' : ': stop additional orders'}` : `${mid.supplier}${lang === JP ? 'からの追加調達を検討' : ': consider additional order'}`) : '', body: mid?.status === 'over' ? (lang === JP ? '過剰在庫のため、発注計画から外します。' : 'Exclude from the order plan due to excess stock.') : (lang === JP ? '条件に余裕があるため、代替調達として検討できます。' : 'Can be used as a backup supply option.') },
+    { level: lang === JP ? '優先度：低' : 'Priority: Low', row: low, color:low?.status === 'over' ? T.blue : T.green, title: low ? (low.status === 'over' ? `${low.supplier}${lang === JP ? 'は追加注文不要' : ': no additional order needed'}` : `${low.supplier}${lang === JP ? 'は通常計画を継続' : ': keep normal plan'}`) : '', body: low?.status === 'over' ? (lang === JP ? '在庫過多につき追加注文停止。' : 'Overstock: stop additional orders.') : (lang === JP ? '現時点では安定しており、通常の発注計画で問題ありません。' : 'Currently stable; normal order planning is acceptable.') },
   ].filter(c => c.row)
   return <div style={{ marginTop:18 }}>
     <h3 style={{ margin:'0 0 12px', fontSize:24 }}>{lang === JP ? '推奨アクション' : 'Recommended Actions'}</h3>
@@ -464,7 +545,7 @@ function RecommendationCards({ rows, lang }) {
         <div style={{ color:c.color, fontWeight:900, marginBottom:8 }}>{c.level}</div>
         <div style={{ fontSize:17, fontWeight:900, marginBottom:8 }}>{c.title}</div>
         <p style={{ margin:'0 0 14px', color:'#d5e2ef', lineHeight:1.6, fontSize:14 }}>{c.body}</p>
-        <button style={{ width:'100%', border:`1px solid ${c.color}`, background:`${c.color}20`, color:c.color, borderRadius:6, padding:'10px 12px', fontWeight:900, fontFamily:T.font }}>{lang === JP ? '発注計画を作成 →' : 'Create order plan →'}</button>
+        <button onClick={onCreatePlan} style={{ width:'100%', border:`1px solid ${c.color}`, background:`${c.color}20`, color:c.color, borderRadius:6, padding:'10px 12px', fontWeight:900, fontFamily:T.font }}>{copy(lang, 'orderPlanDownload')} →</button>
       </div>)}
     </div>
   </div>
@@ -599,10 +680,10 @@ export default function App() {
 
   function downloadSkuTemplate() {
     const headers = lang === JP
-      ? ['品目名','英語名','カテゴリー','仕入先','現在在庫数','1日使用数','実際消費量','リードタイム日数','安全在庫','推奨発注量','単価','SKU','サプライヤー情報','生産工場']
-      : ['name','name_en','category','supplier','stock_qty','daily_usage','actual_consumption','lead_time','safety_stock','moq','unit_cost','sku','supplier_info','factory']
+      ? ['品目名','仕入先','現在在庫数','1日使用数','実際消費量','リードタイム日数','安全在庫','単価','生産工場']
+      : ['item','supplier','stock_qty','daily_usage','actual_consumption','lead_time_days','safety_stock','unit_cost','factory']
     const source = skus.length ? skus : sampleSkus
-    const rows = source.map(s => [s.name, s.name_en || '', s.superset || '', s.supplier || s.subset || '', s.stock_qty || 0, s.daily_usage || 0, s.actual_consumption || s.daily_usage || 0, s.lead_time || 7, s.safety_stock || '', s.moq || '', s.unit_cost || '', s.sku || s.name, s.supplier_info || '', s.factory || ''])
+    const rows = source.map(s => [s.name, s.supplier || s.subset || '', s.stock_qty || 0, s.daily_usage || 0, s.actual_consumption || s.daily_usage || 0, s.lead_time || 7, s.safety_stock || '', s.unit_cost || '', s.factory || ''])
     const a = document.createElement('a')
     a.href = URL.createObjectURL(csvBlob([csvLine(headers), ...rows.map(csvLine)]))
     a.download = 'stockwise_order_candidate_items.csv'
@@ -611,16 +692,15 @@ export default function App() {
   function downloadCsvTemplate() {
     const source = skus.length ? skus : sampleSkus
     const weekHeaders = Array.from({ length:13 }, (_, i) => weekLabel(i+1, lang))
-    const headers = lang === JP ? ['品目名','仕入先','サプライヤー情報','生産工場',...weekHeaders] : ['item','supplier','supplier_info','factory',...weekHeaders]
+    const headers = lang === JP ? ['品目名','仕入先','生産工場',...weekHeaders] : ['item','supplier','factory',...weekHeaders]
     const rows = source.map(s => {
       const itemName = s.name
       const supplier = s.supplier || s.subset || ''
       const vals = Array.from({ length:13 }, (_, i) =>
         incrementals.filter(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier || supplier, supplier) && Number(r.week) === i+1).reduce((a,r)=>a+Number(r.qty||0),0)
       )
-      const info = s.supplier_info || ''
       const factory = s.factory || ''
-      return [itemName, supplier, info, factory, ...vals]
+      return [itemName, supplier, factory, ...vals]
     })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(csvBlob([csvLine(headers), ...rows.map(csvLine)]))
@@ -647,25 +727,25 @@ export default function App() {
       }
       const rows = table.slice(1).map((cols, idxRow) => {
         const name = get(cols, ['品目名','name'], 0)?.trim()
-        const supplier = get(cols, ['仕入先','supplier'], 3)?.trim()
+        const supplier = get(cols, ['仕入先','supplier'], 1)?.trim()
         return {
-          id:`local-item-${Date.now()}-${idxRow}`, user_id:user.id, name, name_en:get(cols, ['英語名','name_en'], 1)?.trim() || name,
-          superset:get(cols, ['カテゴリー','category'], 2)?.trim() || null, subset:supplier || null, supplier:supplier || null,
-          stock_qty:+get(cols, ['現在在庫数','stock_qty'], 4)||0,
-          daily_usage:+get(cols, ['1日使用数','daily_usage'], 5)||0,
-          actual_consumption:+get(cols, ['実際消費量','actual_consumption'], 6)||(+get(cols, ['1日使用数','daily_usage'], 5)||0),
-          lead_time:+get(cols, ['リードタイム日数','lead_time'], 7)||7,
-          safety_stock:+get(cols, ['安全在庫','safety_stock'], 8)||null, moq:+get(cols, ['推奨発注量','moq'], 9)||null, unit_cost:+get(cols, ['単価','unit_cost'], 10)||null,
-          sku:get(cols, ['sku'], 11)?.trim() || name,
-          supplier_info:get(cols, ['サプライヤー情報','supplier_info'], 12)?.trim() || '',
-          factory:get(cols, ['生産工場','factory'], 13)?.trim() || '',
+          id:`local-item-${Date.now()}-${idxRow}`, user_id:user.id, name, name_en:name,
+          superset:name, subset:supplier || null, supplier:supplier || null,
+          stock_qty:+get(cols, ['現在在庫数','stock_qty'], 2)||0,
+          daily_usage:+get(cols, ['1日使用数','daily_usage'], 3)||0,
+          actual_consumption:+get(cols, ['実際消費量','actual_consumption'], 4)||(+get(cols, ['1日使用数','daily_usage'], 3)||0),
+          lead_time:+get(cols, ['リードタイム日数','lead_time_days','lead_time'], 5)||7,
+          safety_stock:+get(cols, ['安全在庫','safety_stock'], 6)||null, moq:null, unit_cost:+get(cols, ['単価','unit_cost'], 7)||null,
+          sku:name,
+          supplier_info:'',
+          factory:get(cols, ['生産工場','factory'], 8)?.trim() || '',
         }
       }).filter(r => r.name)
       const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
       const saved = mergeByItemSupplier(currentLocal, rows)
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(saved))
       setUploadedItems(saved)
-      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier(skus.length ? skus : sampleSkus, saved), incrementals)
+      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), incrementals)
       setSkus(nextItems)
       const preferred = rows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
@@ -689,14 +769,13 @@ export default function App() {
       const h = headers.map(normalizedHeader)
       let itemIdx = h.findIndex(x => x === '品目名' || x === 'item')
       let supplierIdx = h.findIndex(x => x === '仕入先' || x === 'supplier')
-      let infoIdx = h.findIndex(x => x === 'サプライヤー情報' || x === 'supplier_info')
+      let infoIdx = -1
       let factoryIdx = h.findIndex(x => x === '生産工場' || x === 'factory')
       if (itemIdx < 0) itemIdx = 0
       if (supplierIdx < 0) supplierIdx = 1
-      if (infoIdx < 0 && headers.length >= 16) infoIdx = 2
-      if (factoryIdx < 0 && headers.length >= 17) factoryIdx = 3
+      if (factoryIdx < 0 && headers.length >= 4) factoryIdx = 2
       let weekIndexes = h.map((x, i) => ({ i, week: weekNumberFromHeader(x, null) })).filter(x => x.week >= 1 && x.week <= 13)
-      if (!weekIndexes.length && headers.length >= 5) weekIndexes = Array.from({ length: Math.min(13, headers.length - 4) }, (_, i) => ({ i: i + 4, week: i + 1 }))
+      if (!weekIndexes.length && headers.length >= 4) weekIndexes = Array.from({ length: Math.min(13, headers.length - 3) }, (_, i) => ({ i: i + 3, week: i + 1 }))
       const parsed = []
       table.slice(1).forEach(cols => {
         const name = cols[itemIdx]?.trim(); const supplier = cols[supplierIdx]?.trim(); if (!name || !supplier) return
@@ -713,7 +792,7 @@ export default function App() {
         const hit = parsed.find(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
         return hit ? { ...s, supplier_info: hit.supplier_info, factory: hit.factory } : s
       }
-      const nextItems = includeInboundOnlySuppliers((skus.length ? skus : sampleSkus).map(applyInboundMeta), parsed)
+      const nextItems = includeInboundOnlySuppliers((skus.length ? skus : []).map(applyInboundMeta), parsed)
       setSkus(nextItems)
       const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(currentLocal.map(applyInboundMeta)))
@@ -749,6 +828,7 @@ export default function App() {
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
+        {productOptions.length > 1 && <span style={{ color:'#ffbd75', fontWeight:900, fontSize:12 }}>{copy(lang, 'paidFromSecond')}</span>}
         <Btn onClick={()=>setShowPricing(true)}>{copy(lang, 'pricing')}</Btn>
       </nav>
 
@@ -759,14 +839,14 @@ export default function App() {
         </div>
 
         <div style={{ marginTop:18, display:'flex', flexWrap:'wrap', background:'linear-gradient(90deg,rgba(7,43,76,.9),rgba(5,34,62,.95))', border:`1px solid ${T.line}`, borderRadius:10 }}>
-          <MiniMetric icon="⇣" title={copy(lang, 'inbound')} value={`${fmt(inboundTotal)}${lang === JP ? '個' : ' units'}`} note={lang === JP ? '登録済みの輸入数量予定' : 'Registered inbound plan'} />
-          <MiniMetric icon="◎" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`ⓘ ${productOptions.length} ${copy(lang, 'activeItems')}`} />
+          <MiniMetric icon="" title={copy(lang, 'inbound')} value={`${fmt(inboundTotal)}${lang === JP ? '個' : ' units'}`} note={lang === JP ? '登録済みの輸入数量予定' : 'Registered inbound plan'} />
+          <MiniMetric icon="" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`${productOptions.length} ${copy(lang, 'activeItems')}`} />
         </div>
 
         <Panel title={copy(lang, 'reorderItems')}>
           {selectedSku && <div onClick={()=>setTab('heatmap')} style={{ display:'grid', gridTemplateColumns:'140px 1.25fr .65fr .65fr 260px', gap:18, alignItems:'center', cursor:'pointer' }}>
             <IconBox icon={selectedSku.icon || 'box'} active />
-            <div><h3 style={{ margin:'0 0 8px', fontSize:26 }}>{displayName(selectedSku, lang)}</h3><div style={{ color:T.muted, fontSize:15 }}>SKU: {selectedSku.sku || selectedSku.name}</div><div style={{ marginTop:10 }}><span style={{ background:T.red, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:12, fontWeight:900 }}>ALERT</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected'}</span></div></div>
+            <div><h3 style={{ margin:'0 0 8px', fontSize:26 }}>{displayName(selectedSku, lang)}</h3><div style={{ color:T.muted, fontSize:15 }}>{copy(lang, 'itemLabel')}: {selectedSku.name}</div><div style={{ marginTop:10 }}><span style={{ background:T.red, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:12, fontWeight:900 }}>ALERT</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected'}</span></div></div>
             <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:22 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'currentStock')}</div><div style={{ fontSize:26, fontWeight:900, marginTop:10 }}>{fmt(selectedSku.stock_qty)} <span style={{ fontSize:15 }}>{copy(lang, 'units')}</span></div></div>
             <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:22 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'recommendedOrder')}</div><div style={{ color:T.orange, fontSize:26, fontWeight:900, marginTop:10 }}>+{fmt(selectedSku.moq || Math.max(0, calcRp(selectedSku)-selectedSku.stock_qty))} <span style={{ fontSize:15 }}>{copy(lang, 'units')}</span></div></div>
             <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:14 }}><b>{copy(lang, 'statusGuide')}</b>{['attention','alert','good'].map(k=><div key={k} style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, fontSize:13 }}><span style={{ width:30, height:6, borderRadius:9, background:statusMeta[k].color }} />{statusMeta[k][lang]}：{lang === JP ? statusMeta[k].descJa : statusMeta[k].descEn}</div>)}</div>
@@ -795,23 +875,22 @@ export default function App() {
 
         {selectedSku && <>
           <ProductDetailHeader selectedSku={selectedSku} items={items} incrementals={incrementals} lang={lang} onBack={()=>setTab('dashboard')} />
+          <RecommendationCards rows={getSupplierSkuRows(items, selectedSku, incrementals, lang)} lang={lang} onCreatePlan={()=>downloadOrderPlanCsv(items, selectedSku, incrementals, lang)} />
           <SupplierStatusDetail items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
           <div style={{ marginTop:18, display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-            <h3 style={{ margin:0, fontSize:24 }}>{lang === JP ? '13週 在庫ヒートマップ（仕入先別）' : '13-week Inventory Heatmap by Supplier'}</h3>
-            <div style={{ color:T.muted, fontSize:13 }}>{lang === JP ? 'CSVアップロード内容を反映して、仕入先別の在庫週数・在庫数・入荷数・所要数を表示します。' : 'Reflects uploaded CSV data and displays WOS, stock, inbound, and requirement by supplier.'}</div>
+            <h3 style={{ margin:0, fontSize:24 }}>{lang === JP ? '13週 在庫ヒートマップ（品目合計）' : '13-week Inventory Heatmap by Superset'}</h3>
+            <div style={{ color:T.muted, fontSize:13 }}>{lang === JP ? 'Subsetサプライヤーの在庫・入荷予定を合算した品目合計のヒートマップです。' : 'Aggregates subset supplier stock and inbound plan into a superset-level heatmap.'}</div>
           </div>
           <div style={{ marginTop:12, overflowX:'auto', border:`1px solid ${T.line}`, borderRadius:10 }}>
           <table style={{ width:'100%', minWidth:1100, borderCollapse:'collapse' }}>
             <thead><tr><th style={{ position:'sticky', left:0, background:'#082947', zIndex:2, textAlign:'left', padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{copy(lang, 'supplier')}</th>{Array.from({length:13},(_,i)=><th key={i} style={{ textAlign:'center', padding:'12px 10px', borderBottom:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)' }}>{weekLabel(i+1, lang)}</th>)}</tr></thead>
-            <tbody>{getSupplierSkuRows(items, selectedSku, incrementals, lang).map(row => {
-              const sku = row.sku
-              const supplier = row.supplier
-              const rowForecast = buildForecast(sku, incrementals, 13)
-              return <tr key={supplier}><td style={{ position:'sticky', left:0, background:'#06223d', fontWeight:900, padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{supplier}<div style={{ color:T.muted, fontSize:12, marginTop:3 }}>{displayName(sku, lang)}</div><div style={{ color:'#cbd9e8', fontSize:12, marginTop:4 }}>{lang === JP ? '現在在庫' : 'Current'}: {fmt(sku.stock_qty)} / {lang === JP ? '週所要' : 'Weekly req.'}: {fmt(consumptionPerDay(sku) * 7)}</div>{(sku.factory || incrementals.find(r => r.sku_name === sku.name && r.supplier === supplier)?.factory) && <div style={{ color:T.muted, fontSize:11, marginTop:3 }}>{lang === JP ? '生産工場' : 'Factory'}: {sku.factory || incrementals.find(r => r.sku_name === sku.name && r.supplier === supplier)?.factory}</div>}</td>{rowForecast.map(f => { const m=statusMeta[f.status]; return <td key={f.week} style={{ padding:'8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><div style={{ border:`1px solid ${m.color}`, background:`${m.color}20`, color:m.color, borderRadius:8, padding:'8px 6px', fontWeight:900 }}>{fmtWeeks(f.wos)}{copy(lang, 'week')}<div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:3 }}>{lang === JP ? '在庫' : 'Stock'} {fmt(f.stock)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '入荷' : 'Inbound'} +{fmt(f.inbound)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '所要' : 'Req.'} {fmt(consumptionPerDay(sku) * 7)}</div></div></td>})}</tr>
-            })}</tbody>
+            <tbody>{(() => {
+              const sku = aggregateSkuForProduct(items, selectedSku, lang)
+              const rowForecast = buildAggregateForecast(items, selectedSku, incrementals, 13, lang)
+              return <tr key="aggregate"><td style={{ position:'sticky', left:0, background:'#06223d', fontWeight:900, padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{sku.supplier}<div style={{ color:T.muted, fontSize:12, marginTop:3 }}>{displayName(selectedSku, lang)}</div><div style={{ color:'#cbd9e8', fontSize:12, marginTop:4 }}>{lang === JP ? '現在在庫合計' : 'Current total'}: {fmt(sku.stock_qty)} / {lang === JP ? '週所要' : 'Weekly req.'}: {fmt(consumptionPerDay(sku) * 7)}</div></td>{rowForecast.map(f => { const m=statusMeta[f.status]; return <td key={f.week} style={{ padding:'8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><div style={{ border:`1px solid ${m.color}`, background:`${m.color}20`, color:m.color, borderRadius:8, padding:'8px 6px', fontWeight:900 }}>{fmtWeeks(f.wos)}{copy(lang, 'week')}<div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:3 }}>{lang === JP ? '在庫' : 'Stock'} {fmt(f.stock)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '入荷' : 'Inbound'} +{fmt(f.inbound)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '所要' : 'Req.'} {fmt(f.requirement)}</div></div></td>})}</tr>
+            })()}</tbody>
           </table>
           </div>
-          <RecommendationCards rows={getSupplierSkuRows(items, selectedSku, incrementals, lang)} lang={lang} />
           <OrderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
         </>}
       </Panel>}
