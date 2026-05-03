@@ -273,17 +273,18 @@ function makeOrderPlanRows(items, selectedSku, incrementals, lang) {
   const weeklyNeed = consumptionPerDay(target) * 7
   const targetLevel = Math.max(Number(target.safety_stock || 0), weeklyNeed * (Math.max(1, Math.ceil(Number(target.lead_time || 7) / 7)) + 2))
   const currentTotal = rows.reduce((a, r) => a + Number(r.sku.stock_qty || 0), 0)
-  const recommended = Math.max(Number(target.moq || 0), Math.max(0, Math.round(targetLevel - currentTotal)))
+  const high = rows[0]
+  const recommended = high?.status === 'over' ? 0 : Math.max(Number(target.moq || 0), Math.max(0, Math.round(targetLevel - currentTotal)))
   return rows.map((r, i) => ({
     product: selectedSku?.name || r.sku.name,
     supplier: r.supplier,
     factory: r.sku.factory || '',
     priority: i + 1,
-    recommendedQty: i === 0 ? recommended : 0,
+    recommendedQty: i === 0 && r.status !== 'over' ? recommended : 0,
     note: r.status === 'over'
       ? (lang === JP ? '在庫過多につき追加注文停止' : 'Overstock: stop additional orders')
       : r.weeks < 1
-        ? (lang === JP ? '欠品リスクが高いため優先発注' : 'High stockout risk: priority order')
+        ? (lang === JP ? '適正在庫水準に基づき1週目に発注' : 'Order in week 1 based on the appropriate stock level')
         : r.weeks < 2
           ? (lang === JP ? '必要に応じて追加発注' : 'Additional order if needed')
           : (lang === JP ? '通常計画を継続' : 'Keep normal plan')
@@ -332,7 +333,6 @@ function copy(lang, key) {
     sku: { ja:'品目', en:'Item' },
     itemLabel: { ja:'品目', en:'Item' },
     orderPlanDownload: { ja:'発注計画を作成', en:'Create order plan' },
-    paidFromSecond: { ja:'2品目目から $49.99/月', en:'From the 2nd Superset: $49.99/mo' },
     supplier: { ja:'仕入先', en:'Supplier' },
     stockWeek: { ja:'在庫週数', en:'Weeks of Stock' },
     itemTemplateDownload: { ja:'ダウンロード', en:'Download' },
@@ -531,15 +531,19 @@ function ForecastLineChart({ forecast, lang }) {
 function RecommendationCards({ rows, lang, onCreatePlan }) {
   const sorted = [...rows].sort((a,b)=>a.weeks-b.weeks)
   const high = sorted[0]
-  const mid = sorted.find(r => r.weeks >= 1 && r.weeks < 2) || sorted[1]
-  const low = sorted.find(r => r.weeks >= 2) || sorted[2]
-  const cards = [
-    { level: lang === JP ? '優先度：高' : 'Priority: High', row: high, color:high?.status === 'over' ? T.blue : T.red, title: high ? (high.status === 'over' ? `${high.supplier}${lang === JP ? 'は在庫過多' : ': overstock'}` : `${high.supplier}${lang === JP ? 'の緊急発注を検討' : ': consider urgent order'}`) : '', body: high?.status === 'over' ? (lang === JP ? '在庫過多につき追加注文停止。既存在庫の消化を優先します。' : 'Overstock: stop additional orders and prioritize consuming existing inventory.') : (lang === JP ? '在庫日数が不足し、欠品リスクが高い状態です。' : 'Stock coverage is low and stockout risk is high.') },
-    { level: lang === JP ? '優先度：中' : 'Priority: Medium', row: mid, color:mid?.status === 'over' ? T.blue : T.orange, title: mid ? (mid.status === 'over' ? `${mid.supplier}${lang === JP ? 'は追加注文停止' : ': stop additional orders'}` : `${mid.supplier}${lang === JP ? 'からの追加調達を検討' : ': consider additional order'}`) : '', body: mid?.status === 'over' ? (lang === JP ? '過剰在庫のため、発注計画から外します。' : 'Exclude from the order plan due to excess stock.') : (lang === JP ? '条件に余裕があるため、代替調達として検討できます。' : 'Can be used as a backup supply option.') },
-    { level: lang === JP ? '優先度：低' : 'Priority: Low', row: low, color:low?.status === 'over' ? T.blue : T.green, title: low ? (low.status === 'over' ? `${low.supplier}${lang === JP ? 'は追加注文不要' : ': no additional order needed'}` : `${low.supplier}${lang === JP ? 'は通常計画を継続' : ': keep normal plan'}`) : '', body: low?.status === 'over' ? (lang === JP ? '在庫過多につき追加注文停止。' : 'Overstock: stop additional orders.') : (lang === JP ? '現時点では安定しており、通常の発注計画で問題ありません。' : 'Currently stable; normal order planning is acceptable.') },
-  ].filter(c => c.row)
+  const cards = high ? [{
+    level: lang === JP ? '優先度：高' : 'Priority: High',
+    row: high,
+    color: high.status === 'over' ? T.blue : T.red,
+    title: high.status === 'over'
+      ? `${high.supplier}${lang === JP ? 'は在庫過多' : ': overstock'}`
+      : `${high.supplier}${lang === JP ? 'の緊急発注を検討' : ': consider urgent order'}`,
+    body: high.status === 'over'
+      ? (lang === JP ? '在庫過多につき追加注文停止。既存在庫の消化を優先します。' : 'Overstock: stop additional orders and prioritize consuming existing inventory.')
+      : (lang === JP ? '在庫日数が不足し、欠品リスクが高い状態です。発注計画CSVでは1週目に推奨発注量を反映します。' : 'Stock coverage is low and stockout risk is high. The order plan CSV will place the recommended quantity in week 1.'),
+  }] : []
   return <div style={{ marginTop:18 }}>
-    <h3 style={{ margin:'0 0 12px', fontSize:24 }}>{lang === JP ? '推奨アクション' : 'Recommended Actions'}</h3>
+    <h3 style={{ margin:'0 0 12px', fontSize:24 }}>{lang === JP ? '推奨アクション' : 'Recommended Action'}</h3>
     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:14 }}>
       {cards.map(c => <div key={c.level} style={{ border:`1px solid ${c.color}`, background:`${c.color}18`, borderRadius:10, padding:18 }}>
         <div style={{ color:c.color, fontWeight:900, marginBottom:8 }}>{c.level}</div>
@@ -828,7 +832,6 @@ export default function App() {
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
-        {productOptions.length > 1 && <span style={{ color:'#ffbd75', fontWeight:900, fontSize:12 }}>{copy(lang, 'paidFromSecond')}</span>}
         <Btn onClick={()=>setShowPricing(true)}>{copy(lang, 'pricing')}</Btn>
       </nav>
 
