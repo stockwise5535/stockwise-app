@@ -3,7 +3,6 @@ import { useAuth } from './AuthContext.jsx'
 import { supabase } from './supabase.js'
 import { detectLang } from './i18n.js'
 import LoginPage from './components/LoginPage.jsx'
-import PricingModal from './components/PricingModal.jsx'
 
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -161,6 +160,24 @@ function uniqueProductOptions(items) {
     if (!current || calcWeeks(s) < calcWeeks(current)) map.set(key, s)
   })
   return [...map.values()]
+}
+
+function limitRowsToMaxProducts(currentRows, incomingRows, maxProducts = 2) {
+  const seen = new Set()
+  ;(currentRows || []).forEach(r => {
+    const k = textKey(r?.name || r?.sku)
+    if (k) seen.add(k)
+  })
+  const accepted = []
+  ;(incomingRows || []).forEach(r => {
+    const k = textKey(r?.name || r?.sku)
+    if (!k) return
+    if (seen.has(k) || seen.size < maxProducts) {
+      seen.add(k)
+      accepted.push(r)
+    }
+  })
+  return accepted
 }
 function includeInboundOnlySuppliers(items, inboundRows) {
   const out = [...(items || [])]
@@ -647,7 +664,6 @@ export default function App() {
   const [incrementals, setIncrementals] = useState([])
   const [uploadedItems, setUploadedItems] = useState([])
   const [selected, setSelected] = useState(null)
-  const [showPricing, setShowPricing] = useState(false)
   const [showCsvSettings, setShowCsvSettings] = useState(false)
   const skuCsvRef = useRef(null)
   const incCsvRef = useRef(null)
@@ -746,15 +762,16 @@ export default function App() {
         }
       }).filter(r => r.name)
       const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
-      const saved = mergeByItemSupplier(currentLocal, rows)
+      const acceptedRows = limitRowsToMaxProducts(currentLocal, rows, 2)
+      const saved = mergeByItemSupplier(currentLocal, acceptedRows)
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(saved))
       setUploadedItems(saved)
       const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), incrementals)
       setSkus(nextItems)
-      const preferred = rows[0] || selectedSku
+      const preferred = acceptedRows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
-      try { if (rows.length) await supabase.from('skus').upsert(rows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' }) } catch (_) {}
-      alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + rows.length)
+      try { if (acceptedRows.length) await supabase.from('skus').upsert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' }) } catch (_) {}
+      alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
     })
   }
@@ -825,14 +842,13 @@ export default function App() {
   return <div style={{ minHeight:'100vh', background:`radial-gradient(circle at 50% -10%, #093255 0%, ${T.bg} 45%, #000915 100%)`, color:T.text, fontFamily:T.font }}>
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}><div style={{ width:34, height:34, borderRadius:9, background:'linear-gradient(135deg,#385cff,#ff9d22)', display:'grid', placeItems:'center', fontWeight:900 }}>◆</div><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:10, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
         <div style={{ display:'flex', gap:10 }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
-        <Btn onClick={()=>setShowPricing(true)}>{copy(lang, 'pricing')}</Btn>
       </nav>
 
       {tab === 'dashboard' && <>
@@ -900,6 +916,5 @@ export default function App() {
 
     </div>
     {showCsvSettings && <CsvSettingsModal lang={lang} onClose={()=>setShowCsvSettings(false)} onDownloadSku={downloadSkuTemplate} onUploadSku={()=>skuCsvRef.current?.click()} onDownloadInbound={downloadCsvTemplate} onUploadInbound={()=>incCsvRef.current?.click()} />}
-    {showPricing && <PricingModal lang={lang} user={user} onClose={()=>setShowPricing(false)} />}
   </div>
 }
