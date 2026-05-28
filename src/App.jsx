@@ -162,7 +162,25 @@ function uniqueProductOptions(items) {
   return [...map.values()]
 }
 
-function limitRowsToMaxProducts(currentRows, incomingRows, maxProducts = 2) {
+function uniqueProductCount(items) {
+  const seen = new Set()
+  ;(items || []).forEach(s => {
+    const key = textKey(s?.name || s?.sku || s?.name_en)
+    if (key) seen.add(key)
+  })
+  return seen.size
+}
+
+function uniqueActionProducts(items, lang) {
+  // Use the same representative row as the supplier heatmap cards.
+  // This keeps the dashboard/action list status aligned with the supplier-level heatmap.
+  // Example: if one supplier for an item is at 1 week while the total item stock looks healthy,
+  // the item still needs attention because that supplier row is red in the heatmap.
+  return uniqueProductOptions(items)
+    .filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention' || statusOf(s) === 'over' || Number(s.stock_qty || 0) < calcRp(s))
+}
+
+function limitRowsToMaxProducts(currentRows, incomingRows, maxProducts = 1) {
   const seen = new Set()
   ;(currentRows || []).forEach(r => {
     const k = textKey(r?.name || r?.sku)
@@ -321,11 +339,75 @@ function downloadOrderPlanCsv(items, selectedSku, incrementals, lang) {
   a.click()
 }
 
+
+function displayCustomerName(r, lang) {
+  return r?.customer || (lang === JP ? '主要顧客' : 'Key Customer')
+}
+function safeArray(value) {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === 'object') return Object.values(value).filter(v => v && typeof v === 'object')
+  return []
+}
+function getActualWeeklyForSku(sku, actualRows) {
+  const matches = safeArray(actualRows).filter(r => sameProduct({ name:r.item, name_en:r.item, sku:r.item }, sku))
+  if (matches.length) return matches.reduce((a, r) => a + Number(r.actual_qty || r.shipped_qty || 0), 0)
+  return consumptionPerDay(sku) * 7
+}
+function getForecastRowsForUi(items, forecastRows, lang) {
+  const rows = safeArray(forecastRows)
+  if (rows.length) return rows
+  return uniqueProductOptions(items).map((s, i) => ({
+    item: s.name,
+    customer: lang === JP ? `顧客${i + 1}` : `Customer ${i + 1}`,
+    week: 1,
+    forecast_qty: Math.round(consumptionPerDay(s) * 7 * 1.05),
+    requested_eta: '',
+    confidence: i === 0 ? 'High' : 'Medium',
+    note: ''
+  }))
+}
+function buildForecastVariance(items, forecastRows, actualRows, lang) {
+  const forecasts = getForecastRowsForUi(items, forecastRows, lang)
+  return forecasts.map((f, i) => {
+    const sku = uniqueProductOptions(items).find(s => sameProduct({ name:f.item, name_en:f.item, sku:f.item }, s)) || uniqueProductOptions(items)[i % Math.max(1, uniqueProductOptions(items).length)] || null
+    const actual = sku ? getActualWeeklyForSku(sku, actualRows) : 0
+    const forecast = Number(f.forecast_qty || 0)
+    const diff = actual - forecast
+    const diffRate = forecast > 0 ? diff / forecast : 0
+    const action = diffRate > 0.2
+      ? (lang === JP ? '消費がForecastを上回っています。次回Forecastの上方修正と追加発注を確認。' : 'Actual consumption is above forecast. Review upward forecast revision and additional order.')
+      : diffRate < -0.2
+        ? (lang === JP ? '消費がForecastを下回っています。在庫過多防止のため発注抑制を検討。' : 'Actual consumption is below forecast. Consider reducing order to avoid overstock.')
+        : (lang === JP ? 'Forecastと実績は概ね一致。通常計画を継続。' : 'Forecast and actual are aligned. Continue the normal plan.')
+    return { ...f, sku, actual, forecast, diff, diffRate, action }
+  })
+}
+function buildAiActionList(items, incrementals, forecastRows, actualRows, lang) {
+  const actionRows = []
+  ;(items || []).forEach(s => {
+    const weeks = calcWeeks(s)
+    if (weeks < 1) actionRows.push({ priority: 'High', item: displayName(s, lang), type: lang === JP ? '欠品リスク' : 'Stockout risk', action: lang === JP ? '優先仕入先へ1週目発注確認。顧客への納期影響も確認。' : 'Confirm week-1 order with priority supplier and check customer delivery impact.' })
+    else if (weeks > 8) actionRows.push({ priority: 'High', item: displayName(s, lang), type: lang === JP ? '在庫過多' : 'Overstock', action: lang === JP ? '追加注文停止。顧客Forecastと消費計画を再確認。' : 'Stop additional orders and recheck customer forecast and consumption plan.' })
+  })
+  buildForecastVariance(items, forecastRows, actualRows, lang).forEach(r => {
+    if (Math.abs(r.diffRate) >= 0.25) actionRows.push({ priority: 'High', item: r.item, type: lang === JP ? 'Forecast差異' : 'Forecast variance', action: r.action })
+  })
+  if (!actionRows.length) actionRows.push({ priority: 'Normal', item: lang === JP ? '全品目' : 'All items', type: lang === JP ? '安定' : 'Stable', action: lang === JP ? '大きな不足・過多・Forecast差異はありません。通常計画を継続。' : 'No major shortage, overstock, or forecast variance. Continue the normal plan.' })
+  return actionRows.slice(0, 8)
+}
+function buildCustomerEmailDraft(item, lang) {
+  if (lang === JP) return `件名：在庫・納期状況のご確認\n\nいつもお世話になっております。\n${item || '対象品目'}について、現在の在庫状況と入荷予定を確認したところ、今後の需要に対して一部調整が必要な可能性があります。\n最新のForecastおよび希望納期をご確認いただけますでしょうか。\n確認後、出荷可能数量と推奨スケジュールを改めて共有いたします。\n\nよろしくお願いいたします。`
+  return `Subject: Inventory and delivery status check\n\nHello,\nWe reviewed the current inventory and inbound plan for ${item || 'the target item'}, and there may be a need to adjust the plan based on upcoming demand.\nCould you please confirm your latest forecast and requested delivery timing?\nAfter confirmation, we will share the available quantity and recommended schedule.\n\nBest regards,`
+}
+function buildSupplierEmailDraft(item, lang) {
+  if (lang === JP) return `件名：入荷予定・リードタイム確認のお願い\n\nお世話になっております。\n${item || '対象品目'}について、今後13週の在庫計画を確認しています。\n現在の生産状況、出荷可能数量、最新リードタイムを共有いただけますでしょうか。\n特に1〜3週目の出荷可否を優先して確認したいです。\n\nよろしくお願いいたします。`
+  return `Subject: Request to confirm inbound schedule and lead time\n\nHello,\nWe are reviewing the 13-week inventory plan for ${item || 'the target item'}.\nCould you share the current production status, available shipment quantity, and latest lead time?\nWe would especially like to confirm shipment availability for weeks 1–3.\n\nBest regards,`
+}
+
 function copy(lang, key) {
   const d = {
     dashboard: { ja:'ダッシュボード', en:'Dashboard' },
     heatmap: { ja:'在庫ヒートマップ（仕入先別）', en:'Inventory Heatmap by Supplier' },
-    pricing: { ja:'料金', en:'Pricing' },
     reorderTab: { ja:'対応必要品目', en:'Items Needing Action' },
     alertBanner: { ja:'現在、対応が必要なアラートがあります。発注必要案件は右の確認ボタンから確認できます。', en:'There are alerts requiring attention. Use the order-needed check button to review items expected to run short.' },
     shortageListTitle: { ja:'対応必要品目', en:'Items Needing Action' },
@@ -374,6 +456,13 @@ function copy(lang, key) {
     csvSettingsDesc: { ja:'対応必要品目と輸入数量予定のCSVをここで管理できます。', en:'Manage action item and inbound plan CSV files here.' },
     aiSimulationTitle: { ja:'発注シミュレーション', en:'Order Simulation' },
     aiSimulationDesc: { ja:'CSVに登録された現在在庫・実際消費量・13週入荷予定をもとに、適切な在庫水準、優先仕入先、推奨発注量を表示します。', en:'Uses CSV-based current stock, actual consumption, and the 13-week inbound plan to show the appropriate stock level, priority supplier, and recommended order quantity.' },
+    opsAI: { ja:'インテリジェンスサポーター', en:'Intelligence Supporter' },
+    forecastAnalysis: { ja:'需要・消費バランスチェック', en:'Demand & Consumption Check' },
+    aiActionList: { ja:'AIアクションリスト', en:'AI Action List' },
+    emailAI: { ja:'メールAI', en:'Email AI' },
+    meetingPrep: { ja:'会議準備・ToDo', en:'Meeting Prep & ToDo' },
+    forecastCsv: { ja:'Forecast CSV', en:'Forecast CSV' },
+    actualCsv: { ja:'実績消費CSV', en:'Actual Consumption CSV' },
   }
   return d[key]?.[lang] || d[key]?.en || key
 }
@@ -698,6 +787,257 @@ function OrderSimulationPanel({ items, selectedSku, incrementals, lang }) {
   </div>
 }
 
+
+function ForecastAnalysisPanel({ items, forecastRows, actualRows, lang }) {
+  const rows = buildForecastVariance(items, forecastRows, actualRows, lang)
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:12, overflow:'hidden', background:'rgba(7,43,76,.62)' }}>
+    <div style={{ padding:'16px 18px', borderBottom:`1px solid ${T.line}` }}>
+      <h3 style={{ margin:'0 0 6px', fontSize:22 }}>{copy(lang, 'forecastAnalysis')}</h3>
+      <p style={{ margin:0, color:T.muted, lineHeight:1.6 }}>{lang === JP ? '登録データから需要と実際消費のズレを確認し、次アクションを整理します。' : 'Checks demand and actual consumption balance, then summarizes next actions.'}</p>
+    </div>
+    <div style={{ overflowX:'auto' }}><table style={{ width:'100%', minWidth:920, borderCollapse:'collapse' }}>
+      <thead><tr>{[lang === JP ? '品目' : 'Item', lang === JP ? '顧客' : 'Customer', 'Forecast', lang === JP ? '実績消費' : 'Actual', lang === JP ? '差異' : 'Variance', lang === JP ? '差異率' : 'Variance %', lang === JP ? '次アクション' : 'Next Action'].map(h => <th key={h} style={{ textAlign:'left', padding:'12px 14px', background:'rgba(255,255,255,.04)', borderBottom:`1px solid ${T.line}` }}>{h}</th>)}</tr></thead>
+      <tbody>{rows.map((r,i)=>{ const color = r.diffRate > .2 ? T.red : r.diffRate < -.2 ? T.blue : T.green; return <tr key={`${r.item}-${i}`}>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{r.item}</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{displayCustomerName(r, lang)}</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{fmt(r.forecast)}</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{fmt(r.actual)}</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, color, fontWeight:900 }}>{r.diff >= 0 ? '+' : ''}{fmt(r.diff)}</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, color, fontWeight:900 }}>{Math.round(r.diffRate * 100)}%</td>
+        <td style={{ padding:'12px 14px', borderBottom:`1px solid ${T.line}`, lineHeight:1.5 }}>{r.action}</td>
+      </tr>})}</tbody>
+    </table></div>
+  </div>
+}
+function AiActionListPanel({ items, incrementals, forecastRows, actualRows, lang }) {
+  const rows = buildAiActionList(items, incrementals, forecastRows, actualRows, lang)
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(7,43,76,.62)', padding:18 }}>
+    <h3 style={{ margin:'0 0 12px', fontSize:22 }}>{copy(lang, 'aiActionList')}</h3>
+    <div style={{ display:'grid', gap:10 }}>{rows.map((r,i)=><div key={i} style={{ border:`1px solid ${r.priority==='High'?T.red:T.line}`, background:r.priority==='High'?'rgba(255,70,93,.12)':'rgba(255,255,255,.04)', borderRadius:10, padding:14 }}>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}><b style={{ color:r.priority==='High'?T.red:T.green }}>{r.priority}</b><b>{r.item}</b><span style={{ color:T.muted }}>{r.type}</span></div>
+      <div style={{ color:'#d8e6f4', marginTop:8, lineHeight:1.6 }}>{r.action}</div>
+    </div>)}</div>
+  </div>
+}
+function EmailAiPanel({ selectedSku, lang }) {
+  const item = selectedSku ? displayName(selectedSku, lang) : ''
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(7,43,76,.62)', padding:18 }}>
+    <h3 style={{ margin:'0 0 8px', fontSize:22 }}>{copy(lang, 'emailAI')}</h3>
+    <p style={{ margin:'0 0 14px', color:T.muted }}>{lang === JP ? '在庫・Forecast・入荷状況をもとに、顧客向け/仕入先向けのメール下書きを作ります。' : 'Creates customer and supplier email drafts based on inventory, forecast, and inbound status.'}</p>
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:14 }}>
+      <div><b style={{ color:T.blue }}>{lang === JP ? '顧客向け' : 'Customer'}</b><pre style={{ whiteSpace:'pre-wrap', background:'rgba(0,0,0,.22)', border:`1px solid ${T.line}`, borderRadius:10, padding:14, color:'#e4eef8', lineHeight:1.55, fontFamily:T.font }}>{buildCustomerEmailDraft(item, lang)}</pre></div>
+      <div><b style={{ color:T.orange }}>{lang === JP ? '仕入先向け' : 'Supplier'}</b><pre style={{ whiteSpace:'pre-wrap', background:'rgba(0,0,0,.22)', border:`1px solid ${T.line}`, borderRadius:10, padding:14, color:'#e4eef8', lineHeight:1.55, fontFamily:T.font }}>{buildSupplierEmailDraft(item, lang)}</pre></div>
+    </div>
+  </div>
+}
+function MeetingPrepPanel({ items, incrementals, forecastRows, actualRows, lang }) {
+  const actions = buildAiActionList(items, incrementals, forecastRows, actualRows, lang).slice(0,5)
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(7,43,76,.62)', padding:18 }}>
+    <h3 style={{ margin:'0 0 8px', fontSize:22 }}>{copy(lang, 'meetingPrep')}</h3>
+    <p style={{ margin:'0 0 14px', color:T.muted }}>{lang === JP ? '顧客・仕入先・社内会議で確認すべき内容をToDo化します。' : 'Turns items to confirm in customer, supplier, and internal meetings into ToDos.'}</p>
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:14 }}>
+      <div><b>{lang === JP ? '会議アジェンダ' : 'Meeting Agenda'}</b><ol style={{ lineHeight:1.8, color:'#d8e6f4' }}>{actions.map((a,i)=><li key={i}>{a.item}: {a.type}</li>)}</ol></div>
+      <div><b>{lang === JP ? '確認ToDo' : 'ToDo'}</b><ul style={{ lineHeight:1.8, color:'#d8e6f4' }}><li>{lang === JP ? '顧客Forecastの更新有無を確認' : 'Confirm whether customer forecast was updated'}</li><li>{lang === JP ? '仕入先の最新LTと出荷可能数を確認' : 'Confirm supplier latest LT and available shipment quantity'}</li><li>{lang === JP ? '在庫過多品目の発注停止判断を確認' : 'Confirm order pause for overstock items'}</li><li>{lang === JP ? '会議後の発注計画CSVを更新' : 'Update order plan CSV after the meeting'}</li></ul></div>
+    </div>
+  </div>
+}
+function AiSupportCard({ title, desc, children }) {
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(255,255,255,.035)', padding:18 }}>
+    <h3 style={{ margin:'0 0 8px', fontSize:20 }}>{title}</h3>
+    {desc && <p style={{ margin:'0 0 14px', color:T.muted, lineHeight:1.6 }}>{desc}</p>}
+    {children}
+  </div>
+}
+
+function OverseasSalesAiPanel({ items, selectedSku, incrementals, forecastRows, actualRows, lang }) {
+  const target = selectedSku || uniqueProductOptions(items)[0]
+  const supplierRows = getSupplierSkuRows(items, target, incrementals, lang).sort((a,b)=>a.weeks-b.weeks)
+  const risky = buildAiActionList(items, incrementals, forecastRows, actualRows, lang).filter(r => r.priority === 'High').slice(0, 5)
+  return <Panel title={copy(lang, 'opsAI')}>
+    <div style={{ display:'grid', gap:16 }}>
+      <AiSupportCard
+        title={lang === JP ? '1. 今日見るべき在庫リスク' : '1. Inventory risks to review today'}
+        desc={lang === JP ? '発注不足・在庫過多・需要差異をまとめて、優先度の高い確認事項だけ表示します。' : 'Summarizes shortage, overstock, and demand variance into high-priority review items.'}
+      >
+        <AiActionListPanel items={items} incrementals={incrementals} forecastRows={forecastRows} actualRows={actualRows} lang={lang} />
+      </AiSupportCard>
+
+      <AiSupportCard
+        title={lang === JP ? '2. 仕入先・顧客への連絡サポート' : '2. Supplier / customer communication support'}
+        desc={lang === JP ? '選択中の品目と在庫状況をもとに、顧客向け・仕入先向けの下書きを整理します。' : 'Drafts customer and supplier messages based on the selected item and inventory status.'}
+      >
+        <EmailAiPanel selectedSku={target} lang={lang} />
+      </AiSupportCard>
+
+      <AiSupportCard
+        title={lang === JP ? '3. 会議準備とToDo整理' : '3. Meeting prep and ToDo organizer'}
+        desc={lang === JP ? '会議前に確認すべき論点と、会議後に更新すべきアクションをまとめます。' : 'Organizes discussion points before meetings and follow-up actions after meetings.'}
+      >
+        <MeetingPrepPanel items={items} incrementals={incrementals} forecastRows={forecastRows} actualRows={actualRows} lang={lang} />
+      </AiSupportCard>
+
+      <AiSupportCard
+        title={lang === JP ? '4. 仕入先別の優先確認' : '4. Supplier-level priority check'}
+        desc={lang === JP ? '選択中の品目について、価格・リードタイム・在庫週数から確認順を整理します。' : 'Prioritizes suppliers by price, lead time, and weeks of stock for the selected item.'}
+      >
+        <div style={{ overflowX:'auto' }}><table style={{ width:'100%', borderCollapse:'collapse', minWidth:720 }}>
+          <thead><tr>{[lang===JP?'確認順':'Priority', copy(lang,'supplier'), lang===JP?'在庫週数':'Weeks', lang===JP?'LT':'LT', lang===JP?'単価':'Unit Cost', lang===JP?'次アクション':'Next Action'].map(h=><th key={h} style={{ textAlign:'left', padding:'10px 12px', borderBottom:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)' }}>{h}</th>)}</tr></thead>
+          <tbody>{supplierRows.map((r,i)=><tr key={`${r.supplier}-${i}`}><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{i+1}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.supplier}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}`, color:statusMeta[r.status].color, fontWeight:900 }}>{fmtWeeks(r.weeks)}{copy(lang,'week')}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{Number(r.sku.lead_time||0)}d</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.sku.unit_cost ? (lang===JP ? `¥${fmt(Number(r.sku.unit_cost)*150)}` : `$${fmt(r.sku.unit_cost)}`) : '—'}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.action}</td></tr>)}</tbody>
+        </table></div>
+      </AiSupportCard>
+    </div>
+  </Panel>
+}
+
+function buildSupporterAnswer(question, { items, selectedSku, incrementals, forecastRows, actualRows, lang }) {
+  const q = textKey(question)
+  const options = uniqueProductOptions(items)
+  const target = selectedSku || options[0]
+  const itemName = target ? displayName(target, lang) : (lang === JP ? '対象品目' : 'selected item')
+  const supplierRows = target ? getSupplierSkuRows(items, target, incrementals, lang).sort((a,b)=>a.weeks-b.weeks) : []
+  const actions = buildAiActionList(items, incrementals, forecastRows, actualRows, lang)
+  const highActions = actions.filter(a => a.priority === 'High')
+  const overItems = options.filter(s => statusOf(aggregateSkuForProduct(items, s, lang)) === 'over')
+  const reorderItems = options.filter(s => {
+    const agg = aggregateSkuForProduct(items, s, lang)
+    return Number(agg.stock_qty || 0) < calcRp(agg)
+  })
+  const forecastVariance = buildForecastVariance(items, forecastRows, actualRows, lang)
+  const topSupplier = supplierRows[0]
+  const optimalStockLevel = target ? Math.round(Math.max(Number(target.safety_stock||0), consumptionPerDay(target) * 7 * (Math.max(1, Math.ceil(Number(target.lead_time||7) / 7)) + 2))) : 0
+  const recommendedQty = target ? Math.max(Number(target.moq||0), Math.max(0, optimalStockLevel - Number(target.stock_qty||0))) : 0
+  const line = arr => arr.filter(Boolean).join('\n')
+
+  if (!q) return lang === JP ? '質問を入力してください。' : 'Please enter a question.'
+
+  if (q.includes('メール') || q.includes('email') || q.includes('customer') || q.includes('顧客')) {
+    return line([
+      lang === JP ? `顧客向けメール下書き（${itemName}）` : `Customer email draft (${itemName})`,
+      '---',
+      buildCustomerEmailDraft(itemName, lang),
+    ])
+  }
+
+  if (q.includes('仕入') || q.includes('supplier') || q.includes('vendor') || q.includes('サプライヤ')) {
+    const rows = supplierRows.slice(0, 4).map((r, i) => `${i+1}. ${r.supplier}: ${fmtWeeks(r.weeks)}${copy(lang,'week')} / LT ${Number(r.sku.lead_time||0)}d / ${r.action}`)
+    return line([
+      lang === JP ? `仕入先別の確認ポイント（${itemName}）` : `Supplier follow-up points (${itemName})`,
+      ...rows,
+      '',
+      lang === JP ? '優先確認は、在庫週数が短く、LTが長い仕入先です。必要なら仕入先向けメールも作成できます。' : 'Prioritize suppliers with low weeks of stock and longer lead time. I can also draft a supplier email.'
+    ])
+  }
+
+  if (q.includes('会議') || q.includes('meeting') || q.includes('todo') || q.includes('to do')) {
+    const focus = highActions.slice(0, 4).map((a, i) => `${i+1}. ${a.item}: ${a.action}`)
+    return line([
+      lang === JP ? '会議前アジェンダ案' : 'Suggested meeting agenda',
+      ...(focus.length ? focus : [lang === JP ? '現時点で優先度の高い確認事項は限定的です。' : 'There are limited high-priority items right now.']),
+      '',
+      lang === JP ? '会議後ToDo: 発注計画CSV更新 / 仕入先LT確認 / 顧客Forecast更新確認' : 'Post-meeting ToDos: update order plan CSV / confirm supplier LT / confirm customer forecast updates'
+    ])
+  }
+
+  if (q.includes('forecast') || q.includes('フォーキャスト') || q.includes('実績') || q.includes('actual') || q.includes('消費')) {
+    const rows = forecastVariance.slice(0, 4).map(r => `${r.item}: Forecast ${fmt(r.forecast)} / Actual ${fmt(r.actual)} / ${r.diff >= 0 ? '+' : ''}${fmt(r.diff)} (${Math.round(r.diffRate * 100)}%) → ${r.action}`)
+    return line([
+      lang === JP ? 'Forecast / 実績消費の差異確認' : 'Forecast vs actual consumption check',
+      ...(rows.length ? rows : [lang === JP ? 'Forecastや実績消費CSVが未登録のため、現在の消費量から簡易推定しています。' : 'No forecast/actual CSV is registered, so this is estimated from current consumption data.'])
+    ])
+  }
+
+  if (q.includes('過多') || q.includes('overstock') || q.includes('多すぎ')) {
+    const rows = overItems.map(s => `・${displayName(s, lang)}: ${fmtWeeks(calcWeeks(aggregateSkuForProduct(items, s, lang)))}${copy(lang,'week')} ${lang === JP ? '相当。追加注文停止を検討。' : 'equivalent. Consider pausing additional orders.'}`)
+    return line([
+      lang === JP ? '在庫過多の確認結果' : 'Overstock check',
+      ...(rows.length ? rows : [lang === JP ? '現在、明確な在庫過多品目は見つかっていません。' : 'No clear overstock items were found.'])
+    ])
+  }
+
+  if (q.includes('発注') || q.includes('order') || q.includes('reorder') || q.includes('不足') || q.includes('risk') || q.includes('リスク')) {
+    const rows = (highActions.length ? highActions : actions).slice(0, 5).map(a => `・${a.item}: ${a.action}`)
+    return line([
+      lang === JP ? '今日見るべき対応項目' : 'Items to review today',
+      ...(rows.length ? rows : [lang === JP ? '現時点で緊急対応が必要な品目は限定的です。' : 'There are limited urgent items at this time.']),
+      '',
+      target ? (lang === JP ? `選択中の${itemName}は、優先仕入先 ${topSupplier?.supplier || '—'}、推奨発注量 ${recommendedQty > 0 ? '+' + fmt(recommendedQty) : '0'}個 を目安に確認できます。` : `For ${itemName}, check priority supplier ${topSupplier?.supplier || '—'} and recommended order ${recommendedQty > 0 ? '+' + fmt(recommendedQty) : '0'} units.`) : ''
+    ])
+  }
+
+  return line([
+    lang === JP ? '確認しました。現在のCSV・在庫・入荷予定から見ると、次の観点で確認できます。' : 'Understood. Based on the current CSV, inventory, and inbound plan, I can help with:',
+    lang === JP ? `・発注リスク: ${reorderItems.length}件` : `・Reorder risk: ${reorderItems.length} items`,
+    lang === JP ? `・在庫過多: ${overItems.length}件` : `・Overstock: ${overItems.length} items`,
+    lang === JP ? `・選択中品目: ${itemName}` : `・Selected item: ${itemName}`,
+  ])
+}
+
+function IntelligenceSupporterPopup({ open, onClose, items, selectedSku, incrementals, forecastRows, actualRows, lang }) {
+  const [draft, setDraft] = useState('')
+  const [messages, setMessages] = useState([])
+  const listRef = useRef(null)
+  const target = selectedSku || uniqueProductOptions(items)[0]
+  const itemName = target ? displayName(target, lang) : (lang === JP ? '対象品目' : 'selected item')
+  const quickReplies = [
+    lang === JP ? '今日見るべきリスクは？' : 'What risks should I review today?',
+    lang === JP ? '在庫過多だけ教えて' : 'Show overstock only',
+    lang === JP ? '仕入先への確認事項を整理して' : 'Summarize supplier follow-up points',
+    lang === JP ? '顧客向けメールを作って' : 'Draft a customer email',
+  ]
+
+  useEffect(() => {
+    if (!open) return
+    setMessages([{
+      role:'assistant',
+      text: lang === JP
+        ? `こんにちは。インテリジェンスサポーターです。${itemName}を中心に、在庫リスク、発注判断、仕入先確認、メール下書き、会議準備について質問できます。`
+        : `Hi, I’m your Intelligence Supporter. Ask me about inventory risks, ordering decisions, supplier follow-ups, email drafts, and meeting prep for ${itemName}.`
+    }])
+  }, [open, lang, itemName])
+
+  useEffect(() => {
+    if (open) setTimeout(() => listRef.current?.scrollTo({ top:listRef.current.scrollHeight, behavior:'smooth' }), 30)
+  }, [messages, open])
+
+  if (!open) return null
+
+  function ask(text) {
+    const q = String(text || '').trim()
+    if (!q) return
+    const answer = buildSupporterAnswer(q, { items, selectedSku:target, incrementals, forecastRows, actualRows, lang })
+    setMessages(prev => [...prev, { role:'user', text:q }, { role:'assistant', text:answer }])
+    setDraft('')
+  }
+
+  return <div style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,7,15,.62)', display:'flex', alignItems:'flex-end', justifyContent:'flex-end', padding:18 }} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{ width:'min(720px,100%)', height:'min(760px,88vh)', display:'flex', flexDirection:'column', border:`1px solid ${T.line}`, borderRadius:18, background:'linear-gradient(180deg,#082947,#031b32)', boxShadow:'0 28px 80px rgba(0,0,0,.45)', color:T.text }}>
+      <div style={{ padding:'16px 18px', borderBottom:`1px solid ${T.line}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#3b82f6,#22c985)', display:'grid', placeItems:'center', fontSize:18, fontWeight:900 }}>AI</div>
+          <div><div style={{ fontSize:18, fontWeight:900 }}>{copy(lang, 'opsAI')}</div><div style={{ color:T.muted, fontSize:13 }}>{lang === JP ? '質問すると、現在のCSV・在庫・入荷予定をもとに回答します' : 'Ask questions and get answers based on current CSV, stock, and inbound data'}</div></div>
+        </div>
+        <button onClick={onClose} style={{ border:`1px solid ${T.line}`, background:'rgba(255,255,255,.06)', color:T.text, width:36, height:36, borderRadius:10, cursor:'pointer', fontSize:20 }}>×</button>
+      </div>
+
+      <div ref={listRef} style={{ flex:1, overflowY:'auto', padding:18 }}>
+        <div style={{ display:'grid', gap:12 }}>
+          {messages.map((m, i) => <div key={i} style={{ justifySelf:m.role==='user'?'end':'start', maxWidth:m.role==='user'?'82%':'92%', background:m.role==='user'?'rgba(34,201,133,.13)':'rgba(255,255,255,.07)', border:`1px solid ${m.role==='user'?T.green:T.line}`, borderRadius:m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px', padding:'12px 14px', whiteSpace:'pre-wrap', lineHeight:1.65, color:m.role==='user'?'#eafff6':'#e4eef8' }}>
+            {m.text}
+          </div>)}
+        </div>
+      </div>
+
+      <div style={{ padding:'0 18px 12px', display:'flex', gap:8, flexWrap:'wrap' }}>
+        {quickReplies.map(q => <button key={q} onClick={()=>ask(q)} style={{ border:`1px solid ${T.line}`, background:'rgba(255,255,255,.055)', color:'#cfe7ff', borderRadius:999, padding:'8px 12px', fontFamily:T.font, cursor:'pointer', fontSize:12 }}>{q}</button>)}
+      </div>
+
+      <div style={{ borderTop:`1px solid ${T.line}`, padding:'12px 18px', color:T.muted, fontSize:12 }}>
+        {lang === JP ? '上の項目を選択すると、現在のCSV・在庫・入荷予定をもとに回答します。' : 'Select a topic above to get an answer based on current CSV, stock, and inbound data.'}
+      </div>
+    </div>
+  </div>
+}
+
 function AiPlanTab({ items, selectedSku, incrementals, lang, onBack }) {
   const rows = getSupplierSkuRows(items, selectedSku, incrementals, lang).sort((a,b)=>a.weeks-b.weeks)
   const forecast = selectedSku ? buildForecast(selectedSku, incrementals, 13) : []
@@ -730,8 +1070,13 @@ export default function App() {
   const [uploadedItems, setUploadedItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [showCsvSettings, setShowCsvSettings] = useState(false)
+  const [showIntelligenceSupporter, setShowIntelligenceSupporter] = useState(false)
+  const [forecastRows, setForecastRows] = useState([])
+  const [actualRows, setActualRows] = useState([])
   const skuCsvRef = useRef(null)
   const incCsvRef = useRef(null)
+  const forecastCsvRef = useRef(null)
+  const actualCsvRef = useRef(null)
   const actionItemsRef = useRef(null)
 
   useEffect(() => { localStorage.setItem('stockwise_lang', lang); document.documentElement.lang = lang }, [lang])
@@ -743,10 +1088,23 @@ export default function App() {
   }
 
   async function fetchSkus() {
-    const { data } = await supabase.from('skus').select('*').order('supplier,name')
-    const localItems = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
-    const localInbound = JSON.parse(localStorage.getItem(`stockwise_inbound_${user.id}`) || '[]')
-    const base = (data && data.length ? data : sampleSkus).map((s, i) => ({
+    let data = []
+    try {
+      const res = await supabase.from('skus').select('*').order('name', { ascending:true })
+      if (res.error) console.warn('skus fetch failed', res.error)
+      data = safeArray(res.data)
+    } catch (err) {
+      console.warn('skus fetch failed', err)
+    }
+    const readStoredArray = key => {
+      try { return safeArray(JSON.parse(localStorage.getItem(key) || '[]')) } catch (_) { return [] }
+    }
+    const localItems = readStoredArray(`stockwise_items_${user.id}`)
+    const localInbound = readStoredArray(`stockwise_inbound_${user.id}`)
+    const localForecast = readStoredArray(`stockwise_forecast_${user.id}`)
+    const localActual = readStoredArray(`stockwise_actual_${user.id}`)
+    const baseSource = localItems.length ? [] : (data && data.length ? data : sampleSkus)
+    const base = baseSource.map((s, i) => ({
       ...s,
       id: s.id || `base-${i}-${s.name}-${s.supplier || s.subset || ''}`,
       icon: s.icon || ['audio','box','mouse','keyboard','cable','box'][i % 6],
@@ -766,6 +1124,8 @@ export default function App() {
     setUploadedItems(localItems)
     setSkus(merged)
     setIncrementals(localInbound)
+    setForecastRows(localForecast)
+    setActualRows(localActual)
     setSelected(prev => findMatchingItem(merged, prev) || pickDemoFocus(merged))
   }
 
@@ -798,6 +1158,46 @@ export default function App() {
     a.download = 'stockwise_inbound_plan.csv'
     a.click()
   }
+
+  function downloadForecastTemplate() {
+    const headers = lang === JP ? ['品目名','顧客名','週','Forecast数量','希望納期','確度','備考'] : ['item','customer','week','forecast_qty','requested_eta','confidence','note']
+    const source = productOptions.length ? productOptions : sampleSkus
+    const rows = source.map((s,i) => [s.name, lang === JP ? `顧客${i+1}` : `Customer ${i+1}`, 1, Math.round(consumptionPerDay(s) * 7 * 1.05), '', 'High', ''])
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(csvBlob([csvLine(headers), ...rows.map(csvLine)]))
+    a.download = 'stockwise_forecast.csv'
+    a.click()
+  }
+  function downloadActualTemplate() {
+    const headers = lang === JP ? ['品目名','顧客名','週','実績消費量','出荷数量','備考'] : ['item','customer','week','actual_qty','shipped_qty','note']
+    const source = productOptions.length ? productOptions : sampleSkus
+    const rows = source.map((s,i) => [s.name, lang === JP ? `顧客${i+1}` : `Customer ${i+1}`, 1, Math.round(consumptionPerDay(s) * 7), Math.round(consumptionPerDay(s) * 7), ''])
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(csvBlob([csvLine(headers), ...rows.map(csvLine)]))
+    a.download = 'stockwise_actual_consumption.csv'
+    a.click()
+  }
+  function uploadForecastCSV(e) {
+    const file = e.target.files?.[0]; if (!file) return
+    readCsvText(file, text => {
+      const table = parseCSV(String(text)); const headers = table[0] || []; const h = headers.map(normalizedHeader)
+      const idx = names => names.map(n=>h.findIndex(x=>x===n)).find(i=>i>=0)
+      const itemIdx = idx(['品目名','item']) ?? 0, customerIdx = idx(['顧客名','customer']) ?? 1, weekIdx = idx(['週','week']) ?? 2, qtyIdx = idx(['forecast数量','forecast_qty','forecast']) ?? 3, etaIdx = idx(['希望納期','requested_eta']) ?? 4, confIdx = idx(['確度','confidence']) ?? 5, noteIdx = idx(['備考','note']) ?? 6
+      const rows = table.slice(1).map(cols => ({ item:cols[itemIdx]?.trim(), customer:cols[customerIdx]?.trim(), week:Number(cols[weekIdx]||1), forecast_qty:Number(cols[qtyIdx]||0), requested_eta:cols[etaIdx]||'', confidence:cols[confIdx]||'', note:cols[noteIdx]||'' })).filter(r=>r.item)
+      localStorage.setItem(`stockwise_forecast_${user.id}`, JSON.stringify(rows)); setForecastRows(rows); e.target.value=''; alert((lang===JP?'Forecast CSVを更新しました：':'Forecast CSV updated: ')+rows.length)
+    })
+  }
+  function uploadActualCSV(e) {
+    const file = e.target.files?.[0]; if (!file) return
+    readCsvText(file, text => {
+      const table = parseCSV(String(text)); const headers = table[0] || []; const h = headers.map(normalizedHeader)
+      const idx = names => names.map(n=>h.findIndex(x=>x===n)).find(i=>i>=0)
+      const itemIdx = idx(['品目名','item']) ?? 0, customerIdx = idx(['顧客名','customer']) ?? 1, weekIdx = idx(['週','week']) ?? 2, actualIdx = idx(['実績消費量','actual_qty','actual_consumption']) ?? 3, shippedIdx = idx(['出荷数量','shipped_qty']) ?? 4, noteIdx = idx(['備考','note']) ?? 5
+      const rows = table.slice(1).map(cols => ({ item:cols[itemIdx]?.trim(), customer:cols[customerIdx]?.trim(), week:Number(cols[weekIdx]||1), actual_qty:Number(cols[actualIdx]||0), shipped_qty:Number(cols[shippedIdx]||0), note:cols[noteIdx]||'' })).filter(r=>r.item)
+      localStorage.setItem(`stockwise_actual_${user.id}`, JSON.stringify(rows)); setActualRows(rows); e.target.value=''; alert((lang===JP?'実績消費CSVを更新しました：':'Actual Consumption CSV updated: ')+rows.length)
+    })
+  }
+
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
     readCsvText(file, async text => {
@@ -832,16 +1232,33 @@ export default function App() {
           factory:get(cols, ['生産工場','factory'], 8)?.trim() || '',
         }
       }).filter(r => r.name)
-      const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
-      const acceptedRows = limitRowsToMaxProducts(currentLocal, rows, 2)
-      const saved = mergeByItemSupplier(currentLocal, acceptedRows)
+      if (uniqueProductCount(rows) > 1) {
+        alert(lang === JP
+          ? '無料デモでは1品目まで利用できます。複数品目での利用をご希望の場合はお問い合わせください。'
+          : 'The free demo supports one item. Please contact us if you would like to use multiple items.'
+        )
+        e.target.value = ''
+        return
+      }
+      // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
+      // これにより、以前のデモ行・仕入先0・古い仕入先が画面に残らないようにします。
+      const acceptedRows = rows
+      const saved = mergeByItemSupplier([], acceptedRows)
+      const filteredInbound = (incrementals || []).filter(r =>
+        saved.some(s => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
+      )
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(saved))
+      localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(filteredInbound))
       setUploadedItems(saved)
-      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), incrementals)
+      setIncrementals(filteredInbound)
+      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound)
       setSkus(nextItems)
       const preferred = acceptedRows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
-      try { if (acceptedRows.length) await supabase.from('skus').upsert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' }) } catch (_) {}
+      try {
+        await supabase.from('skus').delete().eq('user_id', user.id)
+        if (acceptedRows.length) await supabase.from('skus').upsert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' })
+      } catch (_) {}
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
     })
@@ -884,9 +1301,10 @@ export default function App() {
         const hit = parsed.find(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
         return hit ? { ...s, supplier_info: hit.supplier_info, factory: hit.factory } : s
       }
-      const nextItems = includeInboundOnlySuppliers((skus.length ? skus : []).map(applyInboundMeta), parsed)
-      setSkus(nextItems)
       const currentLocal = JSON.parse(localStorage.getItem(`stockwise_items_${user.id}`) || '[]')
+      const baseForInbound = currentLocal.length ? currentLocal : (skus.length ? skus : [])
+      const nextItems = includeInboundOnlySuppliers(baseForInbound.map(applyInboundMeta), parsed)
+      setSkus(nextItems)
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(currentLocal.map(applyInboundMeta)))
       const preferredInbound = parsed.find(r => Number(r.qty || 0) > 0) || parsed[0]
       const preferredItem = preferredInbound ? { name: preferredInbound.sku_name, supplier: preferredInbound.supplier } : null
@@ -899,11 +1317,12 @@ export default function App() {
   const items = skus.length ? skus : sampleSkus
   const productOptions = useMemo(() => uniqueProductOptions(items), [items])
   const selectedSku = findMatchingItem(items, selected) || selected || productOptions[0] || items[0]
-  const alertItems = items.filter(s => statusOf(s) === 'alert')
-  const reorder = items.filter(s => Number(s.stock_qty || 0) < calcRp(s))
-  const overItems = items.filter(s => statusOf(s) === 'over')
-  const actionItems = [...new Map([...reorder, ...overItems].map(s => [s.id, s])).values()]
-  const inboundTotal = incrementals.reduce((a,r)=>a+Number(r.qty||0),0) || 1400
+  const productActionItems = uniqueActionProducts(items, lang)
+  const alertItems = productActionItems.filter(s => statusOf(s) === 'alert')
+  const reorder = productActionItems.filter(s => Number(s.stock_qty || 0) < calcRp(s))
+  const overItems = productActionItems.filter(s => statusOf(s) === 'over')
+  const actionItems = productActionItems
+  const inboundTotal = safeArray(incrementals).reduce((a,r)=>a+Number(r.qty||0),0) || 1400
   const stockValue = items.reduce((a,s)=>a+Number(s.stock_qty||0)*Number(s.unit_cost||0),0) || 284000
   const forecast = selectedSku ? buildForecast(selectedSku, incrementals, 13) : []
   const suppliers = [...new Set(items.map(s => s.supplier || s.subset || '未設定'))]
@@ -916,7 +1335,7 @@ export default function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10 }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small kind="blue" onClick={()=>setShowIntelligenceSupporter(true)}>💬 {copy(lang, 'opsAI')}</Btn><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
@@ -959,8 +1378,6 @@ export default function App() {
 
       </>}
 
-
-
       {tab === 'heatmap' && <Panel title={copy(lang, 'heatmap')} action={<button onClick={()=>setShowCsvSettings(true)} title={copy(lang, 'csvSettings')} style={{ width:40, height:40, borderRadius:10, border:`1px solid ${T.line}`, background:'rgba(255,255,255,.06)', color:T.text, fontSize:20, cursor:'pointer' }}>⚙</button>}>
         <input ref={skuCsvRef} type="file" accept=".csv" style={{display:'none'}} onChange={uploadSkuCSV}/>
         <input ref={incCsvRef} type="file" accept=".csv" style={{display:'none'}} onChange={uploadCsv}/>
@@ -995,6 +1412,8 @@ export default function App() {
       </Panel>}
 
     </div>
+    <IntelligenceSupporterPopup open={showIntelligenceSupporter} onClose={()=>setShowIntelligenceSupporter(false)} items={items} selectedSku={selectedSku} incrementals={incrementals} forecastRows={forecastRows} actualRows={actualRows} lang={lang} />
+
     {showCsvSettings && <CsvSettingsModal lang={lang} onClose={()=>setShowCsvSettings(false)} onDownloadSku={downloadSkuTemplate} onUploadSku={()=>skuCsvRef.current?.click()} onDownloadInbound={downloadCsvTemplate} onUploadInbound={()=>incCsvRef.current?.click()} />}
   </div>
 }
