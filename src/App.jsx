@@ -13,6 +13,17 @@ const T = {
 const JP = 'ja'
 const EN = 'en'
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < breakpoint : false)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [breakpoint])
+  return isMobile
+}
+
+
 const sampleSkus = [
   { id:'sample-1', name:'イヤホン Pro Model A', name_en:'Earbuds Pro Model A', superset:'オーディオ', subset:'Supplier A', supplier:'Supplier A', stock_qty:420, daily_usage:62, lead_time:18, safety_stock:186, moq:1000, unit_cost:120, sku:'EPH-PRO-A', icon:'audio' },
   { id:'sample-2', name:'USB-C ハブ', name_en:'USB-C Hub', superset:'PC周辺機器', subset:'Supplier B', supplier:'Supplier B', stock_qty:980, daily_usage:54, lead_time:20, safety_stock:150, moq:700, unit_cost:38, sku:'USB-HUB-B', icon:'box' },
@@ -716,6 +727,155 @@ function HeatmapSignalBar({ lang }) {
   </div>
 }
 
+
+function MobileBottomNav({ tab, setTab, lang, onOpenAI }) {
+  const item = (key, label, icon, onClick) => <button onClick={onClick || (()=>setTab(key))} style={{ flex:1, border:'none', background:'transparent', color:tab === key ? '#f8fbff' : '#88a1ba', fontFamily:T.font, fontWeight:900, fontSize:11, padding:'8px 4px', display:'grid', gap:3, placeItems:'center' }}>
+    <span style={{ fontSize:18 }}>{icon}</span><span>{label}</span>
+  </button>
+  return <div style={{ position:'fixed', left:0, right:0, bottom:0, zIndex:50, display:'flex', borderTop:`1px solid ${T.line}`, background:'rgba(0,20,38,.96)', backdropFilter:'blur(10px)', paddingBottom:'env(safe-area-inset-bottom)' }}>
+    {item('dashboard', lang === JP ? '概要' : 'Home', '⌂')}
+    {item('items', lang === JP ? '品目' : 'Items', '▦')}
+    {item('heatmap', lang === JP ? '予測' : 'Plan', '↗')}
+    {item('ai', 'AI', '✦', onOpenAI)}
+  </div>
+}
+
+function MobileSummaryCard({ title, value, note, tone='blue' }) {
+  const color = tone === 'red' ? T.red : tone === 'green' ? T.green : tone === 'orange' ? T.orange : T.blue
+  return <div style={{ flex:1, minWidth:104, border:`1px solid ${color}`, background:`${color}18`, borderRadius:14, padding:'13px 12px' }}>
+    <div style={{ color:'#cbd9e8', fontSize:12, fontWeight:900, minHeight:30 }}>{title}</div>
+    <div style={{ color:'#f8fbff', fontSize:28, lineHeight:1, fontWeight:900, marginTop:8 }}>{value}</div>
+    {note && <div style={{ color:'#9ab2cc', fontSize:11, fontWeight:800, marginTop:6 }}>{note}</div>}
+  </div>
+}
+
+function MobileItemCard({ sku, lang, incrementals, onOpen }) {
+  const series = buildDemandSupplyGap([], sku, incrementals, 13, lang)
+  const fallbackForecast = Math.round(consumptionPerDay(sku) * 7)
+  const first = series[0] || { forecast:fallbackForecast, supply:Number(sku.stock_qty||0), delta:Number(sku.stock_qty||0)-fallbackForecast }
+  const tone = deltaTone(first.delta, first.forecast)
+  const m = statusMeta[tone]
+  const weeklyNeed = Math.round(consumptionPerDay(sku) * 7)
+  return <button onClick={onOpen} style={{ width:'100%', textAlign:'left', border:`1px solid ${m.color}`, background:`linear-gradient(180deg,${m.color}18,rgba(6,34,61,.94))`, borderRadius:16, padding:14, color:T.text, fontFamily:T.font, boxShadow:`0 12px 28px ${m.color}10` }}>
+    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+      <div style={{ width:54, height:54, borderRadius:12, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center', flex:'0 0 auto' }}><ProductIcon type={sku.icon || 'box'} /></div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:17, fontWeight:900, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(sku, lang)}</div>
+        <div style={{ color:T.muted, fontSize:12, fontWeight:800, marginTop:3 }}>{sku.supplier || sku.subset || 'Supplier'}</div>
+      </div>
+      <div style={{ color:m.color, border:`1px solid ${m.color}`, borderRadius:999, padding:'5px 9px', fontSize:12, fontWeight:900 }}>{m[lang]}</div>
+    </div>
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginTop:14 }}>
+      <div><div style={{ color:T.muted, fontSize:11, fontWeight:900 }}>W1 Gap</div><div style={{ color:first.delta < 0 ? T.red : T.green, fontSize:18, fontWeight:900 }}>{first.delta > 0 ? '+' : ''}{fmt(first.delta)}</div></div>
+      <div><div style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{lang === JP ? '供給' : 'Supply'}</div><div style={{ fontSize:18, fontWeight:900 }}>{fmt(first.supply)}</div></div>
+      <div><div style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{lang === JP ? '週次所要' : 'Need/w'}</div><div style={{ fontSize:18, fontWeight:900 }}>{fmt(weeklyNeed)}</div></div>
+    </div>
+    <div style={{ marginTop:12, color:'#d7e7f7', fontSize:13, fontWeight:900 }}>{lang === JP ? '確認する' : 'Review'} →</div>
+  </button>
+}
+
+function MobileGapList({ sku, items, incrementals, lang }) {
+  if (!sku) return null
+  const series = buildDemandSupplyGap(items, sku, incrementals, 13, lang)
+  const totalForecast = series.reduce((a,r)=>a+Number(r.forecast||0),0)
+  const totalSupply = series.reduce((a,r)=>a+Number(r.supply||0),0)
+  const totalGap = totalSupply - totalForecast
+  return <div style={{ display:'grid', gap:12 }}>
+    <div style={{ border:`1px solid ${T.line}`, borderRadius:16, padding:15, background:'rgba(6,34,61,.92)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:58, height:58, borderRadius:14, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center' }}><ProductIcon type={sku.icon || 'box'} /></div>
+        <div><h2 style={{ margin:0, fontSize:22 }}>{displayName(sku, lang)}</h2><div style={{ color:T.muted, fontSize:13, marginTop:4 }}>{sku.supplier || sku.subset || 'Supplier'}</div></div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginTop:14 }}>
+        <MobileSummaryCard title={lang === JP ? '13週需要' : '13w forecast'} value={fmt(totalForecast)} />
+        <MobileSummaryCard title={lang === JP ? '13週供給' : '13w supply'} value={fmt(totalSupply)} />
+        <MobileSummaryCard title={lang === JP ? '合計差分' : 'Total gap'} value={`${totalGap > 0 ? '+' : ''}${fmt(totalGap)}`} tone={totalGap < 0 ? 'red' : 'green'} />
+      </div>
+    </div>
+    <div style={{ border:`1px solid ${T.line}`, borderRadius:16, overflow:'hidden', background:'rgba(0,0,0,.10)' }}>
+      <div style={{ padding:'12px 14px', fontWeight:900, borderBottom:`1px solid ${T.line}` }}>{lang === JP ? '13週Gap' : '13-week gap'}</div>
+      {series.map(r => {
+        const tone = deltaTone(r.delta, r.forecast)
+        const color = statusMeta[tone].color
+        return <div key={r.week} style={{ display:'grid', gridTemplateColumns:'52px 1fr auto', gap:10, alignItems:'center', padding:'11px 14px', borderBottom:`1px solid rgba(23,62,100,.65)` }}>
+          <div style={{ color:'#f8fbff', fontWeight:900 }}>{weekLabel(r.week, lang)}</div>
+          <div>
+            <div style={{ height:8, borderRadius:999, background:'rgba(255,255,255,.10)', overflow:'hidden' }}>
+              <div style={{ width:`${Math.min(100, Math.max(8, Math.abs(r.delta) / Math.max(1, r.forecast) * 70))}%`, height:'100%', background:color }} />
+            </div>
+            <div style={{ color:T.muted, fontSize:11, marginTop:5 }}>{lang === JP ? '需要' : 'F'} {fmt(r.forecast)} / {lang === JP ? '供給' : 'S'} {fmt(r.supply)}</div>
+          </div>
+          <div style={{ color, fontWeight:900, fontSize:16 }}>{r.delta > 0 ? '+' : ''}{fmt(r.delta)}</div>
+        </div>
+      })}
+    </div>
+    <details style={{ border:`1px solid ${T.line}`, borderRadius:16, padding:14, background:'rgba(6,34,61,.80)' }}>
+      <summary style={{ fontWeight:900 }}>{lang === JP ? 'Forecast / Supply / Gap 詳細' : 'Forecast / Supply / Gap details'}</summary>
+      <div style={{ marginTop:12, display:'grid', gap:8 }}>
+        {series.map(r => <div key={r.week} style={{ display:'grid', gridTemplateColumns:'44px repeat(3,1fr)', gap:6, fontSize:12 }}>
+          <b>{weekLabel(r.week, lang)}</b><span>{fmt(r.forecast)}</span><span>{fmt(r.supply)}</span><span>{r.delta > 0 ? '+' : ''}{fmt(r.delta)}</span>
+        </div>)}
+      </div>
+    </details>
+  </div>
+}
+
+function MobileStockwiseApp({ lang, items, productOptions, incrementals, selectedSku, setSelected, setTab, setShowCsvSettings, setShowIntelligenceSupporter }) {
+  const [mobileTab, setMobileTab] = useState('dashboard')
+  const [mobileSelected, setMobileSelected] = useState(selectedSku || productOptions?.[0] || null)
+  useEffect(() => {
+    if (!mobileSelected && productOptions?.length) setMobileSelected(productOptions[0])
+  }, [productOptions, mobileSelected])
+  const actionItems = uniqueActionProducts(items, lang)
+  const overItems = uniqueProductOptions(items).filter(s => statusOf(s) === 'over')
+  const shortageItems = uniqueProductOptions(items).filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention')
+  const allCards = actionItems.length ? actionItems : productOptions
+  const openItem = (sku) => {
+    setMobileSelected(sku)
+    setSelected(sku)
+    setTab('heatmap')
+    setMobileTab('heatmap')
+  }
+  if (isMobile) return <MobileStockwiseApp
+    lang={lang}
+    items={items}
+    productOptions={productOptions}
+    incrementals={incrementals}
+    selectedSku={selectedSku}
+    setSelected={setSelected}
+    setTab={setTab}
+    setShowCsvSettings={setShowCsvSettings}
+    setShowIntelligenceSupporter={setShowIntelligenceSupporter}
+  />
+
+  return <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, padding:'16px 14px 86px', fontSize:15 }}>
+    <header style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:16 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <img src="/stockwise-icon.png" style={{ width:38, height:38, borderRadius:9 }} />
+        <div><div style={{ fontSize:24, fontWeight:900, letterSpacing:'-.04em' }}>Stockwise</div><div style={{ color:T.muted, fontSize:12, fontWeight:800 }}>{lang === JP ? 'スマホ表示' : 'Mobile view'}</div></div>
+      </div>
+      <button onClick={()=>setShowCsvSettings(true)} style={{ border:`1px solid ${T.line}`, background:'rgba(255,255,255,.05)', color:'#f8fbff', borderRadius:10, padding:'9px 11px', fontWeight:900 }}>⚙</button>
+    </header>
+    {mobileTab === 'dashboard' && <div style={{ display:'grid', gap:14 }}>
+      <div style={{ display:'flex', gap:8 }}>
+        <MobileSummaryCard title={lang === JP ? '対応必要' : 'Need action'} value={actionItems.length} tone="red" />
+        <MobileSummaryCard title={lang === JP ? '在庫過多' : 'Overstock'} value={overItems.length} />
+        <MobileSummaryCard title={lang === JP ? '今週不足' : 'Short W1'} value={shortageItems.length} tone="red" />
+      </div>
+      <div style={{ color:'#d7e7f7', fontWeight:900, fontSize:18 }}>{lang === JP ? '対応必要品目' : 'Items needing action'}</div>
+      <div style={{ display:'grid', gap:12 }}>{(allCards || []).slice(0, 8).map(s => <MobileItemCard key={s.id} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}</div>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:14, background:'rgba(6,34,61,.65)', color:'#cbd9e8', lineHeight:1.55, fontSize:13 }}>{lang === JP ? 'CSVアップロードや大量編集はPCでの利用を推奨します。スマホでは確認・判断を中心に使えます。' : 'CSV upload and bulk editing are recommended on desktop. Mobile is optimized for review and decision checks.'}</div>
+    </div>}
+    {mobileTab === 'items' && <div style={{ display:'grid', gap:12 }}>
+      <h2 style={{ margin:'0 0 4px', fontSize:22 }}>{lang === JP ? '品目一覧' : 'Items'}</h2>
+      {(productOptions || []).map(s => <MobileItemCard key={s.id} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
+    </div>}
+    {mobileTab === 'heatmap' && <MobileGapList sku={mobileSelected || productOptions?.[0]} items={items} incrementals={incrementals} lang={lang} />}
+    <MobileBottomNav tab={mobileTab} setTab={setMobileTab} lang={lang} onOpenAI={()=>setShowIntelligenceSupporter(true)} />
+  </div>
+}
+
+
 function TemplateSection({ title, children }) {
   return <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.12)', marginBottom:12 }}>
     <div style={{ fontWeight:900, fontSize:16, marginBottom:10 }}>{title}</div>
@@ -1252,6 +1412,7 @@ export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [lang, setLang] = useState(() => detectLang())
   const [tab, setTab] = useState('dashboard')
+  const isMobile = useIsMobile()
   const [heatmapViewMode, setHeatmapViewMode] = useState('weekly')
   const [reorderView, setReorderView] = useState('status')
   const [skus, setSkus] = useState([])
