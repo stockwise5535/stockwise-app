@@ -528,6 +528,194 @@ function HeatCard({ sku, lang, active, onClick }) {
   </button>
 }
 
+
+function buildDemandSupplyGap(items, selectedSku, incrementals, weeks = 13, lang = JP) {
+  if (!selectedSku) return []
+  const agg = aggregateSkuForProduct(items, selectedSku, lang)
+  const daily = consumptionPerDay(agg)
+  const weeklyForecast = Math.max(0, Math.round(daily * 7))
+  let carry = Number(agg.stock_qty || 0)
+  return Array.from({ length: weeks }, (_, i) => {
+    const week = i + 1
+    const inbound = (incrementals || [])
+      .filter(r => inboundMatchesSku(r, selectedSku))
+      .filter(r => Number(r.week) === week)
+      .reduce((a, r) => a + Number(r.qty || 0), 0)
+    const forecast = weeklyForecast
+    const supply = Math.round(carry + inbound) // Supply includes current stock in week 1
+    const delta = supply - forecast
+    const endingStock = Math.max(0, delta)
+    carry = endingStock
+    const wos = daily > 0 ? endingStock / (daily * 7) : 99
+    const status = delta < 0 ? 'alert' : delta < forecast * 0.15 ? 'attention' : wos > 8 ? 'over' : 'good'
+    return { week, forecast, inbound: Math.round(inbound), supply, delta, endingStock: Math.round(endingStock), wos, status }
+  })
+}
+
+function deltaTone(delta, forecast) {
+  if (delta < 0) return 'alert'
+  if (forecast > 0 && delta > forecast * 2) return 'over'
+  return 'good'
+}
+
+function TinyTrend({ points }) {
+  const values = (points || []).map(p => Number(p.delta || 0))
+  if (!values.length) return null
+  const min = Math.min(...values, 0)
+  const max = Math.max(...values, 0)
+  const span = max - min || 1
+  const zeroY = 24 - ((0 - min) / span) * 18 + 5
+  const d = values.map((v, i) => {
+    const x = (i / Math.max(1, values.length - 1)) * 86 + 3
+    const y = 24 - ((v - min) / span) * 18 + 5
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const last = values[values.length - 1]
+  return <svg width="96" height="42" viewBox="0 0 96 42" style={{ display:'block' }}>
+    <line x1="3" y1={zeroY} x2="89" y2={zeroY} stroke="rgba(248,251,255,.18)" strokeWidth="1" strokeDasharray="3 4" />
+    <path d={d} fill="none" stroke="#f8fbff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    {values.map((v, i) => {
+      const x = (i / Math.max(1, values.length - 1)) * 86 + 3
+      const y = 24 - ((v - min) / span) * 18 + 5
+      return <circle key={i} cx={x} cy={y} r={i === values.length - 1 ? 3.2 : 2} fill="#f8fbff" opacity={i === values.length - 1 ? 1 : .52} />
+    })}
+    <circle cx="89" cy={24 - ((last - min) / span) * 18 + 5} r="5" fill="none" stroke="#f8fbff" strokeWidth="1.5" opacity=".55" />
+  </svg>
+}
+
+function MetricPill({ color, children }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:6, border:`1px solid ${color}`, color, background:`${color}18`, borderRadius:8, padding:'7px 10px', fontWeight:900, fontSize:13 }}>{children}</span>
+}
+
+function DemandSupplySummaryCards({ products, items, incrementals, selectedSku, onSelect, lang }) {
+  const cards = (products || []).slice(0, 6).map(s => {
+    const series = buildDemandSupplyGap(items, s, incrementals, 13, lang)
+    const totalForecast = series.reduce((a, r) => a + r.forecast, 0)
+    const totalSupply = series.reduce((a, r) => a + r.supply, 0)
+    const latestDelta = series[0]?.delta || 0
+    const status = deltaTone(latestDelta, series[0]?.forecast || 0)
+    return { sku:s, series, totalForecast, totalSupply, latestDelta, status }
+  })
+  return <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))', gap:12, marginBottom:14 }}>
+    {cards.map(c => { const m = statusMeta[c.status]; return <button key={c.sku.id} onClick={()=>onSelect(c.sku)} style={{ textAlign:'left', color:T.text, fontFamily:T.font, cursor:'pointer', border:`2px solid ${sameProduct(c.sku, selectedSku) ? m.color : T.line}`, borderRadius:12, padding:14, background:'linear-gradient(180deg,rgba(9,47,82,.94),rgba(6,32,58,.96))', boxShadow:sameProduct(c.sku, selectedSku) ? `0 0 22px ${m.color}38` : 'none' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:52, height:52, borderRadius:10, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center' }}><ProductIcon type={c.sku.icon || 'box'} /></div>
+        <div style={{ minWidth:0 }}><div style={{ fontWeight:900, fontSize:17, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(c.sku, lang)}</div><div style={{ marginTop:6 }}><MetricPill color={m.color}>{m[lang]}</MetricPill></div></div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:14, borderTop:`1px solid ${T.line}`, paddingTop:12 }}>
+        <div><div style={{ color:T.muted, fontSize:13, fontWeight:800 }}>{lang === JP ? '13週需要' : '13w Forecast'}</div><div style={{ fontSize:20, fontWeight:900 }}>{fmt(c.totalForecast)}</div></div>
+        <div><div style={{ color:T.muted, fontSize:13, fontWeight:800 }}>{lang === JP ? '直近差分' : 'Current Gap'}</div><div style={{ color:c.latestDelta < 0 ? T.red : T.green, fontSize:20, fontWeight:900 }}>{c.latestDelta >= 0 ? '+' : ''}{fmt(c.latestDelta)}</div></div>
+      </div>
+      <div style={{ display:'flex', gap:10, marginTop:10, color:'#b7cce0', fontSize:12 }}><span>■ {lang === JP ? '需要予測' : 'Forecast'}</span><span>■ {lang === JP ? '供給' : 'Supply'}</span><span>■ {lang === JP ? '差分' : 'Gap'}</span></div>
+    </button> })}
+  </div>
+}
+
+function ForecastSupplyGapTable({ products, items, incrementals, selectedSku, onSelect, lang, viewMode='weekly' }) {
+  const isMonthly = viewMode === 'monthly'
+  const periods = isMonthly
+    ? [
+        { label: lang === JP ? '1月目' : 'M1', weeks:[1,2,3,4] },
+        { label: lang === JP ? '2月目' : 'M2', weeks:[5,6,7,8] },
+        { label: lang === JP ? '3月目' : 'M3', weeks:[9,10,11,12,13] },
+      ]
+    : Array.from({ length: 13 }, (_, i) => ({ label: weekLabel(i + 1, lang), weeks:[i + 1] }))
+
+  const shown = (products || []).slice(0, 8)
+  const tableMinWidth = isMonthly ? 760 : 1160
+  const headerCell = {
+    textAlign:'center',
+    padding:'10px 6px',
+    borderBottom:`1px solid ${T.line}`,
+    background:'rgba(255,255,255,.04)',
+    whiteSpace:'nowrap',
+    fontSize:13,
+    color:'#d8e8f8',
+    fontWeight:900,
+  }
+  const metricCell = {
+    padding:'8px 10px',
+    borderBottom:`1px solid ${T.line}`,
+    color:'#f8fbff',
+    fontWeight:900,
+    whiteSpace:'nowrap',
+    fontSize:14,
+  }
+
+  const periodValue = (series, period, key) => {
+    const rows = period.weeks.map(w => series.find(x => Number(x.week) === Number(w))).filter(Boolean)
+    if (!rows.length) return 0
+    if (key === 'delta') return rows.reduce((a, r) => a + Number(r.delta || 0), 0)
+    if (key === 'forecast') return rows.reduce((a, r) => a + Number(r.forecast || 0), 0)
+    if (key === 'supply') return rows.reduce((a, r) => a + Number(r.supply || 0), 0)
+    return 0
+  }
+
+  return <div style={{ overflowX:'auto', border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(0,0,0,.10)' }}>
+    <table style={{ width:'100%', minWidth:tableMinWidth, borderCollapse:'collapse', tableLayout:'fixed' }}>
+      <thead><tr>
+        <th style={{ position:'sticky', left:0, zIndex:3, textAlign:'left', width:210, padding:'11px 12px', borderBottom:`1px solid ${T.line}`, background:'#082947', color:'#f8fbff', fontSize:13 }}>{lang === JP ? '対象品目' : 'Item'}</th>
+        <th style={{ ...headerCell, width:84 }}>{lang === JP ? '推移' : 'Trend'}</th>
+        <th style={{ ...headerCell, textAlign:'left', width:130 }}>{lang === JP ? '指標' : 'Metric'}</th>
+        {periods.map(p => <th key={p.label} style={headerCell}>{p.label}</th>)}
+      </tr></thead>
+      <tbody>{shown.map(product => {
+        const series = buildDemandSupplyGap(items, product, incrementals, 13, lang)
+        const firstDelta = series[0]?.delta || 0
+        const status = deltaTone(firstDelta, series[0]?.forecast || 0)
+        const m = statusMeta[status]
+        const selected = sameProduct(product, selectedSku)
+        const metricRows = [
+          { key:'forecast', label: lang === JP ? '需要予測' : 'Forecast', values:periods.map(p => periodValue(series, p, 'forecast')) },
+          { key:'supply', label: lang === JP ? '供給数量' : 'Supply', values:periods.map(p => periodValue(series, p, 'supply')) },
+          { key:'delta', label: lang === JP ? '差分' : 'Gap', values:periods.map(p => periodValue(series, p, 'delta')) },
+        ]
+        return metricRows.map((row, idx) => <tr key={`${product.id}-${row.key}`}>
+          {idx === 0 && <td rowSpan={3} onClick={()=>onSelect(product)} style={{ position:'sticky', left:0, zIndex:2, cursor:'pointer', background:selected ? 'linear-gradient(90deg,rgba(59,130,246,.26),#06223d)' : '#06223d', padding:'10px 12px', borderBottom:`1px solid ${T.line}`, borderRight:`1px solid ${T.line}` }}>
+            <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+              <div style={{ width:42, height:42, borderRadius:9, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center', flex:'0 0 auto' }}><ProductIcon type={product.icon || 'box'} /></div>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontWeight:900, fontSize:14, color:'#f8fbff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(product, lang)}</div>
+                <div style={{ color:T.muted, fontSize:11, marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{product.supplier || product.subset || (lang === JP ? '全仕入先' : 'All suppliers')}</div>
+                <div style={{ marginTop:5, color:m.color, fontSize:11, fontWeight:900 }}>{m[lang]}</div>
+              </div>
+            </div>
+          </td>}
+          {idx === 0 && <td rowSpan={3} style={{ padding:'6px 8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><TinyTrend points={series} /></td>}
+          <td style={metricCell}>{row.label}</td>
+          {row.values.map((v, i) => {
+            const tone = row.key === 'delta' ? deltaTone(v, metricRows[0].values[i] || 0) : null
+            const color = row.key === 'delta' ? statusMeta[tone].color : '#f8fbff'
+            return <td key={i} style={{ textAlign:'center', padding:'6px 4px', borderBottom:`1px solid ${T.line}` }}>
+              <div style={{
+                border: row.key === 'delta' ? `1px solid ${color}` : '1px solid rgba(255,255,255,.08)',
+                background: row.key === 'delta' ? `${color}22` : 'rgba(255,255,255,.02)',
+                color,
+                borderRadius:7,
+                padding:'7px 4px',
+                fontWeight:900,
+                minWidth:0,
+                fontSize: isMonthly ? 14 : 12,
+              }}>{row.key === 'delta' && v > 0 ? '+' : ''}{fmt(v)}</div>
+            </td>
+          })}
+        </tr>)
+      })}</tbody>
+    </table>
+  </div>
+}
+
+function HeatmapSignalBar({ lang }) {
+  return <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', border:`1px solid ${T.line}`, borderRadius:10, padding:12, background:'rgba(0,0,0,.12)', margin:'12px 0 14px' }}>
+    <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+      <MetricPill color={T.blue}>{lang === JP ? '需要予測' : 'Forecast'}</MetricPill>
+      <MetricPill color={T.green}>{lang === JP ? '供給数量' : 'Supply'}</MetricPill>
+      <MetricPill color={T.red}>{lang === JP ? '差分（在庫ギャップ）' : 'Gap'}</MetricPill>
+    </div>
+    <div style={{ display:'flex', gap:8 }}><Btn small kind="blue">Weekly</Btn><Btn small kind="ghost">Monthly</Btn></div>
+  </div>
+}
+
 function TemplateSection({ title, children }) {
   return <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.12)', marginBottom:12 }}>
     <div style={{ fontWeight:900, fontSize:16, marginBottom:10 }}>{title}</div>
@@ -623,7 +811,7 @@ function ForecastLineChart({ forecast, lang }) {
   return <div style={{ marginTop:18, background:'rgba(7,43,76,.72)', border:`1px solid ${T.line}`, borderRadius:10, padding:18 }}>
     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:16, marginBottom:10 }}>
       <div><h3 style={{ margin:'0 0 4px', fontSize:24 }}>{lang === JP ? '在庫週数の推移予測（全仕入先合計）' : 'Weeks-of-Stock Trend Forecast'}</h3><p style={{ margin:0, color:'#c7d8e8', fontSize:14 }}>{lang === JP ? '入荷予定・リードタイムを加味した在庫週数の推移' : 'Projected weeks of stock including inbound plan and lead time.'}</p></div>
-      <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:10, minWidth:170, fontSize:12, color:'#d2e2f1' }}>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:10, minWidth:170, fontSize:13, color:'#d2e2f1' }}>
         <b>{lang === JP ? '状態の目安' : 'Status Guide'}</b>
         {['attention','alert','good','over'].map(k => <div key={k} style={{ display:'flex', alignItems:'center', gap:8, marginTop:8 }}><span style={{ width:24, height:5, borderRadius:99, background:statusMeta[k].color }} />{statusMeta[k][lang]}</div>)}
       </div>
@@ -671,7 +859,7 @@ function RecommendationCards({ rows, lang, onCreatePlan }) {
 
 function CsvSettingsModal({ lang, onClose, onDownloadSku, onUploadSku, onDownloadInbound, onUploadInbound }) {
   return <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:50, background:'rgba(0,0,0,.62)', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', padding:24 }}>
-    <div onClick={e=>e.stopPropagation()} style={{ width:'min(440px, calc(100vw - 48px))', background:'linear-gradient(180deg,#082947,#041d36)', border:`1px solid ${T.line}`, borderRadius:14, padding:20, boxShadow:'0 24px 80px rgba(0,0,0,.42)', fontFamily:T.font, color:T.text }}>
+    <div onClick={e=>e.stopPropagation()} style={{ width:'min(440px, calc(100vw - 48px))', background:'linear-gradient(180deg,#082947,#041d36)', border:`1px solid ${T.line}`, borderRadius:14, padding:20, boxShadow:'0 24px 80px rgba(0,0,0,.42)', fontFamily:T.font, color:T.text, fontSize:15 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
         <div><h3 style={{ margin:'0 0 4px', fontSize:22 }}>{copy(lang, 'csvSettings')}</h3><p style={{ margin:0, color:T.muted, fontSize:13 }}>{copy(lang, 'csvSettingsDesc')}</p></div>
         <button onClick={onClose} style={{ background:'rgba(255,255,255,.08)', border:`1px solid ${T.line}`, color:T.text, borderRadius:8, width:34, height:34, cursor:'pointer' }}>×</button>
@@ -694,11 +882,11 @@ function Forecast13Visual({ forecast, lang }) {
   return <div style={{ marginTop:18, background:'rgba(7,43,76,.72)', border:`1px solid ${T.line}`, borderRadius:10, padding:18 }}>
     <div style={{ display:'flex', justifyContent:'space-between', gap:14, flexWrap:'wrap', alignItems:'flex-start', marginBottom:14 }}>
       <div><h3 style={{ margin:'0 0 4px', fontSize:24 }}>{lang === JP ? '13週 在庫週数の推移予測' : '13-week Weeks-of-Stock Forecast'}</h3><p style={{ margin:0, color:'#c7d8e8', fontSize:14 }}>{lang === JP ? '13週ヒートマップと同じCSV情報を使い、週ごとの在庫週数を視覚化します。' : 'Uses the same CSV data as the 13-week heatmap to visualize weekly coverage.'}</p></div>
-      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>{['alert','attention','good','over'].map(k=><span key={k} style={{ fontSize:12, color:'#d2e2f1' }}><b style={{ color:statusMeta[k].color }}>●</b> {statusMeta[k][lang]}</span>)}</div>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>{['alert','attention','good','over'].map(k=><span key={k} style={{ fontSize:13, color:'#d2e2f1' }}><b style={{ color:statusMeta[k].color }}>●</b> {statusMeta[k][lang]}</span>)}</div>
     </div>
     <div style={{ display:'grid', gridTemplateColumns:'repeat(13,minmax(62px,1fr))', gap:8, overflowX:'auto', paddingBottom:6 }}>
       {forecast.map(f=>{ const m=statusMeta[f.status]; const h=Math.max(12, Math.min(92, (Number(f.wos||0)/maxWos)*92)); return <div key={f.week} style={{ minWidth:62, border:`1px solid ${m.color}`, borderRadius:8, padding:'8px 6px', background:`${m.color}18`, textAlign:'center' }}>
-        <div style={{ fontSize:12, color:'#d5e5f3', fontWeight:900 }}>{weekLabel(f.week, lang)}</div>
+        <div style={{ fontSize:13, color:'#d5e5f3', fontWeight:900 }}>{weekLabel(f.week, lang)}</div>
         <div style={{ height:96, display:'flex', alignItems:'flex-end', justifyContent:'center', margin:'8px 0' }}><div style={{ width:18, height:h, borderRadius:99, background:`linear-gradient(180deg,${m.color},${m.color}88)` }} /></div>
         <div style={{ color:m.color, fontSize:18, fontWeight:900 }}>{fmtWeeks(f.wos)}{copy(lang, 'week')}</div>
         <div style={{ fontSize:10, color:'#cfddeb', marginTop:3 }}>{lang === JP ? '在庫' : 'Stock'} {fmt(f.stock)}</div>
@@ -726,7 +914,7 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
   return <div style={{ border:`1px solid ${T.line}`, borderRadius:10, overflow:'hidden', marginTop:12 }}>
     <div style={{ padding:'14px 16px', borderBottom:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)' }}>
       <div style={{ fontSize:18, fontWeight:900 }}>{lang === JP ? '発注シミュレーション' : 'Order Simulation'}</div>
-      <div style={{ color:T.muted, fontSize:13, marginTop:4 }}>{displayName(target, lang)}{lang === JP ? 'について、仕入先ごとの価格・リードタイムを比較します。' : ': compare supplier price and lead time.'}</div>
+      <div style={{ color:T.muted, fontSize:14, marginTop:4 }}>{displayName(target, lang)}{lang === JP ? 'について、仕入先ごとの価格・リードタイムを比較します。' : ': compare supplier price and lead time.'}</div>
     </div>
     <div style={{ overflowX:'auto' }}>
       <table style={{ width:'100%', minWidth:900, borderCollapse:'collapse' }}>
@@ -1064,6 +1252,7 @@ export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [lang, setLang] = useState(() => detectLang())
   const [tab, setTab] = useState('dashboard')
+  const [heatmapViewMode, setHeatmapViewMode] = useState('weekly')
   const [reorderView, setReorderView] = useState('status')
   const [skus, setSkus] = useState([])
   const [incrementals, setIncrementals] = useState([])
@@ -1346,7 +1535,7 @@ export default function App() {
       {tab === 'dashboard' && <>
         {actionItems.length > 0 && <div style={{ display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.red}`, background:'linear-gradient(90deg,rgba(255,70,93,.20),rgba(7,43,76,.90))', color:'#ffd7dd', borderRadius:10, padding:'12px 16px', marginBottom:14 }}>
           <span style={{ fontSize:22 }}>⚠</span>
-          <div style={{ flex:1 }}><b>{copy(lang, 'alert')}</b><div style={{ color:'#f4c6ce', fontSize:13, marginTop:3 }}>{copy(lang, 'alertBanner')}</div></div>
+          <div style={{ flex:1 }}><b>{copy(lang, 'alert')}</b><div style={{ color:'#f4c6ce', fontSize:14, marginTop:3 }}>{copy(lang, 'alertBanner')}</div></div>
         </div>}
         <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
           <MetricCard lang={lang} tone="red" icon="🛒" title={copy(lang, 'reorder')} sub={copy(lang, 'reorderSub')} value={reorder.length} note={copy(lang, 'reorderNote')} button={copy(lang, 'check')} onClick={scrollToActionItems} />
@@ -1368,10 +1557,18 @@ export default function App() {
           <div style={{ display:'grid', gap:12 }}>
             {(actionItems.length ? actionItems : productOptions).map(s => { const st=statusOf(s); const m=statusMeta[st]; const recommended = st === 'over' ? 0 : (s.moq || Math.max(0, calcRp(s)-Number(s.stock_qty||0))); return <div key={s.id} onClick={()=>{setSelected(s); setTab('heatmap')}} style={{ display:'grid', gridTemplateColumns:'110px 1.4fr .65fr .75fr 260px', gap:16, alignItems:'center', cursor:'pointer', border:`1px solid ${m.color}`, background:`${m.color}12`, borderRadius:10, padding:12 }}>
               <IconBox icon={s.icon || 'box'} active />
-              <div><h3 style={{ margin:'0 0 8px', fontSize:22 }}>{displayName(s, lang)}</h3><div style={{ color:T.muted, fontSize:14 }}>{copy(lang, 'itemLabel')}: {s.name}</div><div style={{ marginTop:9 }}><span style={{ background:m.color, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:12, fontWeight:900 }}>{m[lang].toUpperCase()}</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{st === 'over' ? (lang === JP ? '在庫過多の可能性があります' : 'Possible overstock detected') : (lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected')}</span></div></div>
+              <div><h3 style={{ margin:'0 0 8px', fontSize:22 }}>{displayName(s, lang)}</h3><div style={{ color:T.muted, fontSize:14 }}>{copy(lang, 'itemLabel')}: {s.name}</div><div style={{ marginTop:9 }}><span style={{ background:m.color, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:13, fontWeight:900 }}>{m[lang].toUpperCase()}</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{st === 'over' ? (lang === JP ? '在庫過多の可能性があります' : 'Possible overstock detected') : (lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected')}</span></div></div>
               <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:18 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'currentStock')}</div><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>{fmt(s.stock_qty)} <span style={{ fontSize:14 }}>{copy(lang, 'units')}</span></div></div>
               <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:18 }}><div style={{ color:T.muted, fontWeight:800 }}>{st === 'over' ? (lang === JP ? '対応' : 'Action') : copy(lang, 'recommendedOrder')}</div><div style={{ color:st === 'over' ? T.blue : T.orange, fontSize:22, fontWeight:900, marginTop:10 }}>{st === 'over' ? (lang === JP ? '追加停止' : 'Stop') : `+${fmt(recommended)} ${copy(lang, 'units')}`}</div></div>
-              <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:14 }}><b>{copy(lang, 'statusGuide')}</b>{['attention','alert','good','over'].map(k=><div key={k} style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, fontSize:13 }}><span style={{ width:30, height:6, borderRadius:9, background:statusMeta[k].color }} />{statusMeta[k][lang]}：{lang === JP ? statusMeta[k].descJa : statusMeta[k].descEn}</div>)}</div>
+              <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:14 }}>
+                <b>{lang === JP ? '需給確認' : 'Supply check'}</b>
+                <div style={{ display:'grid', gap:8, marginTop:10, fontSize:14, color:'#d7e7f7' }}>
+                  <div>{lang === JP ? '週次所要' : 'Weekly need'}：<b>{fmt(consumptionPerDay(s) * 7)}</b> {copy(lang, 'units')}</div>
+                  <div>{lang === JP ? 'LT必要数' : 'Lead-time need'}：<b>{fmt(calcRp(s))}</b> {copy(lang, 'units')}</div>
+                  <div>{lang === JP ? '安全在庫' : 'Safety stock'}：<b>{fmt(s.safety_stock || 0)}</b> {copy(lang, 'units')}</div>
+                  <div>{lang === JP ? '主仕入先' : 'Main supplier'}：<b>{s.supplier || s.subset || 'Supplier'}</b></div>
+                </div>
+              </div>
             </div>})}
           </div>
         </Panel></div>
@@ -1382,33 +1579,24 @@ export default function App() {
         <input ref={skuCsvRef} type="file" accept=".csv" style={{display:'none'}} onChange={uploadSkuCSV}/>
         <input ref={incCsvRef} type="file" accept=".csv" style={{display:'none'}} onChange={uploadCsv}/>
 
-        <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12, background:'rgba(0,0,0,.12)', marginBottom:14 }}>
-          <div style={{ fontWeight:900, marginBottom:10 }}>{copy(lang, 'selectItem')}</div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>{productOptions.map(s => <Btn key={s.id} small kind={sameProduct(s, selectedSku) ? 'blue' : 'ghost'} onClick={()=>setSelected(s)}>{displayName(s, lang)}</Btn>)}</div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap', marginBottom:12 }}>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', color:'#cbd9e8', fontSize:14, fontWeight:800 }}>
+            <span>{lang === JP ? '表示：需要予測 / 供給数量 / 差分' : 'View: Forecast / Supply / Gap'}</span>
+            <span style={{ color:T.red }}>■ {lang === JP ? '不足' : 'Shortage'}</span>
+            <span style={{ color:T.green }}>■ {lang === JP ? '適正' : 'Healthy'}</span>
+            <span style={{ color:T.blue }}>■ {lang === JP ? '過剰' : 'Overstock'}</span>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={()=>setHeatmapViewMode('weekly')} style={{ border:`1px solid ${heatmapViewMode === 'weekly' ? T.blue : T.line}`, background:heatmapViewMode === 'weekly' ? 'rgba(59,130,246,.18)' : 'rgba(255,255,255,.04)', color:'#f8fbff', borderRadius:8, padding:'8px 12px', fontWeight:900, fontFamily:T.font }}>Weekly</button>
+            <button onClick={()=>setHeatmapViewMode('monthly')} style={{ border:`1px solid ${heatmapViewMode === 'monthly' ? T.blue : T.line}`, background:heatmapViewMode === 'monthly' ? 'rgba(59,130,246,.18)' : 'rgba(255,255,255,.04)', color:'#f8fbff', borderRadius:8, padding:'8px 12px', fontWeight:900, fontFamily:T.font }}>Monthly</button>
+          </div>
         </div>
 
-        {selectedSku && <>
-          <ProductDetailHeader selectedSku={selectedSku} items={items} incrementals={incrementals} lang={lang} onBack={()=>setTab('dashboard')} />
-          <RecommendationCards rows={getSupplierSkuRows(items, selectedSku, incrementals, lang)} lang={lang} onCreatePlan={()=>downloadOrderPlanCsv(items, selectedSku, incrementals, lang)} />
-          <SupplierStatusDetail items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
-          <div style={{ marginTop:18, display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-            <h3 style={{ margin:0, fontSize:24 }}>{lang === JP ? '13週 在庫ヒートマップ（品目合計）' : '13-week Inventory Heatmap by Superset'}</h3>
-            <div style={{ color:T.muted, fontSize:13 }}>{lang === JP ? 'Subsetサプライヤーの在庫・入荷予定を合算した品目合計のヒートマップです。' : 'Aggregates subset supplier stock and inbound plan into a superset-level heatmap.'}</div>
-          </div>
-          <div style={{ marginTop:12, overflowX:'auto', border:`1px solid ${T.line}`, borderRadius:10 }}>
-          <table style={{ width:'100%', minWidth:1100, borderCollapse:'collapse' }}>
-            <thead><tr><th style={{ position:'sticky', left:0, background:'#082947', zIndex:2, textAlign:'left', padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{copy(lang, 'supplier')}</th>{Array.from({length:13},(_,i)=><th key={i} style={{ textAlign:'center', padding:'12px 10px', borderBottom:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)' }}>{weekLabel(i+1, lang)}</th>)}</tr></thead>
-            <tbody>{(() => {
-              const sku = aggregateSkuForProduct(items, selectedSku, lang)
-              const rowForecast = buildAggregateForecast(items, selectedSku, incrementals, 13, lang)
-              return <tr key="aggregate"><td style={{ position:'sticky', left:0, background:'#06223d', fontWeight:900, padding:'12px 14px', borderBottom:`1px solid ${T.line}` }}>{sku.supplier}<div style={{ color:T.muted, fontSize:12, marginTop:3 }}>{displayName(selectedSku, lang)}</div><div style={{ color:'#cbd9e8', fontSize:12, marginTop:4 }}>{lang === JP ? '現在在庫合計' : 'Current total'}: {fmt(sku.stock_qty)} / {lang === JP ? '週所要' : 'Weekly req.'}: {fmt(consumptionPerDay(sku) * 7)}</div></td>{rowForecast.map(f => { const m=statusMeta[f.status]; return <td key={f.week} style={{ padding:'8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><div style={{ border:`1px solid ${m.color}`, background:`${m.color}20`, color:m.color, borderRadius:8, padding:'8px 6px', fontWeight:900 }}>{fmtWeeks(f.wos)}{copy(lang, 'week')}<div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:3 }}>{lang === JP ? '在庫' : 'Stock'} {fmt(f.stock)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '入荷' : 'Inbound'} +{fmt(f.inbound)}</div><div style={{ color:'#d9e6f2', fontSize:11, fontWeight:700, marginTop:2 }}>{lang === JP ? '所要' : 'Req.'} {fmt(f.requirement)}</div></div></td>})}</tr>
-            })()}</tbody>
-          </table>
-          </div>
-          <div style={{ marginTop:18 }}>
-            <ReorderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
-          </div>
-        </>}
+        <ForecastSupplyGapTable products={productOptions} items={items} incrementals={incrementals} selectedSku={selectedSku} onSelect={setSelected} lang={lang} viewMode={heatmapViewMode} />
+
+        {selectedSku && <div style={{ marginTop:18 }}>
+          <ReorderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+        </div>}
       </Panel>}
 
     </div>
