@@ -32,9 +32,21 @@ const sampleSkus = [
   { id:'sample-5', name:'USB-C ケーブル', name_en:'USB-C Cable', superset:'ケーブル', subset:'Supplier E', supplier:'Supplier E', stock_qty:3600, daily_usage:30, lead_time:14, safety_stock:200, moq:900, unit_cost:8, sku:'USBC-E', icon:'cable' },
 ]
 
-const calcDays = s => Number(s.daily_usage) > 0 ? Number(s.stock_qty || 0) / Number(s.daily_usage) : 999
-const calcWeeks = s => calcDays(s) / 7
-const calcRp = s => Number(s.lead_time || 0) * Number(s.daily_usage || 0)
+// Aswan Heatsink WOS = supplier total stock / weekly consumption.
+// WOS safe fix: actual_consumption is weekly. If daily_usage is 100+ it is treated as weekly too.
+function consumptionPerWeek(s) {
+  const actualWeekly = Number(s?.actual_consumption)
+  if (actualWeekly > 0) return actualWeekly
+  const usage = Number(s?.daily_usage || 0)
+  if (usage <= 0) return 0
+  return usage >= 100 ? usage : usage * 7
+}
+const calcWeeks = s => {
+  const weekly = consumptionPerWeek(s)
+  return weekly > 0 ? Number(s?.stock_qty || 0) / weekly : 999
+}
+const calcDays = s => calcWeeks(s) * 7
+const calcRp = s => Math.ceil(Number(s?.lead_time || 0) / 7) * consumptionPerWeek(s)
 const fmt = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
 const displayName = (s, lang) => lang === EN ? (s.name_en || s.name) : s.name
 const currency = (n, lang) => lang === JP ? `¥${Math.round(Number(n || 0) * 150).toLocaleString('ja-JP')}` : `$${Math.round(Number(n || 0) / 1000)}K`
@@ -121,8 +133,7 @@ function mergeByItemSupplier(base, updates) {
   return [...map.values()]
 }
 function consumptionPerDay(s) {
-  const actual = Number(s.actual_consumption)
-  return actual > 0 ? actual : Number(s.daily_usage || 0)
+  return consumptionPerWeek(s) / 7
 }
 function pickDemoFocus(items) {
   const candidates = [...(items || [])]
@@ -172,6 +183,38 @@ function uniqueProductOptions(items) {
   })
   return [...map.values()]
 }
+
+// Aggregate supplier stock for same product in heatmap.
+function aggregateProductOptions(items, lang = JP) {
+  const groups = new Map()
+  ;(items || []).forEach(s => {
+    const key = textKey(s?.name || s?.sku || s?.name_en)
+    if (!key) return
+    const arr = groups.get(key) || []
+    arr.push(s)
+    groups.set(key, arr)
+  })
+  return [...groups.values()].map((rows, idx) => {
+    const base = rows[0] || {}
+    const totalStock = rows.reduce((a, s) => a + Number(s.stock_qty || 0), 0)
+    // Same product supplier rows usually share the same product-level demand; do not double count it.
+    const productWeekly = Math.max(...rows.map(s => consumptionPerWeek(s)), 0)
+    return {
+      ...base,
+      id: `aggregate-product-${idx}-${textKey(base.name || base.sku).replace(/[^a-z0-9]+/g,'-')}`,
+      supplier: lang === JP ? '全仕入先合計' : 'All suppliers total',
+      subset: lang === JP ? '全仕入先合計' : 'All suppliers total',
+      stock_qty: totalStock,
+      daily_usage: productWeekly / 7,
+      actual_consumption: productWeekly,
+      lead_time: Math.max(...rows.map(s => Number(s.lead_time || 0)), Number(base.lead_time || 7), 7),
+      safety_stock: Math.max(...rows.map(s => Number(s.safety_stock || 0)), Number(base.safety_stock || 0), 0),
+      moq: Math.max(...rows.map(s => Number(s.moq || 0)), Number(base.moq || 0), 0),
+      supplier_rows: rows,
+    }
+  })
+}
+
 
 function uniqueProductCount(items) {
   const seen = new Set()
@@ -272,13 +315,25 @@ function buildForecast(sku, incrementals, weeks = 13) {
   })
 }
 
+// Forecast 14 fix: aggregate actual_consumption remains weekly demand, not daily demand.
 function aggregateSkuForProduct(items, selectedSku, lang) {
-  const rows = (items || []).filter(s => sameProduct(s, selectedSku))
+  const rows = selectedSku?.supplier_rows || (items || []).filter(s => sameProduct(s, selectedSku))
   const source = rows.length ? rows : (selectedSku ? [selectedSku] : [])
-  const totalStock = source.reduce((a, s) => a + Number(s.stock_qty || 0), 0)
-  const daily = selectedSku ? consumptionPerDay(selectedSku) : source.reduce((a, s) => a + consumptionPerDay(s), 0)
+  const totalStock = selectedSku?.supplier_rows
+    ? Number(selectedSku.stock_qty || 0)
+    : source.reduce((a, s) => a + Number(s.stock_qty || 0), 0)
+
+  // Use product-level weekly demand once. Do not convert weekly demand into actual_consumption=daily.
+  const weekly = selectedSku?.supplier_rows
+    ? consumptionPerWeek(selectedSku)
+    : (selectedSku
+        ? Math.max(consumptionPerWeek(selectedSku), ...source.map(s => consumptionPerWeek(s)))
+        : source.reduce((a, s) => a + consumptionPerWeek(s), 0)
+      )
+  const daily = weekly / 7
+
   const lead = selectedSku ? Number(selectedSku.lead_time || 7) : Math.max(7, ...source.map(s => Number(s.lead_time || 7)))
-  const safety = source.reduce((a, s) => a + Number(s.safety_stock || 0), 0)
+  const safety = selectedSku?.supplier_rows ? Number(selectedSku.safety_stock || 0) : source.reduce((a, s) => a + Number(s.safety_stock || 0), 0)
   return {
     ...(selectedSku || source[0] || {}),
     id: `aggregate-${textKey(selectedSku?.name || source[0]?.name || 'item')}`,
@@ -288,18 +343,20 @@ function aggregateSkuForProduct(items, selectedSku, lang) {
     subset: lang === JP ? '全仕入先合計' : 'All suppliers total',
     stock_qty: totalStock,
     daily_usage: daily,
-    actual_consumption: daily,
+    actual_consumption: weekly,
     lead_time: lead,
     safety_stock: safety,
     moq: selectedSku?.moq || source[0]?.moq || null,
     unit_cost: selectedSku?.unit_cost || source[0]?.unit_cost || null,
+    supplier_rows: selectedSku?.supplier_rows || source,
   }
 }
 
 function buildAggregateForecast(items, selectedSku, incrementals, weeks = 13, lang = JP) {
   const agg = aggregateSkuForProduct(items, selectedSku, lang)
   let stock = Number(agg.stock_qty || 0)
-  const daily = consumptionPerDay(agg)
+  const weeklyForecast = consumptionPerWeek(agg)
+  const daily = weeklyForecast / 7
   return Array.from({ length: weeks }, (_, i) => {
     const week = i + 1
     const inbound = (incrementals || [])
@@ -307,9 +364,9 @@ function buildAggregateForecast(items, selectedSku, incrementals, weeks = 13, la
       .filter(r => Number(r.week) === week)
       .reduce((a, r) => a + Number(r.qty || 0), 0)
     // 入荷予定CSVの内容がすぐ見えるよう、週の在庫は「前週在庫 + 当週入荷 - 当週所要」で計算
-    stock = Math.max(0, stock + inbound - daily * 7)
-    const wos = daily > 0 ? stock / (daily * 7) : 99
-    return { week, stock: Math.round(stock), inbound, requirement: Math.round(daily * 7), wos, status: statusByWeeks(wos) }
+    stock = Math.max(0, stock + inbound - weeklyForecast)
+    const wos = weeklyForecast > 0 ? stock / weeklyForecast : 99
+    return { week, stock: Math.round(stock), inbound, requirement: Math.round(weeklyForecast), wos, status: statusByWeeks(wos) }
   })
 }
 
@@ -543,21 +600,21 @@ function HeatCard({ sku, lang, active, onClick }) {
 function buildDemandSupplyGap(items, selectedSku, incrementals, weeks = 13, lang = JP) {
   if (!selectedSku) return []
   const agg = aggregateSkuForProduct(items, selectedSku, lang)
-  const daily = consumptionPerDay(agg)
-  const weeklyForecast = Math.max(0, Math.round(daily * 7))
+  const weeklyForecast = Math.max(0, Math.round(consumptionPerWeek(agg)))
+  const daily = weeklyForecast / 7
   let carry = Number(agg.stock_qty || 0)
   return Array.from({ length: weeks }, (_, i) => {
     const week = i + 1
     const inbound = (incrementals || [])
-      .filter(r => inboundMatchesSku(r, selectedSku))
+      .filter(r => selectedSku?.supplier_rows ? selectedSku.supplier_rows.some(s => inboundMatchesSku(r, s)) : inboundMatchesSku(r, selectedSku))
       .filter(r => Number(r.week) === week)
       .reduce((a, r) => a + Number(r.qty || 0), 0)
     const forecast = weeklyForecast
-    const supply = Math.round(carry + inbound) // Supply includes current stock in week 1
+    const supply = Math.round(carry + inbound) // W1 supply includes current stock + W1 inbound // Supply includes current stock in week 1
     const delta = supply - forecast
     const endingStock = Math.max(0, delta)
     carry = endingStock
-    const wos = daily > 0 ? endingStock / (daily * 7) : 99
+    const wos = weeklyForecast > 0 ? endingStock / weeklyForecast : 99
     const status = delta < 0 ? 'alert' : delta < forecast * 0.15 ? 'attention' : wos > 8 ? 'over' : 'good'
     return { week, forecast, inbound: Math.round(inbound), supply, delta, endingStock: Math.round(endingStock), wos, status }
   })
@@ -575,22 +632,22 @@ function TinyTrend({ points }) {
   const min = Math.min(...values, 0)
   const max = Math.max(...values, 0)
   const span = max - min || 1
-  const zeroY = 24 - ((0 - min) / span) * 18 + 5
+  const zeroY = 21 - ((0 - min) / span) * 16 + 5
   const d = values.map((v, i) => {
-    const x = (i / Math.max(1, values.length - 1)) * 86 + 3
-    const y = 24 - ((v - min) / span) * 18 + 5
+    const x = (i / Math.max(1, values.length - 1)) * 62 + 3
+    const y = 21 - ((v - min) / span) * 16 + 5
     return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
   }).join(' ')
   const last = values[values.length - 1]
-  return <svg width="96" height="42" viewBox="0 0 96 42" style={{ display:'block' }}>
-    <line x1="3" y1={zeroY} x2="89" y2={zeroY} stroke="rgba(248,251,255,.18)" strokeWidth="1" strokeDasharray="3 4" />
-    <path d={d} fill="none" stroke="#f8fbff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+  return <svg width="70" height="34" viewBox="0 0 70 34" style={{ display:'block', maxWidth:'70px', overflow:'hidden' }}>
+    <line x1="3" y1={zeroY} x2="65" y2={zeroY} stroke="rgba(248,251,255,.18)" strokeWidth="1" strokeDasharray="3 4" />
+    <path d={d} fill="none" stroke="#f8fbff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     {values.map((v, i) => {
-      const x = (i / Math.max(1, values.length - 1)) * 86 + 3
-      const y = 24 - ((v - min) / span) * 18 + 5
-      return <circle key={i} cx={x} cy={y} r={i === values.length - 1 ? 3.2 : 2} fill="#f8fbff" opacity={i === values.length - 1 ? 1 : .52} />
+      const x = (i / Math.max(1, values.length - 1)) * 62 + 3
+      const y = 21 - ((v - min) / span) * 16 + 5
+      return <circle key={i} cx={x} cy={y} r={i === values.length - 1 ? 2.6 : 1.6} fill="#f8fbff" opacity={i === values.length - 1 ? 1 : .5} />
     })}
-    <circle cx="89" cy={24 - ((last - min) / span) * 18 + 5} r="5" fill="none" stroke="#f8fbff" strokeWidth="1.5" opacity=".55" />
+    <circle cx="65" cy={21 - ((last - min) / span) * 16 + 5} r="4.2" fill="none" stroke="#f8fbff" strokeWidth="1.2" opacity=".55" />
   </svg>
 }
 
@@ -683,13 +740,10 @@ function ForecastSupplyGapTable({ products, items, incrementals, selectedSku, on
         ]
         return metricRows.map((row, idx) => <tr key={`${product.id}-${row.key}`}>
           {idx === 0 && <td rowSpan={3} onClick={()=>onSelect(product)} style={{ position:'sticky', left:0, zIndex:2, cursor:'pointer', background:selected ? 'linear-gradient(90deg,rgba(59,130,246,.26),#06223d)' : '#06223d', padding:'10px 12px', borderBottom:`1px solid ${T.line}`, borderRight:`1px solid ${T.line}` }}>
-            <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-              <div style={{ width:42, height:42, borderRadius:9, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center', flex:'0 0 auto' }}><ProductIcon type={product.icon || 'box'} /></div>
-              <div style={{ minWidth:0 }}>
-                <div style={{ fontWeight:900, fontSize:14, color:'#f8fbff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(product, lang)}</div>
-                <div style={{ color:T.muted, fontSize:11, marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{product.supplier || product.subset || (lang === JP ? '全仕入先' : 'All suppliers')}</div>
-                <div style={{ marginTop:5, color:m.color, fontSize:11, fontWeight:900 }}>{m[lang]}</div>
-              </div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontWeight:900, fontSize:14, color:'#f8fbff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(product, lang)}</div>
+              <div style={{ color:T.muted, fontSize:11, marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{product.supplier || product.subset || (lang === JP ? '全仕入先合計' : 'All suppliers total')}</div>
+              <div style={{ marginTop:5, color:m.color, fontSize:11, fontWeight:900 }}>{m[lang]}</div>
             </div>
           </td>}
           {idx === 0 && <td rowSpan={3} style={{ padding:'6px 8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><TinyTrend points={series} /></td>}
@@ -751,11 +805,11 @@ function MobileSummaryCard({ title, value, note, tone='blue' }) {
 
 function MobileItemCard({ sku, lang, incrementals, onOpen }) {
   const series = buildDemandSupplyGap([], sku, incrementals, 13, lang)
-  const fallbackForecast = Math.round(consumptionPerDay(sku) * 7)
+  const fallbackForecast = Math.round(consumptionPerWeek(sku))
   const first = series[0] || { forecast:fallbackForecast, supply:Number(sku.stock_qty||0), delta:Number(sku.stock_qty||0)-fallbackForecast }
   const tone = deltaTone(first.delta, first.forecast)
   const m = statusMeta[tone]
-  const weeklyNeed = Math.round(consumptionPerDay(sku) * 7)
+  const weeklyNeed = Math.round(consumptionPerWeek(sku))
   return <button onClick={onOpen} style={{ width:'100%', textAlign:'left', border:`1px solid ${m.color}`, background:`linear-gradient(180deg,${m.color}18,rgba(6,34,61,.94))`, borderRadius:16, padding:14, color:T.text, fontFamily:T.font, boxShadow:`0 12px 28px ${m.color}10` }}>
     <div style={{ display:'flex', alignItems:'center', gap:12 }}>
       <div style={{ width:54, height:54, borderRadius:12, background:'rgba(255,255,255,.08)', display:'grid', placeItems:'center', flex:'0 0 auto' }}><ProductIcon type={sku.icon || 'box'} /></div>
@@ -839,7 +893,7 @@ function MobileStockwiseApp({ lang, items, productOptions, incrementals, selecte
   if (isMobile) return <MobileStockwiseApp
     lang={lang}
     items={items}
-    productOptions={productOptions}
+    productOptions={aggregateProductOptions(items, lang)}
     incrementals={incrementals}
     selectedSku={selectedSku}
     setSelected={setSelected}
@@ -1724,7 +1778,7 @@ export default function App() {
               <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:14 }}>
                 <b>{lang === JP ? '需給確認' : 'Supply check'}</b>
                 <div style={{ display:'grid', gap:8, marginTop:10, fontSize:14, color:'#d7e7f7' }}>
-                  <div>{lang === JP ? '週次所要' : 'Weekly need'}：<b>{fmt(consumptionPerDay(s) * 7)}</b> {copy(lang, 'units')}</div>
+                  <div>{lang === JP ? '週次所要' : 'Weekly need'}：<b>{fmt(consumptionPerWeek(s))}</b> {copy(lang, 'units')}</div>
                   <div>{lang === JP ? 'LT必要数' : 'Lead-time need'}：<b>{fmt(calcRp(s))}</b> {copy(lang, 'units')}</div>
                   <div>{lang === JP ? '安全在庫' : 'Safety stock'}：<b>{fmt(s.safety_stock || 0)}</b> {copy(lang, 'units')}</div>
                   <div>{lang === JP ? '主仕入先' : 'Main supplier'}：<b>{s.supplier || s.subset || 'Supplier'}</b></div>
@@ -1753,7 +1807,7 @@ export default function App() {
           </div>
         </div>
 
-        <ForecastSupplyGapTable products={productOptions} items={items} incrementals={incrementals} selectedSku={selectedSku} onSelect={setSelected} lang={lang} viewMode={heatmapViewMode} />
+        <ForecastSupplyGapTable products={aggregateProductOptions(items, lang)} items={items} incrementals={incrementals} selectedSku={selectedSku} onSelect={setSelected} lang={lang} viewMode={heatmapViewMode} />
 
         {selectedSku && <div style={{ marginTop:18 }}>
           <ReorderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
