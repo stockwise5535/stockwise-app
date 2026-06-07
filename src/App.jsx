@@ -1602,6 +1602,36 @@ export default function App() {
     })
   }
 
+
+  // Second item checkout paywall: 2+ unique products opens Stripe Checkout.
+  async function startUpgradeCheckout(reason = 'second_item') {
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: 'basic',
+          reason,
+          userId: user?.id || null,
+          email: user?.email || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || data?.message || 'Checkout session failed')
+      if (data?.url) {
+        window.location.href = data.url
+        return
+      }
+      throw new Error(lang === JP ? 'Stripe Checkout URLを取得できませんでした。' : 'Could not get Stripe Checkout URL.')
+    } catch (err) {
+      console.error('Stripe checkout error', err)
+      alert(lang === JP
+        ? `アップグレード画面を開けませんでした。\nVercelのSTRIPE_SECRET_KEY / STRIPE_PRICE_BASIC / APIログを確認してください。\n\n${err?.message || err}`
+        : `Could not open the upgrade checkout.\nPlease check Vercel STRIPE_SECRET_KEY / STRIPE_PRICE_BASIC / API logs.\n\n${err?.message || err}`
+      )
+    }
+  }
+
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
     readCsvText(file, async text => {
@@ -1637,11 +1667,12 @@ export default function App() {
         }
       }).filter(r => r.name)
       if (uniqueProductCount(rows) > 1) {
-        alert(lang === JP
-          ? '無料デモでは1品目まで利用できます。複数品目での利用をご希望の場合はお問い合わせください。'
-          : 'The free demo supports one item. Please contact us if you would like to use multiple items.'
+        const ok = window.confirm(lang === JP
+          ? '無料デモでアップロードできる品目は1品目までです。2品目以上を利用するには、テスト価格 $19.99 / month のアップグレードが必要です。Stripe Checkoutへ進みますか？'
+          : 'The free demo supports 1 item. To use 2 or more items, upgrade with the test price $19.99/month. Continue to Stripe Checkout?'
         )
         e.target.value = ''
+        if (ok) await startUpgradeCheckout('second_item_upload')
         return
       }
       // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
