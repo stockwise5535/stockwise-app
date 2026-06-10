@@ -930,6 +930,154 @@ function MobileStockwiseApp({ lang, items, productOptions, incrementals, selecte
 }
 
 
+
+function buildAiMockDecision(items, selectedSku, incrementals, lang) {
+  const sku = selectedSku || pickDemoFocus(items) || (items || [])[0]
+  if (!sku) return null
+  const series = buildDemandSupplyGap(items, sku, incrementals, 13, lang)
+  const first = series[0] || { forecast:0, supply:Number(sku.stock_qty || 0), delta:0, wos:0 }
+  const shortageWeeks = series.filter(r => Number(r.delta) < 0).map(r => r.week)
+  const overWeeks = series.filter(r => deltaTone(r.delta, r.forecast) === 'over').map(r => r.week)
+  const supplierRows = getSupplierSkuRows(items, sku, incrementals, lang).sort((a,b) => {
+    const leadA = Number(a.sku.lead_time || 999), leadB = Number(b.sku.lead_time || 999)
+    const costA = Number(a.sku.unit_cost || 999999), costB = Number(b.sku.unit_cost || 999999)
+    return leadA - leadB || costA - costB
+  })
+  const best = supplierRows[0]
+  const weeklyNeed = Math.max(1, Math.round(consumptionPerWeek ? consumptionPerWeek(sku) : consumptionPerDay(sku) * 7))
+  const leadWeeks = Math.max(1, Math.ceil(Number(best?.sku?.lead_time || sku.lead_time || 7) / 7))
+  const targetStock = Math.round(weeklyNeed * (leadWeeks + 2))
+  const currentTotal = supplierRows.length ? supplierRows.reduce((a,r)=>a+Number(r.sku.stock_qty||0),0) : Number(sku.stock_qty||0)
+  const suggestedQty = Math.max(Number(best?.sku?.moq || sku.moq || 0), Math.max(0, targetStock - currentTotal))
+  const status = first.delta < 0 ? 'shortage' : overWeeks.length ? 'over' : 'healthy'
+  return { sku, series, first, shortageWeeks, overWeeks, supplierRows, best, weeklyNeed, leadWeeks, targetStock, currentTotal, suggestedQty, status }
+}
+
+function AiBadge({ children, color=T.blue }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:6, border:`1px solid ${color}`, color, background:`${color}18`, borderRadius:999, padding:'5px 10px', fontSize:12, fontWeight:900 }}>{children}</span>
+}
+
+function AiMockPanel({ items, selectedSku, incrementals, lang }) {
+  const d = buildAiMockDecision(items, selectedSku, incrementals, lang)
+  if (!d) return null
+  const name = displayName(d.sku, lang)
+  const riskColor = d.status === 'shortage' ? T.red : d.status === 'over' ? T.blue : T.green
+  const cause = d.status === 'shortage'
+    ? (lang === JP ? `${d.shortageWeeks.slice(0,3).map(w=>weekLabel(w,lang)).join('・')}で供給が需要を下回る見込みです。` : `Supply is expected to be below forecast in ${d.shortageWeeks.slice(0,3).map(w=>weekLabel(w,lang)).join(', ')}.`)
+    : d.status === 'over'
+      ? (lang === JP ? '供給が需要を大きく上回る週があり、在庫過多の可能性があります。' : 'Supply exceeds forecast in multiple weeks, indicating possible overstock.')
+      : (lang === JP ? '現在の供給は需要をカバーしており、短期的な欠品リスクは低めです。' : 'Current supply covers forecast, and short-term shortage risk appears low.')
+  const action = d.status === 'shortage'
+    ? (lang === JP ? `${d.best?.supplier || '優先仕入先'}へ前倒し可否を確認し、必要に応じて${fmt(d.suggestedQty)}個の発注を検討してください。` : `Ask ${d.best?.supplier || 'the priority supplier'} about pull-in availability and consider ordering ${fmt(d.suggestedQty)} units if needed.`)
+    : d.status === 'over'
+      ? (lang === JP ? '次回発注を一時停止し、需要予測の再確認を推奨します。' : 'Pause the next order and re-check demand forecast.')
+      : (lang === JP ? '通常監視で十分です。Supplier返信待ちや入荷予定の更新のみ確認してください。' : 'Normal monitoring is sufficient. Check supplier replies and inbound updates only.')
+
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:18, background:'linear-gradient(180deg,rgba(59,130,246,.10),rgba(6,34,61,.72))', marginTop:18 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+      <div>
+        <h3 style={{ margin:'0 0 6px', fontSize:24 }}>{lang === JP ? '分析サマリー' : 'Analysis summary'}</h3>
+        <div style={{ color:T.muted, fontSize:14 }}>{name}</div>
+      </div>
+      <AiBadge color={riskColor}>{d.status === 'shortage' ? (lang===JP?'不足リスク':'Shortage risk') : d.status === 'over' ? (lang===JP?'過剰リスク':'Overstock risk') : (lang===JP?'低リスク':'Low risk')}</AiBadge>
+    </div>
+    <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1.2fr) minmax(280px,.8fr)', gap:14, marginTop:14 }}>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.12)' }}>
+        <b>{lang === JP ? '判断' : 'Decision'}</b>
+        <p style={{ color:'#d8e8f8', lineHeight:1.65, margin:'10px 0 0' }}>{cause}</p>
+        <p style={{ color:'#d8e8f8', lineHeight:1.65, margin:'8px 0 0' }}>{action}</p>
+      </div>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.12)', display:'grid', gap:9 }}>
+        <b>{lang === JP ? '判断材料' : 'Inputs'}</b>
+        <div>{lang === JP ? 'W1差分' : 'W1 gap'}：<b style={{ color:d.first.delta < 0 ? T.red : T.green }}>{d.first.delta > 0 ? '+' : ''}{fmt(d.first.delta)}</b></div>
+        <div>{lang === JP ? '週次需要' : 'Weekly need'}：<b>{fmt(d.weeklyNeed)}</b></div>
+        <div>{lang === JP ? '合計供給' : 'Total supply'}：<b>{fmt(d.first.supply)}</b></div>
+        <div>{lang === JP ? '推奨仕入先' : 'Recommended supplier'}：<b>{d.best?.supplier || '-'}</b></div>
+      </div>
+    </div>
+  </div>
+}
+
+function AiEmailComposerMock({ items, selectedSku, incrementals, lang }) {
+  const d = buildAiMockDecision(items, selectedSku, incrementals, lang)
+  if (!d) return null
+  const name = displayName(d.sku, lang)
+  const supplier = d.best?.supplier || 'Supplier A'
+  const qty = d.suggestedQty || 500
+  const subject = `Request to confirm earlier shipment for ${name}`
+  const body = `Hi ${supplier},
+
+We are reviewing the latest supply plan for ${name} and noticed a potential short-term supply gap.
+
+Could you please confirm whether it is possible to pull in ${fmt(qty)} units from the current scheduled shipment?
+
+If pull-in is not possible, please share the earliest available ship date and any alternative options.
+
+Best regards,`
+  const copyText = () => navigator.clipboard?.writeText(`Subject: ${subject}\n\n${body}`)
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:18, background:'rgba(6,34,61,.75)', marginTop:18 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+      <div>
+        <h3 style={{ margin:'0 0 6px', fontSize:24 }}>{lang === JP ? '作成メール' : 'Generated email'}</h3>
+        <div style={{ color:T.muted }}>{lang === JP ? 'Supplier確認メールをワンクリックで作成します。' : 'Create a supplier confirmation email in one click.'}</div>
+      </div>
+      <button onClick={copyText} style={{ border:`1px solid ${T.blue}`, background:'rgba(59,130,246,.18)', color:'#fff', borderRadius:8, padding:'10px 14px', fontWeight:900 }}>{lang === JP ? 'コピー' : 'Copy'}</button>
+    </div>
+    <div style={{ display:'grid', gap:10, marginTop:14 }}>
+      <label style={{ color:T.muted, fontWeight:900 }}>{lang === JP ? '件名' : 'Subject'}</label>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:12, background:'rgba(0,0,0,.16)' }}>{subject}</div>
+      <label style={{ color:T.muted, fontWeight:900 }}>{lang === JP ? '本文' : 'Body'}</label>
+      <pre style={{ whiteSpace:'pre-wrap', border:`1px solid ${T.line}`, borderRadius:8, padding:14, background:'rgba(0,0,0,.16)', color:'#f8fbff', lineHeight:1.55, fontFamily:T.font, margin:0 }}>{body}</pre>
+    </div>
+  </div>
+}
+
+function AiOrderProposalMock({ items, selectedSku, incrementals, lang }) {
+  const d = buildAiMockDecision(items, selectedSku, incrementals, lang)
+  if (!d) return null
+  const name = displayName(d.sku, lang)
+  const supplier = d.best?.supplier || 'Supplier A'
+  const qty = d.suggestedQty || Math.max(500, d.weeklyNeed)
+  const eta = lang === JP ? '次回入荷可能週' : 'next available week'
+  return <div style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:18, background:'rgba(6,34,61,.75)', marginTop:18 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+      <div>
+        <h3 style={{ margin:'0 0 6px', fontSize:24 }}>{lang === JP ? '発注提案' : 'Order proposal'}</h3>
+        <div style={{ color:T.muted }}>{name}</div>
+      </div>
+    </div>
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,minmax(120px,1fr))', gap:10, marginTop:14 }}>
+      {[
+        [lang===JP?'推奨仕入先':'Supplier', supplier],
+        [lang===JP?'発注数量':'Order qty', `${fmt(qty)} ${copy(lang,'units')}`],
+        [lang===JP?'希望納期':'Target ETA', eta],
+        [lang===JP?'発注種別':'Order type', lang===JP?'通常発注':'Standard'],
+      ].map(([k,v]) => <div key={k} style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12, background:'rgba(0,0,0,.13)' }}><div style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{k}</div><div style={{ marginTop:6, fontWeight:900, fontSize:16 }}>{v}</div></div>)}
+    </div>
+    <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.13)', marginTop:12 }}>
+      <b>{lang === JP ? '判断理由' : 'Reasoning'}</b>
+      <ul style={{ margin:'10px 0 0 20px', color:'#d8e8f8', lineHeight:1.7 }}>
+        <li>{lang === JP ? `${supplier}は比較上リードタイムが短い仕入先です。` : `${supplier} has the shortest lead time among available suppliers.`}</li>
+        <li>{lang === JP ? `現在の週次需要は約${fmt(d.weeklyNeed)}個です。` : `Current weekly demand is about ${fmt(d.weeklyNeed)} units.`}</li>
+        <li>{lang === JP ? '欠品リスク回避を優先し、必要量のみを提案しています。' : 'The proposal prioritizes avoiding shortage while limiting excess inventory.'}</li>
+      </ul>
+    </div>
+  </div>
+}
+
+// Feature label cleanup: analysis summary, order proposal, generated email.
+function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
+  return <div style={{ marginTop:20 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap', marginBottom:12 }}>
+      <h2 style={{ margin:0, fontSize:28 }}>{lang === JP ? '業務サポート' : 'Workflow support'}</h2>
+    </div>
+    <AiMockPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+    <AiOrderProposalMock items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+    <AiEmailComposerMock items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+  </div>
+}
+
+
 function TemplateSection({ title, children }) {
   return <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:14, background:'rgba(0,0,0,.12)', marginBottom:12 }}>
     <div style={{ fontWeight:900, fontSize:16, marginBottom:10 }}>{title}</div>
@@ -1842,6 +1990,7 @@ export default function App() {
 
         {selectedSku && <div style={{ marginTop:18 }}>
           <ReorderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+          <AiMockFeaturesSection items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
         </div>}
       </Panel>}
 
