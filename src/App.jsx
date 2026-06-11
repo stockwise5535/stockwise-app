@@ -9,6 +9,8 @@ import LoginPage from './components/LoginPage.jsx'
 // StockWise v3 mobile mockup style refinement
 // PC heatmap AiMockFeatures and intelligence removal fix
 // PC/mobile data sync and no intelligence support final fix
+// dashboard mobile PC data label final requested cleanup
+// syntax fix missing comma after alertBanner
 // statusMeta restore fix
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -20,20 +22,8 @@ const JP = 'ja'
 const EN = 'en'
 
 const statusMeta = {
-  alert: {
-    color: T.red,
-    ja: 'アラート',
-    en: 'Alert',
-    descJa: '1〜2週間未満で欠品リスク',
-    descEn: 'Shortage risk within 1–2 weeks',
-  },
-  attention: {
-    color: T.red,
-    ja: 'アラート',
-    en: 'Alert',
-    descJa: '1〜2週間未満で欠品リスク',
-    descEn: 'Shortage risk within 1–2 weeks',
-  },
+  alert: { color: T.red, ja: '不足', en: 'Shortage', descJa: '1〜2週間未満で欠品リスク', descEn: 'Shortage risk within 1–2 weeks' },
+  attention: { color: T.red, ja: '不足', en: 'Shortage', descJa: '1〜2週間未満で欠品リスク', descEn: 'Shortage risk within 1–2 weeks' },
   good: {
     color: T.green,
     ja: '適正',
@@ -513,12 +503,12 @@ function copy(lang, key) {
     dashboard: { ja:'ダッシュボード', en:'Dashboard' },
     heatmap: { ja:'在庫ヒートマップ（仕入先別）', en:'Inventory Heatmap by Supplier' },
     reorderTab: { ja:'対応必要品目', en:'Items Needing Action' },
-    alertBanner: { ja:'現在、対応が必要なアラートがあります。発注必要案件は右の確認ボタンから確認できます。', en:'There are alerts requiring attention. Use the order-needed check button to review items expected to run short.' },
+    alertBanner: { ja:'現在、対応が必要な不足リスクがあります。発注必要案件は確認ボタンから確認できます。', en:'There are shortage risks requiring attention. Use the check button to review items expected to run short.' },
     shortageListTitle: { ja:'対応必要品目', en:'Items Needing Action' },
     shortageListDesc: { ja:'発注が必要な品目と在庫過多の品目をまとめて確認できます。', en:'Review items that need ordering and items with overstock.' },
-    alert: { ja:'アラート（要対応）', en:'Alerts' },
-    alertSub: { ja:'対応が必要なアラート件数', en:'Items requiring action' },
-    alertNote: { ja:'欠品リスク・納期遅延・在庫異常など', en:'Stockout risk, delays, inventory issues' },
+    alert: { ja:'不足（要対応）', en:'Shortage' },
+    alertSub: { ja:'不足リスク件数', en:'Shortage risk items' },
+    alertNote: { ja:'欠品リスクのある品目', en:'Items with shortage risk' },
     reorder: { ja:'発注必要案件数', en:'Items to Order' },
     overstock: { ja:'在庫過多', en:'Overstock' },
     overstockSub: { ja:'在庫過多の可能性がある品目', en:'Items with possible overstock' },
@@ -1097,7 +1087,12 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
 }
 
 function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals, selectedSku, setSelected, setTab }) {
-  const allProducts = aggregateProductOptions(items, lang)
+  const sourceItems = (items && items.length) ? items : (productOptions || [])
+  let allProducts = aggregateProductOptions(sourceItems, lang)
+  if (selectedSku && !allProducts.some(p => sameProduct(p, selectedSku))) {
+    allProducts = [selectedSku, ...allProducts]
+  }
+
   const [mobileTab, setMobileTab] = useState('dashboard')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -1106,12 +1101,15 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
   useEffect(() => {
     const next = selectedSku || allProducts?.find(p => sameProduct(p, mobileSelected)) || allProducts?.[0] || null
     setMobileSelected(next)
-  }, [items, selectedSku, lang])
+  }, [items, productOptions, selectedSku, lang])
 
   const shortageItems = allProducts.filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention')
   const overItems = allProducts.filter(s => statusOf(s) === 'over')
-  const actionItems = allProducts.filter(s => statusOf(s) !== 'good')
+  const reorderItems = allProducts.filter(s => Number(s.stock_qty || 0) < calcRp(s))
+  const inboundTotal = safeArray(incrementals).reduce((a,r)=>a+Number(r.qty||0),0)
+  const stockValue = sourceItems.reduce((a,s)=>a+Number(s.stock_qty||0)*Number(s.unit_cost||0),0)
   const displayList = allProducts
+
   const filteredProducts = allProducts.filter(s => {
     const q = query.trim().toLowerCase()
     const matchesQuery = !q || [s.name, s.name_en, s.sku, s.supplier, s.subset].some(v => String(v || '').toLowerCase().includes(q))
@@ -1134,20 +1132,22 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
   return <div style={{ minHeight:'100vh', background:'#f3f7fb', color:'#0f172a', fontFamily:T.font, padding:'0 14px 78px', fontSize:15 }}>
     <header style={{ position:'sticky', top:0, zIndex:20, margin:'0 -14px 14px', padding:'14px 16px 12px', background:'linear-gradient(135deg,#03180e,#07170f)', color:'#fff', boxShadow:'0 8px 24px rgba(2,6,23,.18)' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-        <div style={{ fontSize:18, fontWeight:900 }}>StockWise v3</div>
+        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+          <img src="/stockwise-icon.png" alt="Stockwise" style={{ width:28, height:28, borderRadius:0, objectFit:'cover', boxShadow:'0 6px 16px rgba(0,0,0,.25)' }} />
+          <div style={{ fontSize:18, fontWeight:900 }}>Stockwise</div>
+        </div>
         <button onClick={()=>setLang(lang === JP ? EN : JP)} style={{ border:'1px solid rgba(255,255,255,.25)', background:'rgba(255,255,255,.08)', color:'#fff', borderRadius:999, padding:'7px 11px', fontWeight:900 }}>{lang === JP ? 'EN' : 'JP'}</button>
       </div>
     </header>
 
     {mobileTab === 'dashboard' && <main style={{ display:'grid', gap:14 }}>
       <section style={{ background:'#fff', borderRadius:16, padding:15, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
-        <h1 style={{ margin:'0 0 4px', fontSize:21, letterSpacing:'-.03em' }}>{lang === JP ? '今日の在庫判断' : 'Today inventory decision'}</h1>
-        <div style={{ color:'#94a3b8', fontSize:12, fontWeight:800, marginBottom:13 }}>{lang === JP ? 'PC版と同じ最新データを表示' : 'Synced with the latest desktop data'}</div>
+        <h1 style={{ margin:'0 0 13px', fontSize:21, letterSpacing:'-.03em' }}>{lang === JP ? 'ダッシュボード' : 'Dashboard'}</h1>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          <MobileSummaryCard title={lang === JP ? '対応必須品目' : 'Required action'} value={actionItems.length} note={lang === JP ? '要対応' : 'Need action'} tone="red" />
-          <MobileSummaryCard title={lang === JP ? '欠品リスク' : 'Shortage risk'} value={shortageItems.length} note={lang === JP ? '2週未満' : '<2 weeks'} tone="red" />
-          <MobileSummaryCard title={lang === JP ? '登録品目' : 'Items'} value={allProducts.length} note={lang === JP ? 'PC連携' : 'Synced'} tone="green" />
-          <MobileSummaryCard title={lang === JP ? '在庫過多' : 'Overstock'} value={overItems.length} note={lang === JP ? '8週以上' : '8w+'} tone="green" />
+          <MobileSummaryCard title={lang === JP ? '発注必要案件' : 'Items to order'} value={reorderItems.length} note={lang === JP ? '要確認' : 'Review'} tone="red" />
+          <MobileSummaryCard title={lang === JP ? '在庫過多' : 'Overstock'} value={overItems.length} note={lang === JP ? '8週以上' : '8w+'} tone="blue" />
+          <MobileSummaryCard title={lang === JP ? '輸入数量予定' : 'Inbound plan'} value={fmt(inboundTotal)} note={lang === JP ? '個' : 'units'} tone="green" />
+          <MobileSummaryCard title={lang === JP ? '在庫金額' : 'Stock value'} value={currency(stockValue, lang)} note={lang === JP ? '現在の在庫' : 'Current'} tone="green" />
         </div>
       </section>
       <section style={{ background:'#fff', borderRadius:16, padding:'14px 15px 6px', boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
@@ -1155,11 +1155,11 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
           <h2 style={{ margin:0, fontSize:17 }}>{lang === JP ? '品目一覧（上位5件）' : 'Top items'}</h2>
           <button onClick={()=>setMobileTab('items')} style={{ border:'none', background:'transparent', color:T.green, fontWeight:900 }}>{lang === JP ? 'すべて見る' : 'View all'}</button>
         </div>
-        {(displayList || []).slice(0,5).map(s => <MobileItemCard key={s.id} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
+        {(displayList || []).slice(0,5).map(s => <MobileItemCard key={s.id || `${s.name}-${s.supplier}`} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
       </section>
     </main>}
 
-    {mobileTab === 'heatmap' && <MobileSupplierHeatmap sku={mobileSelected || allProducts?.[0]} items={items} incrementals={incrementals} lang={lang} />}
+    {mobileTab === 'heatmap' && <MobileSupplierHeatmap sku={mobileSelected || allProducts?.[0]} items={sourceItems} incrementals={incrementals} lang={lang} />}
 
     {mobileTab === 'items' && <main style={{ display:'grid', gap:12 }}>
       <section style={{ background:'#fff', borderRadius:16, padding:15, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
@@ -1171,12 +1171,12 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
             ['shortage', lang === JP ? '不足' : 'Shortage'],
             ['good', lang === JP ? '適正' : 'Healthy'],
             ['over', lang === JP ? '過剰' : 'Overstock'],
-          ].map(([k,label])=><button key={k} onClick={()=>setFilter(k)} style={{ border:'1px solid #dbe5ef', background:filter === k ? T.green : '#fff', color:filter === k ? '#fff' : '#334155', borderRadius:999, padding:'7px 12px', fontWeight:900, whiteSpace:'nowrap' }}>{label}</button>)}
+          ].map(([k,label])=><button key={k} onClick={()=>setFilter(k)} style={{ border:'1px solid #dbe5ef', background:filter === k ? (k === 'shortage' ? T.red : k === 'over' ? T.blue : T.green) : '#fff', color:filter === k ? '#fff' : '#334155', borderRadius:999, padding:'7px 12px', fontWeight:900, whiteSpace:'nowrap' }}>{label}</button>)}
         </div>
         <div style={{ color:'#94a3b8', fontSize:12, fontWeight:800, marginTop:10 }}>{lang === JP ? `登録数：${filteredProducts.length}品目` : `${filteredProducts.length} items`}</div>
       </section>
       <section style={{ background:'#fff', borderRadius:16, padding:'2px 15px 6px', boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
-        {filteredProducts.map(s => <MobileItemCard key={s.id} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
+        {filteredProducts.map(s => <MobileItemCard key={s.id || `${s.name}-${s.supplier}`} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
       </section>
     </main>}
 
@@ -1946,7 +1946,7 @@ export default function App() {
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
       try {
         await supabase.from('skus').delete().eq('user_id', user.id)
-        if (acceptedRows.length) await supabase.from('skus').upsert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r), { onConflict:'user_id,name' })
+        if (acceptedRows.length) await supabase.from('skus').insert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r))
       } catch (_) {}
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
@@ -2035,7 +2035,7 @@ export default function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small kind="blue" onClick={()=>setShowIntelligenceSupporter(true)}>💬 {copy(lang, '')}</Btn><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
@@ -2044,10 +2044,6 @@ export default function App() {
       </nav>
 
       {tab === 'dashboard' && <>
-        {actionItems.length > 0 && <div style={{ display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.red}`, background:'linear-gradient(90deg,rgba(255,70,93,.20),rgba(7,43,76,.90))', color:'#ffd7dd', borderRadius:10, padding:'12px 16px', marginBottom:14 }}>
-          <span style={{ fontSize:22 }}>⚠</span>
-          <div style={{ flex:1 }}><b>{copy(lang, 'alert')}</b><div style={{ color:'#f4c6ce', fontSize:14, marginTop:3 }}>{copy(lang, 'alertBanner')}</div></div>
-        </div>}
         <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
           <MetricCard lang={lang} tone="red" icon="🛒" title={copy(lang, 'reorder')} sub={copy(lang, 'reorderSub')} value={reorder.length} note={copy(lang, 'reorderNote')} button={copy(lang, 'check')} onClick={scrollToActionItems} />
           <MetricCard lang={lang} tone="blue" icon="📦" title={copy(lang, 'overstock')} sub={copy(lang, 'overstockSub')} value={overItems.length} note={copy(lang, 'overstockNote')} button={copy(lang, 'check')} onClick={scrollToActionItems} />
@@ -2061,7 +2057,7 @@ export default function App() {
         <Panel title={copy(lang, 'heatmap')}>
           <p style={{ color:'#cbd9e8', marginTop:-6 }}>{copy(lang, 'heatmapHint')}</p>
           <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{productOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
-          <div style={{ display:'flex', gap:18, flexWrap:'wrap', color:'#c9d8e8', fontSize:14 }}>{Object.entries(statusMeta).map(([k,m])=><span key={k}><b style={{ color:m.color }}>● {m[lang]}</b>：{lang === JP ? m.descJa : m.descEn}</span>)}</div>
+          <div style={{ display:'flex', gap:18, flexWrap:'wrap', color:'#c9d8e8', fontSize:14 }}>{Object.entries(statusMeta).filter(([k])=>k !== 'attention').map(([k,m])=><span key={k}><b style={{ color:m.color }}>● {m[lang]}</b>：{lang === JP ? m.descJa : m.descEn}</span>)}</div>
         </Panel>
 
         <div ref={actionItemsRef} style={{ scrollMarginTop:20 }}><Panel title={copy(lang, 'reorderItems')}>
