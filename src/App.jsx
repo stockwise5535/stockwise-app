@@ -1760,13 +1760,40 @@ export default function App() {
   const actualCsvRef = useRef(null)
   const actionItemsRef = useRef(null)
 
+  const PLAN_FREE_LIMIT = 1
+  const PLAN_BASIC_LIMIT = 20
+  const BASIC_PRICE_LABEL = '$49.99 / month'
+
+  function paidStorageKey() {
+    return user?.id ? `stockwise_plan_basic_active_${user.id}` : 'stockwise_plan_basic_active'
+  }
+
+  function isBasicPlanActive() {
+    try { return localStorage.getItem(paidStorageKey()) === 'true' } catch (_) { return false }
+  }
+
+  function markBasicPlanActive() {
+    try { localStorage.setItem(paidStorageKey(), 'true') } catch (_) {}
+  }
+
   useEffect(() => { localStorage.setItem('stockwise_lang', lang); document.documentElement.lang = lang }, [lang])
+
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') === 'success') {
+      markBasicPlanActive()
+      alert(lang === JP ? 'アップグレードが完了しました。20SKUまで登録できます。' : 'Upgrade completed. You can register up to 20 SKUs.')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [user])
   useEffect(() => { if (user) fetchSkus() }, [user])
 
   // hard Supabase sync minimal schema fix
 // Supabase unique user_id name aggregate fix
 // safe total supplier display filter and mobile empty-state fix
 // supplier detail Supabase sync without total supplier fix
+// paid SKU limit basic 49 monthly fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2012,14 +2039,14 @@ export default function App() {
   }
 
 
-  // Second item checkout paywall: 2+ unique products opens Stripe Checkout.
+  // SKU limit checkout paywall: Free = 1 SKU, Basic = $49.99/month up to 20 SKUs.
   async function startUpgradeCheckout(reason = 'second_item') {
     try {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plan: 'basic',
+          plan: 'basic_20_sku',
           reason,
           userId: user?.id || null,
           email: user?.email || null,
@@ -2075,13 +2102,25 @@ export default function App() {
           factory:get(cols, ['生産工場','factory'], 8)?.trim() || '',
         }
       }).filter(r => r.name)
-      if (uniqueProductCount(rows) > 1) {
-        const ok = window.confirm(lang === JP
-          ? '無料デモでアップロードできる品目は1品目までです。2品目以上を利用するには、テスト価格 $19.99 / month のアップグレードが必要です。Stripe Checkoutへ進みますか？'
-          : 'The free demo supports 1 item. To use 2 or more items, upgrade with the test price $19.99/month. Continue to Stripe Checkout?'
+      const skuCount = uniqueProductCount(rows)
+      const basicActive = isBasicPlanActive()
+
+      if (skuCount > PLAN_BASIC_LIMIT) {
+        alert(lang === JP
+          ? `Basicプランで登録できるSKUは最大${PLAN_BASIC_LIMIT}件までです。CSVの品目数を減らしてください。`
+          : `The Basic plan supports up to ${PLAN_BASIC_LIMIT} SKUs. Please reduce the number of items in the CSV.`
         )
         e.target.value = ''
-        if (ok) await startUpgradeCheckout('second_item_upload')
+        return
+      }
+
+      if (!basicActive && skuCount > PLAN_FREE_LIMIT) {
+        const ok = window.confirm(lang === JP
+          ? `無料プランで登録できるSKUは${PLAN_FREE_LIMIT}件までです。2SKU以上、最大${PLAN_BASIC_LIMIT}SKUまで利用するには、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。Stripe Checkoutへ進みますか？`
+          : `The free plan supports ${PLAN_FREE_LIMIT} SKU. To use 2–${PLAN_BASIC_LIMIT} SKUs, upgrade to Basic ${BASIC_PRICE_LABEL}. Continue to Stripe Checkout?`
+        )
+        e.target.value = ''
+        if (ok) await startUpgradeCheckout('sku_limit_upgrade')
         return
       }
       // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
@@ -2196,7 +2235,7 @@ export default function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? 'Basic 20SKU' : 'Basic 20 SKU') : (lang === JP ? 'Free 1SKU' : 'Free 1 SKU')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>

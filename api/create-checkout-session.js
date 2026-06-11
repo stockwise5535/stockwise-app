@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     params.append('metadata[userId]', body.userId || body.user_id || '')
     params.append('metadata[reason]', body.reason || 'upgrade')
-    params.append('metadata[plan]', body.plan || 'basic')
+    params.append('metadata[plan]', body.plan || 'basic_20_sku')
 
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
