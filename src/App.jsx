@@ -12,6 +12,7 @@ import LoginPage from './components/LoginPage.jsx'
 // dashboard mobile PC data label final requested cleanup
 // syntax fix missing comma after alertBanner
 // cross-device item sync via Supabase final fix
+// Supabase minimal cross-device publish fix
 // statusMeta restore fix
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -1779,6 +1780,42 @@ export default function App() {
     setTimeout(() => actionItemsRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 50)
   }
 
+  function skuRowForDb(row) {
+    const supplier = row.supplier || row.subset || null
+    const weekly = Number(row.actual_consumption || 0)
+    return {
+      user_id: user.id,
+      name: row.name,
+      superset: row.superset || row.name,
+      subset: supplier,
+      supplier,
+      stock_qty: Number(row.stock_qty || 0),
+      daily_usage: Number(row.daily_usage || (weekly ? Math.round(weekly / 7) : 0) || 0),
+      lead_time: Number(row.lead_time || 7),
+      safety_stock: row.safety_stock == null || row.safety_stock === '' ? null : Number(row.safety_stock || 0),
+      moq: row.moq == null || row.moq === '' ? null : Number(row.moq || 0),
+      unit_cost: row.unit_cost == null || row.unit_cost === '' ? null : Number(row.unit_cost || 0),
+    }
+  }
+
+  async function saveItemsToSupabase(rows, reason = 'manual') {
+    const cleanRows = safeArray(rows).filter(r => r?.name).map(skuRowForDb)
+    try {
+      await supabase.from('skus').delete().eq('user_id', user.id)
+      if (cleanRows.length) {
+        const inserted = await supabase.from('skus').insert(cleanRows)
+        if (inserted.error) {
+          console.warn('Supabase item sync failed', reason, inserted.error)
+          return false
+        }
+      }
+      return true
+    } catch (err) {
+      console.warn('Supabase item sync failed', reason, err)
+      return false
+    }
+  }
+
   async function fetchSkus() {
     let data = []
     try {
@@ -1795,6 +1832,20 @@ export default function App() {
     const localInbound = readStoredArray(`stockwise_inbound_${user.id}`)
     const localForecast = readStoredArray(`stockwise_forecast_${user.id}`)
     const localActual = readStoredArray(`stockwise_actual_${user.id}`)
+
+    // If this browser has newer uploaded items in localStorage, publish them to Supabase
+    // so another device logged in as the same user can read the same item list.
+    const localHash = JSON.stringify(localItems.map(r => ({
+      name:r.name, supplier:r.supplier || r.subset, stock_qty:r.stock_qty, daily_usage:r.daily_usage,
+      actual_consumption:r.actual_consumption, lead_time:r.lead_time, safety_stock:r.safety_stock, unit_cost:r.unit_cost
+    })))
+    const syncKey = `stockwise_items_synced_hash_${user.id}`
+    if (localItems.length && localStorage.getItem(syncKey) !== localHash) {
+      const ok = await saveItemsToSupabase(localItems, 'localStorage publish')
+      if (ok) localStorage.setItem(syncKey, localHash)
+      data = localItems.map(skuRowForDb)
+    }
+
     const baseSource = (data && data.length ? data : (localItems.length ? [] : sampleSkus))
     const base = baseSource.map((s, i) => ({
       ...s,
@@ -1978,22 +2029,14 @@ export default function App() {
       setSkus(nextItems)
       const preferred = acceptedRows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
-      try {
-        await supabase.from('skus').delete().eq('user_id', user.id)
-        if (acceptedRows.length) {
-          const rowsForDb = acceptedRows.map(({ id, icon, supplier_info, sku, ...r }) => ({
-            ...r,
-            name_en: r.name_en || r.name,
-            actual_consumption: Number(r.actual_consumption || 0),
-            factory: r.factory || null,
-          }))
-          const upsertRes = await supabase.from('skus').upsert(rowsForDb, { onConflict:'user_id,name,supplier' })
-          if (upsertRes.error) {
-            console.warn('skus upsert failed; retrying basic insert', upsertRes.error)
-            await supabase.from('skus').insert(rowsForDb)
-          }
-        }
-      } catch (_) {}
+      const synced = await saveItemsToSupabase(acceptedRows, 'csv upload')
+      if (synced) {
+        const syncHash = JSON.stringify(acceptedRows.map(r => ({
+          name:r.name, supplier:r.supplier || r.subset, stock_qty:r.stock_qty, daily_usage:r.daily_usage,
+          actual_consumption:r.actual_consumption, lead_time:r.lead_time, safety_stock:r.safety_stock, unit_cost:r.unit_cost
+        })))
+        localStorage.setItem(`stockwise_items_synced_hash_${user.id}`, syncHash)
+      }
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
     })
