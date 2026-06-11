@@ -12,7 +12,6 @@ import LoginPage from './components/LoginPage.jsx'
 // dashboard mobile PC data label final requested cleanup
 // syntax fix missing comma after alertBanner
 // cross-device item sync via Supabase final fix
-// Supabase minimal cross-device publish fix
 // statusMeta restore fix
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -1742,6 +1741,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('stockwise_lang', lang); document.documentElement.lang = lang }, [lang])
   useEffect(() => { if (user) fetchSkus() }, [user])
 
+  // hard Supabase sync minimal schema fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1781,16 +1781,14 @@ export default function App() {
   }
 
   function skuRowForDb(row) {
-    const supplier = row.supplier || row.subset || null
     const weekly = Number(row.actual_consumption || 0)
+    const daily = Number(row.daily_usage || (weekly ? Math.round(weekly / 7) : 0) || 0)
     return {
       user_id: user.id,
       name: row.name,
-      superset: row.superset || row.name,
-      subset: supplier,
-      supplier,
+      supplier: row.supplier || row.subset || null,
       stock_qty: Number(row.stock_qty || 0),
-      daily_usage: Number(row.daily_usage || (weekly ? Math.round(weekly / 7) : 0) || 0),
+      daily_usage: daily,
       lead_time: Number(row.lead_time || 7),
       safety_stock: row.safety_stock == null || row.safety_stock === '' ? null : Number(row.safety_stock || 0),
       moq: row.moq == null || row.moq === '' ? null : Number(row.moq || 0),
@@ -1801,17 +1799,26 @@ export default function App() {
   async function saveItemsToSupabase(rows, reason = 'manual') {
     const cleanRows = safeArray(rows).filter(r => r?.name).map(skuRowForDb)
     try {
-      await supabase.from('skus').delete().eq('user_id', user.id)
+      const del = await supabase.from('skus').delete().eq('user_id', user.id)
+      if (del.error) {
+        console.warn('Supabase item delete failed', reason, del.error)
+        alert(lang === JP ? `Supabase保存に失敗しました：${del.error.message}` : `Supabase save failed: ${del.error.message}`)
+        return false
+      }
+
       if (cleanRows.length) {
         const inserted = await supabase.from('skus').insert(cleanRows)
         if (inserted.error) {
-          console.warn('Supabase item sync failed', reason, inserted.error)
+          console.warn('Supabase item insert failed', reason, inserted.error, cleanRows)
+          alert(lang === JP ? `Supabase保存に失敗しました：${inserted.error.message}` : `Supabase save failed: ${inserted.error.message}`)
           return false
         }
       }
+
       return true
     } catch (err) {
       console.warn('Supabase item sync failed', reason, err)
+      alert(lang === JP ? `Supabase保存に失敗しました：${err?.message || err}` : `Supabase save failed: ${err?.message || err}`)
       return false
     }
   }
@@ -1833,8 +1840,7 @@ export default function App() {
     const localForecast = readStoredArray(`stockwise_forecast_${user.id}`)
     const localActual = readStoredArray(`stockwise_actual_${user.id}`)
 
-    // If this browser has newer uploaded items in localStorage, publish them to Supabase
-    // so another device logged in as the same user can read the same item list.
+    // Publish existing PC localStorage items to Supabase once, so phone can read the same item list.
     const localHash = JSON.stringify(localItems.map(r => ({
       name:r.name, supplier:r.supplier || r.subset, stock_qty:r.stock_qty, daily_usage:r.daily_usage,
       actual_consumption:r.actual_consumption, lead_time:r.lead_time, safety_stock:r.safety_stock, unit_cost:r.unit_cost
@@ -1846,13 +1852,16 @@ export default function App() {
       data = localItems.map(skuRowForDb)
     }
 
-    const baseSource = (data && data.length ? data : (localItems.length ? [] : sampleSkus))
+    const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const baseSource = (data && data.length ? data : (localItems.length ? [] : (isLocalDev ? sampleSkus : [])))
     const base = baseSource.map((s, i) => ({
       ...s,
       id: s.id || `base-${i}-${s.name}-${s.supplier || s.subset || ''}`,
       icon: s.icon || ['audio','box','mouse','keyboard','cable','box'][i % 6],
       sku: s.sku || s.name,
       supplier: s.supplier || s.subset || 'Supplier',
+      subset: s.subset || s.supplier || 'Supplier',
+      superset: s.superset || s.name,
       name_en: s.name_en || s.name,
     }))
     const normalizedLocal = localItems.map((s, i) => ({
@@ -1861,6 +1870,8 @@ export default function App() {
       icon: s.icon || ['audio','box','mouse','keyboard','cable','box'][i % 6],
       sku: s.sku || s.name,
       supplier: s.supplier || s.subset || 'Supplier',
+      subset: s.subset || s.supplier || 'Supplier',
+      superset: s.superset || s.name,
       name_en: s.name_en || s.name,
     }))
     const merged = includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound)
@@ -2036,6 +2047,7 @@ export default function App() {
           actual_consumption:r.actual_consumption, lead_time:r.lead_time, safety_stock:r.safety_stock, unit_cost:r.unit_cost
         })))
         localStorage.setItem(`stockwise_items_synced_hash_${user.id}`, syncHash)
+        await fetchSkus()
       }
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
