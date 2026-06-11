@@ -1,23 +1,58 @@
-import Stripe from 'stripe'
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { priceId, userId, userEmail, planId } = req.body
-  if (!priceId || !userId) return res.status(400).json({ error: 'Missing priceId or userId' })
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      customer_email: userEmail,
-      line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: { trial_period_days: 14, metadata: { userId, planId: planId || 'basic' } },
-      success_url: `${process.env.VITE_APP_URL}?payment=success`,
-      cancel_url:  `${process.env.VITE_APP_URL}?payment=cancelled`,
-      metadata: { userId, planId: planId || 'basic' },
-      locale: 'auto',
+    const body = typeof req.body === 'string'
+      ? JSON.parse(req.body || '{}')
+      : (req.body || {})
+
+    const secretKey = process.env.STRIPE_SECRET_KEY
+    const priceId = body.priceId || process.env.STRIPE_PRICE_BASIC
+    const appUrl = process.env.VITE_APP_URL || `https://${req.headers.host}`
+
+    if (!secretKey) {
+      return res.status(500).json({ error: 'Missing STRIPE_SECRET_KEY' })
+    }
+
+    if (!priceId) {
+      return res.status(500).json({ error: 'Missing STRIPE_PRICE_BASIC' })
+    }
+
+    const params = new URLSearchParams()
+    params.append('mode', 'subscription')
+    params.append('line_items[0][price]', priceId)
+    params.append('line_items[0][quantity]', '1')
+    params.append('success_url', `${appUrl}/?checkout=success`)
+    params.append('cancel_url', `${appUrl}/?checkout=cancelled`)
+
+    if (body.email) params.append('customer_email', body.email)
+
+    params.append('metadata[userId]', body.userId || body.user_id || '')
+    params.append('metadata[reason]', body.reason || 'upgrade')
+    params.append('metadata[plan]', body.plan || 'basic')
+
+    const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
     })
-    return res.status(200).json({ url: session.url })
-  } catch (err) {
-    return res.status(500).json({ error: err.message })
+
+    const data = await stripeRes.json()
+
+    if (!stripeRes.ok) {
+      return res.status(stripeRes.status).json({
+        error: data?.error?.message || 'Stripe Checkout session failed',
+      })
+    }
+
+    return res.status(200).json({ url: data.url })
+  } catch (error) {
+    console.error('create-checkout-session error:', error)
+    return res.status(500).json({ error: error.message || 'Checkout session failed' })
   }
 }
