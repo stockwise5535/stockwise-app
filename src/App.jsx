@@ -231,7 +231,7 @@ function aggregateProductOptions(items, lang = JP) {
     return {
       ...base,
       id: `aggregate-product-${idx}-${textKey(base.name || base.sku).replace(/[^a-z0-9]+/g,'-')}`,
-      supplier: lang === JP ? '全仕入先合計' : 'All suppliers total',
+      supplier: lang === JP ? '全仕入先合計' : lang === JP ? '全仕入先合計' : 'All suppliers total',
       subset: lang === JP ? '全仕入先合計' : 'All suppliers total',
       stock_qty: totalStock,
       daily_usage: productWeekly / 7,
@@ -1742,6 +1742,7 @@ export default function App() {
   useEffect(() => { if (user) fetchSkus() }, [user])
 
   // hard Supabase sync minimal schema fix
+// Supabase unique user_id name aggregate fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1780,24 +1781,47 @@ export default function App() {
     setTimeout(() => actionItemsRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 50)
   }
 
-  function skuRowForDb(row) {
-    const weekly = Number(row.actual_consumption || 0)
-    const daily = Number(row.daily_usage || (weekly ? Math.round(weekly / 7) : 0) || 0)
-    return {
-      user_id: user.id,
-      name: row.name,
-      supplier: row.supplier || row.subset || null,
-      stock_qty: Number(row.stock_qty || 0),
-      daily_usage: daily,
-      lead_time: Number(row.lead_time || 7),
-      safety_stock: row.safety_stock == null || row.safety_stock === '' ? null : Number(row.safety_stock || 0),
-      moq: row.moq == null || row.moq === '' ? null : Number(row.moq || 0),
-      unit_cost: row.unit_cost == null || row.unit_cost === '' ? null : Number(row.unit_cost || 0),
-    }
+  function skuRowsForDb(rows) {
+    const grouped = new Map()
+
+    safeArray(rows).filter(r => r?.name).forEach(row => {
+      const key = String(row.name || '').trim()
+      if (!key) return
+
+      const weekly = Number(row.actual_consumption || 0)
+      const daily = Number(row.daily_usage || (weekly ? Math.round(weekly / 7) : 0) || 0)
+      const existing = grouped.get(key)
+
+      if (!existing) {
+        grouped.set(key, {
+          user_id: user.id,
+          name: key,
+          supplier: row.supplier || row.subset || 'All suppliers total',
+          stock_qty: Number(row.stock_qty || 0),
+          daily_usage: daily,
+          lead_time: Number(row.lead_time || 7),
+          safety_stock: row.safety_stock == null || row.safety_stock === '' ? null : Number(row.safety_stock || 0),
+          moq: row.moq == null || row.moq === '' ? null : Number(row.moq || 0),
+          unit_cost: row.unit_cost == null || row.unit_cost === '' ? null : Number(row.unit_cost || 0),
+        })
+        return
+      }
+
+      existing.supplier = 'All suppliers total'
+      existing.stock_qty += Number(row.stock_qty || 0)
+      existing.daily_usage = Math.max(Number(existing.daily_usage || 0), daily)
+      existing.lead_time = Math.min(Number(existing.lead_time || 999), Number(row.lead_time || 999))
+      existing.safety_stock = Math.max(Number(existing.safety_stock || 0), Number(row.safety_stock || 0))
+      existing.moq = Math.max(Number(existing.moq || 0), Number(row.moq || 0))
+      const cost = Number(row.unit_cost || 0)
+      existing.unit_cost = existing.unit_cost ? Math.min(Number(existing.unit_cost || 0), cost || Number(existing.unit_cost || 0)) : (cost || null)
+    })
+
+    return Array.from(grouped.values())
   }
 
   async function saveItemsToSupabase(rows, reason = 'manual') {
-    const cleanRows = safeArray(rows).filter(r => r?.name).map(skuRowForDb)
+    const cleanRows = skuRowsForDb(rows)
     try {
       const del = await supabase.from('skus').delete().eq('user_id', user.id)
       if (del.error) {
@@ -1849,7 +1873,7 @@ export default function App() {
     if (localItems.length && localStorage.getItem(syncKey) !== localHash) {
       const ok = await saveItemsToSupabase(localItems, 'localStorage publish')
       if (ok) localStorage.setItem(syncKey, localHash)
-      data = localItems.map(skuRowForDb)
+      data = skuRowsForDb(localItems)
     }
 
     const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
