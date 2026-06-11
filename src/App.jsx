@@ -1088,7 +1088,7 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
 }
 
 function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals, selectedSku, setSelected, setTab }) {
-  const sourceItems = (items && items.length) ? items : (productOptions || [])
+  const sourceItems = removeTotalSupplierRowsWhenDetailedExists((items && items.length) ? items : (productOptions || []))
   let allProducts = aggregateProductOptions(sourceItems, lang)
   if (selectedSku && !allProducts.some(p => sameProduct(p, selectedSku))) {
     allProducts = [selectedSku, ...allProducts]
@@ -1743,6 +1743,7 @@ export default function App() {
 
   // hard Supabase sync minimal schema fix
 // Supabase unique user_id name aggregate fix
+// remove total supplier when detailed CSV exists
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1898,7 +1899,7 @@ export default function App() {
       superset: s.superset || s.name,
       name_en: s.name_en || s.name,
     }))
-    const merged = includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound)
+    const merged = removeTotalSupplierRowsWhenDetailedExists(includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound))
     setUploadedItems(localItems)
     setSkus(merged)
     setIncrementals(localInbound)
@@ -2006,6 +2007,26 @@ export default function App() {
     }
   }
 
+
+function isTotalSupplierRow(s) {
+  const v = String(s?.supplier || s?.subset || '').trim().toLowerCase()
+  return v === 'all suppliers total' || v === '全仕入先合計' || v === 'total supplier'
+}
+
+function removeTotalSupplierRowsWhenDetailedExists(rows) {
+  const list = safeArray(rows)
+  const hasDetailedByName = new Set(
+    list
+      .filter(s => s?.name && !isTotalSupplierRow(s))
+      .map(s => String(s.name).trim().toLowerCase())
+  )
+  return list.filter(s => {
+    const nameKey = String(s?.name || '').trim().toLowerCase()
+    return !(isTotalSupplierRow(s) && hasDetailedByName.has(nameKey))
+  })
+}
+
+
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
     readCsvText(file, async text => {
@@ -2051,8 +2072,8 @@ export default function App() {
       }
       // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
       // これにより、以前のデモ行・仕入先0・古い仕入先が画面に残らないようにします。
-      const acceptedRows = rows
-      const saved = mergeByItemSupplier([], acceptedRows)
+      const acceptedRows = rows.filter(r => !isTotalSupplierRow(r))
+      const saved = removeTotalSupplierRowsWhenDetailedExists(mergeByItemSupplier([], acceptedRows))
       const filteredInbound = (incrementals || []).filter(r =>
         saved.some(s => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
       )
@@ -2060,7 +2081,7 @@ export default function App() {
       localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(filteredInbound))
       setUploadedItems(saved)
       setIncrementals(filteredInbound)
-      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound)
+      const nextItems = removeTotalSupplierRowsWhenDetailedExists(includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound))
       setSkus(nextItems)
       const preferred = acceptedRows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
@@ -2128,7 +2149,7 @@ export default function App() {
     })
   }
 
-  const items = skus.length ? skus : sampleSkus
+  const items = removeTotalSupplierRowsWhenDetailedExists(skus.length ? skus : sampleSkus)
   const productOptions = useMemo(() => uniqueProductOptions(items), [items])
   const selectedSku = findMatchingItem(items, selected) || selected || productOptions[0] || items[0]
   const productActionItems = uniqueActionProducts(items, lang)
