@@ -7,6 +7,7 @@ import LoginPage from './components/LoginPage.jsx'
 // NexOps style status email fix syntax corrected
 // Stockwise v3 final replacement bundle
 // StockWise v3 mobile mockup style refinement
+// PC heatmap AiMockFeatures and intelligence removal fix
 // statusMeta restore fix
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -558,7 +559,7 @@ function copy(lang, key) {
     csvSettingsDesc: { ja:'対応必要品目と輸入数量予定のCSVをここで管理できます。', en:'Manage action item and inbound plan CSV files here.' },
     aiSimulationTitle: { ja:'発注シミュレーション', en:'Order Simulation' },
     aiSimulationDesc: { ja:'CSVに登録された現在在庫・実際消費量・13週入荷予定をもとに、適切な在庫水準、優先仕入先、推奨発注量を表示します。', en:'Uses CSV-based current stock, actual consumption, and the 13-week inbound plan to show the appropriate stock level, priority supplier, and recommended order quantity.' },
-    opsAI: { ja:'インテリジェンスサポーター', en:'Intelligence Supporter' },
+    
     forecastAnalysis: { ja:'需要・消費バランスチェック', en:'Demand & Consumption Check' },
     aiActionList: { ja:'AIアクションリスト', en:'AI Action List' },
     emailAI: { ja:'メールAI', en:'Email AI' },
@@ -819,6 +820,71 @@ function HeatmapSignalBar({ lang }) {
 }
 
 
+
+function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
+  const sku = selectedSku || pickDemoFocus(items) || aggregateProductOptions(items, lang)?.[0]
+  if (!sku) return null
+  const series = buildDemandSupplyGap(items, sku, incrementals, 13, lang)
+  const agg = aggregateSkuForProduct(items, sku, lang)
+  const first = series[0] || { forecast:0, supply:Number(agg.stock_qty || 0), delta:0 }
+  const supplierRows = (agg.supplier_rows || sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku))).slice(0, 4)
+  const bestSupplier = supplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
+  const shortageWeek = series.find(r => Number(r.delta || 0) < 0)?.week
+  const recommendedQty = Math.max(
+    Number(agg.moq || 0),
+    Math.ceil(Math.max(0, Number(first.forecast || 0) - Number(first.supply || 0)) || Number(agg.moq || 0) || Math.round(consumptionPerWeek(agg) * 2))
+  )
+  const currentWos = calcWeeks(agg)
+  const isShort = currentWos < 2 || Number(first.delta || 0) < 0
+  const isOver = currentWos >= 8
+  const subject = lang === JP
+    ? `${displayName(sku, lang)}の前倒し出荷可否について`
+    : `Request to confirm earlier shipment for ${displayName(sku, lang)}`
+  const body = lang === JP
+    ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、短期的に供給調整が必要な可能性があります。\n${fmt(recommendedQty)}個の出荷可否をご確認いただけますでしょうか。\n\nどうぞよろしくお願いいたします。`
+    : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and noticed a potential short-term supply adjustment need.\nCould you please confirm whether ${fmt(recommendedQty)} units can be shipped earlier?\n\nBest regards,`
+
+  const copyEmail = () => navigator.clipboard?.writeText(`Subject: ${subject}\n\n${body}`)
+
+  return <div style={{ marginTop:20 }}>
+    <section style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:18, background:'rgba(6,34,61,.75)' }}>
+      <h2 style={{ margin:'0 0 14px', fontSize:26 }}>{lang === JP ? '業務サポート' : 'Workflow support'}</h2>
+      <div style={{ display:'grid', gap:14 }}>
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:14, background:'rgba(0,0,0,.14)' }}>
+          <div style={{ fontWeight:900, marginBottom:8 }}>{lang === JP ? '分析サマリー' : 'Analysis summary'}</div>
+          <div style={{ color:'#d7e7f7', lineHeight:1.7 }}>
+            {isShort
+              ? (lang === JP ? '需要に対して在庫が不足する可能性があります。最短リードタイムの仕入先を優先し、必要数量のみを提案します。' : 'Inventory may fall short against demand. Prioritize the shortest lead-time supplier and propose only the required quantity.')
+              : isOver
+                ? (lang === JP ? '供給が需要を大きく上回る可能性があります。次回発注の一時停止または数量調整を推奨します。' : 'Supply may exceed demand. Pause the next order or adjust quantity.')
+                : (lang === JP ? '現在の需給は大きな不足・過剰がなく、通常監視で問題ありません。' : 'Current supply and demand are balanced. Continue normal monitoring.')
+            }
+          </div>
+        </div>
+
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:14, background:'rgba(0,0,0,.14)' }}>
+          <div style={{ fontWeight:900, marginBottom:10 }}>{lang === JP ? '発注提案' : 'Order proposal'}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10 }}>
+            <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12 }}><div style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{lang === JP ? '推奨仕入先' : 'Supplier'}</div><b>{bestSupplier.supplier || bestSupplier.subset || 'Supplier'}</b></div>
+            <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12 }}><div style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{lang === JP ? '発注数量' : 'Order qty'}</div><b>{fmt(recommendedQty)} {copy(lang,'units')}</b></div>
+            <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12 }}><div style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{lang === JP ? '希望納期' : 'Target ETA'}</div><b>{shortageWeek ? (lang === JP ? `${shortageWeek}週目前` : `Before W${shortageWeek}`) : (lang === JP ? '次回入荷可能週' : 'Next available week')}</b></div>
+            <div style={{ border:`1px solid ${T.line}`, borderRadius:10, padding:12 }}><div style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{lang === JP ? '発注種別' : 'Order type'}</div><b>{isShort ? (lang === JP ? '通常発注' : 'Standard') : (lang === JP ? '数量調整' : 'Quantity adjustment')}</b></div>
+          </div>
+        </div>
+
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:14, background:'rgba(0,0,0,.14)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:8 }}>
+            <div style={{ fontWeight:900 }}>{lang === JP ? '作成メール' : 'Generated email'}</div>
+            <button onClick={copyEmail} style={{ border:`1px solid ${T.line}`, background:'rgba(255,255,255,.06)', color:'#f8fbff', borderRadius:8, padding:'7px 11px', fontWeight:900 }}>{lang === JP ? 'コピー' : 'Copy'}</button>
+          </div>
+          <pre style={{ whiteSpace:'pre-wrap', margin:0, color:'#d7e7f7', lineHeight:1.6, fontFamily:T.font, border:`1px solid ${T.line}`, borderRadius:10, padding:12, background:'rgba(0,0,0,.14)' }}>{`Subject: ${subject}\n\n${body}`}</pre>
+        </div>
+      </div>
+    </section>
+  </div>
+}
+
+
 function MobileBottomNav({ tab, setTab, lang }) {
   const item = (key, label, icon) => <button onClick={() => setTab(key)} style={{ flex:1, border:'none', background:tab === key ? 'rgba(34,201,133,.12)' : 'transparent', color:tab === key ? T.green : '#b9cde0', fontFamily:T.font, fontWeight:900, fontSize:11, padding:'9px 4px 8px', display:'grid', gap:3, placeItems:'center', borderTop:tab === key ? `2px solid ${T.green}` : '2px solid transparent' }}>
     <span style={{ fontSize:18, lineHeight:1 }}>{icon}</span><span>{label}</span>
@@ -1027,7 +1093,7 @@ function MobileStockwiseApp({ lang, items, productOptions, incrementals, selecte
   useEffect(() => {
     if (!mobileSelected && productOptions?.length) setMobileSelected(productOptions[0])
   }, [productOptions, mobileSelected])
-  const allProducts = productOptions?.length ? productOptions : aggregateProductOptions(items, lang)
+  const allProducts = aggregateProductOptions(items, lang)
   const actionItems = uniqueActionProducts(items, lang)
   const shortageItems = allProducts.filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention')
   const overItems = allProducts.filter(s => statusOf(s) === 'over')
@@ -1556,8 +1622,8 @@ function IntelligenceSupporterPopup({ open, onClose, items, selectedSku, increme
     setMessages([{
       role:'assistant',
       text: lang === JP
-        ? `こんにちは。インテリジェンスサポーターです。${itemName}を中心に、在庫リスク、発注判断、仕入先確認、メール下書き、会議準備について質問できます。`
-        : `Hi, I’m your Intelligence Supporter. Ask me about inventory risks, ordering decisions, supplier follow-ups, email drafts, and meeting prep for ${itemName}.`
+        ? `こんにちは。です。${itemName}を中心に、在庫リスク、発注判断、仕入先確認、メール下書き、会議準備について質問できます。`
+        : `Hi, I’m your . Ask me about inventory risks, ordering decisions, supplier follow-ups, email drafts, and meeting prep for ${itemName}.`
     }])
   }, [open, lang, itemName])
 
@@ -2013,16 +2079,15 @@ export default function App() {
           </div>
         </div>
 
-        <ForecastSupplyGapTable products={aggregateProductOptions(items, lang)} items={items} incrementals={incrementals} selectedSku={selectedSku} onSelect={setSelected} lang={lang} viewMode={heatmapViewMode} />
+        <ForecastSupplyGapTable products={aggregateProductOptions(items, lang)} items={items} incrementals={incrementals} selectedSku={selectedSku || aggregateProductOptions(items, lang)?.[0]} onSelect={setSelected} lang={lang} viewMode={heatmapViewMode} />
 
-        {selectedSku && <div style={{ marginTop:18 }}>
-          <ReorderSimulationPanel items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
-          <AiMockFeaturesSection items={items} selectedSku={selectedSku} incrementals={incrementals} lang={lang} />
+        {(selectedSku || aggregateProductOptions(items, lang)?.[0]) && <div style={{ marginTop:18 }}>
+          <ReorderSimulationPanel items={items} selectedSku={selectedSku || aggregateProductOptions(items, lang)?.[0]} incrementals={incrementals} lang={lang} />
+          <AiMockFeaturesSection items={items} selectedSku={selectedSku || aggregateProductOptions(items, lang)?.[0]} incrementals={incrementals} lang={lang} />
         </div>}
       </Panel>}
 
     </div>
-    <IntelligenceSupporterPopup open={showIntelligenceSupporter} onClose={()=>setShowIntelligenceSupporter(false)} items={items} selectedSku={selectedSku} incrementals={incrementals} forecastRows={forecastRows} actualRows={actualRows} lang={lang} />
 
     {showCsvSettings && <CsvSettingsModal lang={lang} onClose={()=>setShowCsvSettings(false)} onDownloadSku={downloadSkuTemplate} onUploadSku={()=>skuCsvRef.current?.click()} onDownloadInbound={downloadCsvTemplate} onUploadInbound={()=>incCsvRef.current?.click()} />}
   </div>
