@@ -11,6 +11,7 @@ import LoginPage from './components/LoginPage.jsx'
 // PC/mobile data sync and no intelligence support final fix
 // dashboard mobile PC data label final requested cleanup
 // syntax fix missing comma after alertBanner
+// cross-device item sync via Supabase final fix
 // statusMeta restore fix
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -1740,6 +1741,39 @@ export default function App() {
   useEffect(() => { localStorage.setItem('stockwise_lang', lang); document.documentElement.lang = lang }, [lang])
   useEffect(() => { if (user) fetchSkus() }, [user])
 
+  // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
+  useEffect(() => {
+    if (!user) return
+
+    const refresh = () => fetchSkus()
+    const onVisibility = () => { if (!document.hidden) refresh() }
+
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', onVisibility)
+    const timer = window.setInterval(refresh, 15000)
+
+    let channel = null
+    try {
+      channel = supabase
+        .channel(`stockwise-skus-sync-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'skus', filter: `user_id=eq.${user.id}` },
+          () => refresh()
+        )
+        .subscribe()
+    } catch (err) {
+      console.warn('skus realtime subscription failed', err)
+    }
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearInterval(timer)
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [user])
+
   function scrollToActionItems() {
     setTab('dashboard')
     setTimeout(() => actionItemsRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 50)
@@ -1761,7 +1795,7 @@ export default function App() {
     const localInbound = readStoredArray(`stockwise_inbound_${user.id}`)
     const localForecast = readStoredArray(`stockwise_forecast_${user.id}`)
     const localActual = readStoredArray(`stockwise_actual_${user.id}`)
-    const baseSource = localItems.length ? [] : (data && data.length ? data : sampleSkus)
+    const baseSource = (data && data.length ? data : (localItems.length ? [] : sampleSkus))
     const base = baseSource.map((s, i) => ({
       ...s,
       id: s.id || `base-${i}-${s.name}-${s.supplier || s.subset || ''}`,
@@ -1946,7 +1980,19 @@ export default function App() {
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
       try {
         await supabase.from('skus').delete().eq('user_id', user.id)
-        if (acceptedRows.length) await supabase.from('skus').insert(acceptedRows.map(({id,sku,name_en,icon,actual_consumption,supplier_info,factory,...r})=>r))
+        if (acceptedRows.length) {
+          const rowsForDb = acceptedRows.map(({ id, icon, supplier_info, sku, ...r }) => ({
+            ...r,
+            name_en: r.name_en || r.name,
+            actual_consumption: Number(r.actual_consumption || 0),
+            factory: r.factory || null,
+          }))
+          const upsertRes = await supabase.from('skus').upsert(rowsForDb, { onConflict:'user_id,name,supplier' })
+          if (upsertRes.error) {
+            console.warn('skus upsert failed; retrying basic insert', upsertRes.error)
+            await supabase.from('skus').insert(rowsForDb)
+          }
+        }
       } catch (_) {}
       alert((lang === JP ? '発注候補品目を更新しました：' : 'Order candidate items updated: ') + acceptedRows.length)
       e.target.value = ''
