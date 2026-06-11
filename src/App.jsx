@@ -877,6 +877,26 @@ function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
 }
 
 
+
+function isTotalSupplierRow(s) {
+  const v = String(s?.supplier || s?.subset || '').trim().toLowerCase()
+  return v === 'all suppliers total' || v === '全仕入先合計' || v === 'total supplier'
+}
+
+function hideTotalSupplierRowsOnlyIfDetailsExist(rows) {
+  const list = safeArray(rows)
+  const hasDetailedByName = new Set(
+    list
+      .filter(s => s?.name && !isTotalSupplierRow(s))
+      .map(s => String(s.name).trim().toLowerCase())
+  )
+  return list.filter(s => {
+    const nameKey = String(s?.name || '').trim().toLowerCase()
+    return !(isTotalSupplierRow(s) && hasDetailedByName.has(nameKey))
+  })
+}
+
+
 function MobileBottomNav({ tab, setTab, lang }) {
   const item = (key, label, icon) => <button onClick={() => setTab(key)} style={{ flex:1, border:'none', background:tab === key ? 'rgba(34,201,133,.12)' : 'transparent', color:tab === key ? T.green : '#b9cde0', fontFamily:T.font, fontWeight:900, fontSize:11, padding:'9px 4px 8px', display:'grid', gap:3, placeItems:'center', borderTop:tab === key ? `2px solid ${T.green}` : '2px solid transparent' }}>
     <span style={{ fontSize:18, lineHeight:1 }}>{icon}</span><span>{label}</span>
@@ -1088,12 +1108,13 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
 }
 
 function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals, selectedSku, setSelected, setTab }) {
-  const sourceItems = removeTotalSupplierRowsWhenDetailedExists((items && items.length) ? items : (productOptions || []))
-  let allProducts = aggregateProductOptions(sourceItems, lang)
+  const sourceItems = (items && items.length) ? items : (productOptions || [])
+  let allProducts = hideTotalSupplierRowsOnlyIfDetailsExist(aggregateProductOptions(sourceItems, lang))
   if (selectedSku && !allProducts.some(p => sameProduct(p, selectedSku))) {
     allProducts = [selectedSku, ...allProducts]
   }
 
+  const mobileHasProducts = allProducts.length > 0
   const [mobileTab, setMobileTab] = useState('dashboard')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -1144,6 +1165,7 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
     {mobileTab === 'dashboard' && <main style={{ display:'grid', gap:14 }}>
       <section style={{ background:'#fff', borderRadius:16, padding:15, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
         <h1 style={{ margin:'0 0 13px', fontSize:21, letterSpacing:'-.03em' }}>{lang === JP ? 'ダッシュボード' : 'Dashboard'}</h1>
+        {!mobileHasProducts && <div style={{ color:'#64748b', fontSize:13, lineHeight:1.6, marginBottom:10 }}>{lang === JP ? '品目データがまだ同期されていません。PC本番URLでCSVをアップロード後、再読み込みしてください。' : 'Item data is not synced yet. Upload the CSV on the desktop production URL, then refresh.'}</div>}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           <MobileSummaryCard title={lang === JP ? '発注必要案件' : 'Items to order'} value={reorderItems.length} note={lang === JP ? '要確認' : 'Review'} tone="red" />
           <MobileSummaryCard title={lang === JP ? '在庫過多' : 'Overstock'} value={overItems.length} note={lang === JP ? '8週以上' : '8w+'} tone="blue" />
@@ -1743,7 +1765,7 @@ export default function App() {
 
   // hard Supabase sync minimal schema fix
 // Supabase unique user_id name aggregate fix
-// remove total supplier when detailed CSV exists
+// safe total supplier display filter and mobile empty-state fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1899,7 +1921,7 @@ export default function App() {
       superset: s.superset || s.name,
       name_en: s.name_en || s.name,
     }))
-    const merged = removeTotalSupplierRowsWhenDetailedExists(includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound))
+    const merged = includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound)
     setUploadedItems(localItems)
     setSkus(merged)
     setIncrementals(localInbound)
@@ -2007,26 +2029,6 @@ export default function App() {
     }
   }
 
-
-function isTotalSupplierRow(s) {
-  const v = String(s?.supplier || s?.subset || '').trim().toLowerCase()
-  return v === 'all suppliers total' || v === '全仕入先合計' || v === 'total supplier'
-}
-
-function removeTotalSupplierRowsWhenDetailedExists(rows) {
-  const list = safeArray(rows)
-  const hasDetailedByName = new Set(
-    list
-      .filter(s => s?.name && !isTotalSupplierRow(s))
-      .map(s => String(s.name).trim().toLowerCase())
-  )
-  return list.filter(s => {
-    const nameKey = String(s?.name || '').trim().toLowerCase()
-    return !(isTotalSupplierRow(s) && hasDetailedByName.has(nameKey))
-  })
-}
-
-
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
     readCsvText(file, async text => {
@@ -2072,8 +2074,8 @@ function removeTotalSupplierRowsWhenDetailedExists(rows) {
       }
       // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
       // これにより、以前のデモ行・仕入先0・古い仕入先が画面に残らないようにします。
-      const acceptedRows = rows.filter(r => !isTotalSupplierRow(r))
-      const saved = removeTotalSupplierRowsWhenDetailedExists(mergeByItemSupplier([], acceptedRows))
+      const acceptedRows = rows
+      const saved = mergeByItemSupplier([], acceptedRows)
       const filteredInbound = (incrementals || []).filter(r =>
         saved.some(s => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
       )
@@ -2081,7 +2083,7 @@ function removeTotalSupplierRowsWhenDetailedExists(rows) {
       localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(filteredInbound))
       setUploadedItems(saved)
       setIncrementals(filteredInbound)
-      const nextItems = removeTotalSupplierRowsWhenDetailedExists(includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound))
+      const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound)
       setSkus(nextItems)
       const preferred = acceptedRows[0] || selectedSku
       setSelected(findMatchingItem(nextItems, preferred) || findMatchingItem(nextItems, selectedSku) || pickDemoFocus(nextItems))
@@ -2149,8 +2151,9 @@ function removeTotalSupplierRowsWhenDetailedExists(rows) {
     })
   }
 
-  const items = removeTotalSupplierRowsWhenDetailedExists(skus.length ? skus : sampleSkus)
+  const items = skus.length ? skus : sampleSkus
   const productOptions = useMemo(() => uniqueProductOptions(items), [items])
+  const displayProductOptions = hideTotalSupplierRowsOnlyIfDetailsExist(productOptions)
   const selectedSku = findMatchingItem(items, selected) || selected || productOptions[0] || items[0]
   const productActionItems = uniqueActionProducts(items, lang)
   const alertItems = productActionItems.filter(s => statusOf(s) === 'alert')
@@ -2197,18 +2200,18 @@ function removeTotalSupplierRowsWhenDetailedExists(rows) {
 
         <div style={{ marginTop:18, display:'flex', flexWrap:'wrap', background:'linear-gradient(90deg,rgba(7,43,76,.9),rgba(5,34,62,.95))', border:`1px solid ${T.line}`, borderRadius:10 }}>
           <MiniMetric icon="" title={copy(lang, 'inbound')} value={`${fmt(inboundTotal)}${lang === JP ? '個' : ' units'}`} note={lang === JP ? '登録済みの輸入数量予定' : 'Registered inbound plan'} />
-          <MiniMetric icon="" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`${productOptions.length} ${copy(lang, 'activeItems')}`} />
+          <MiniMetric icon="" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`${displayProductOptions.length} ${copy(lang, 'activeItems')}`} />
         </div>
 
         <Panel title={copy(lang, 'heatmap')}>
           <p style={{ color:'#cbd9e8', marginTop:-6 }}>{copy(lang, 'heatmapHint')}</p>
-          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{productOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
+          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{displayProductOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
           <div style={{ display:'flex', gap:18, flexWrap:'wrap', color:'#c9d8e8', fontSize:14 }}>{Object.entries(statusMeta).filter(([k])=>k !== 'attention').map(([k,m])=><span key={k}><b style={{ color:m.color }}>● {m[lang]}</b>：{lang === JP ? m.descJa : m.descEn}</span>)}</div>
         </Panel>
 
         <div ref={actionItemsRef} style={{ scrollMarginTop:20 }}><Panel title={copy(lang, 'reorderItems')}>
           <div style={{ display:'grid', gap:12 }}>
-            {(actionItems.length ? actionItems : productOptions).map(s => { const st=statusOf(s); const m=statusMeta[st]; const recommended = st === 'over' ? 0 : (s.moq || Math.max(0, calcRp(s)-Number(s.stock_qty||0))); return <div key={s.id} onClick={()=>{setSelected(s); setTab('heatmap')}} style={{ display:'grid', gridTemplateColumns:'110px 1.4fr .65fr .75fr 260px', gap:16, alignItems:'center', cursor:'pointer', border:`1px solid ${m.color}`, background:`${m.color}12`, borderRadius:10, padding:12 }}>
+            {(actionItems.length ? actionItems : displayProductOptions).map(s => { const st=statusOf(s); const m=statusMeta[st]; const recommended = st === 'over' ? 0 : (s.moq || Math.max(0, calcRp(s)-Number(s.stock_qty||0))); return <div key={s.id} onClick={()=>{setSelected(s); setTab('heatmap')}} style={{ display:'grid', gridTemplateColumns:'110px 1.4fr .65fr .75fr 260px', gap:16, alignItems:'center', cursor:'pointer', border:`1px solid ${m.color}`, background:`${m.color}12`, borderRadius:10, padding:12 }}>
               <IconBox icon={s.icon || 'box'} active />
               <div><h3 style={{ margin:'0 0 8px', fontSize:22 }}>{displayName(s, lang)}</h3><div style={{ color:T.muted, fontSize:14 }}>{copy(lang, 'itemLabel')}: {s.name}</div><div style={{ marginTop:9 }}><span style={{ background:m.color, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:13, fontWeight:900 }}>{m[lang].toUpperCase()}</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{st === 'over' ? (lang === JP ? '在庫過多の可能性があります' : 'Possible overstock detected') : (lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected')}</span></div></div>
               <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:18 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'currentStock')}</div><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>{fmt(s.stock_qty)} <span style={{ fontSize:14 }}>{copy(lang, 'units')}</span></div></div>
