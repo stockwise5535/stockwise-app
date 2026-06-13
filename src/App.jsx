@@ -421,7 +421,9 @@ function makeOrderPlanRows(items, selectedSku, incrementals, lang) {
       const cost = Number(r.sku.unit_cost || 0)
       const lead = Number(r.sku.lead_time || 999)
       const band = weeks >= 2 && weeks < 8 ? 0 : weeks >= 8 ? 1 : 2
-      return band * 100000 - Math.min(weeks, 13) * 1000 + lead * 5 + cost * 0.01
+      // Within usable suppliers, choose the lowest unit cost first. If cost ties, shorter lead time wins.
+      // Stock coverage is only used as a tie-breaker so Furukawa wins over AVC when LT is same and cost is lower.
+      return band * 100000 + cost * 100 + lead * 5 - Math.min(weeks, 13)
     }
     return score(a) - score(b)
   })
@@ -444,7 +446,7 @@ function makeOrderPlanRows(items, selectedSku, incrementals, lang) {
       ? (lang === JP ? '品目全体で在庫過多。追加注文停止・生産後ろ倒し確認' : 'Item-level overstock: stop additional orders and review production postponement')
       : productShortage
         ? (i === 0
-          ? (lang === JP ? '品目全体で不足。必要数量のみ発注検討' : 'Item-level shortage: consider ordering only the required quantity')
+          ? (lang === JP ? '品目全体で不足。低単価・在庫余力を優先して必要数量のみ発注検討' : 'Item-level shortage: consider ordering only the required quantity')
           : (lang === JP ? '代替仕入先として納期・数量を確認' : 'Check lead time and quantity as backup supplier'))
         : (lang === JP ? '品目合計では不足なし。発注不要' : 'No item-level shortage. No order needed')
   }))
@@ -615,27 +617,27 @@ function IconBox({ icon, active=false }) {
 
 function MetricCard({ tone, icon, title, sub, value, note, button, onClick, lang }) {
   const c = tone === 'red' ? T.red : tone === 'orange' ? T.red : T.blue
-  return <div style={{ flex:1, minWidth:300, border:`1px solid ${c}`, borderRadius:10, padding:'22px 26px', background:`linear-gradient(135deg, ${tone === 'red' ? 'rgba(255,35,58,.45)' : tone === 'blue' ? 'rgba(59,130,246,.34)' : 'rgba(255,120,0,.44)'}, rgba(2,11,22,.75))`, boxShadow:`0 0 28px ${c}24` }}>
+  return <div style={{ flex:1, minWidth:280, border:`1px solid ${c}`, borderRadius:10, padding:'18px 22px', background:`linear-gradient(135deg, ${tone === 'red' ? 'rgba(255,35,58,.45)' : tone === 'blue' ? 'rgba(59,130,246,.34)' : 'rgba(255,120,0,.44)'}, rgba(2,11,22,.75))`, boxShadow:`0 0 28px ${c}24` }}>
     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:18 }}>
-      <div style={{ display:'flex', gap:16 }}><div style={{ fontSize:34, color:c }}>{icon}</div><div><div style={{ fontWeight:900, fontSize:20 }}>{title}</div><div style={{ fontSize:14, fontWeight:700 }}>{sub}</div></div></div>
+      <div style={{ display:'flex', gap:14 }}><div style={{ fontSize:28, color:c }}>{icon}</div><div><div style={{ fontWeight:900, fontSize:18 }}>{title}</div><div style={{ fontSize:13, fontWeight:700 }}>{sub}</div></div></div>
       {button && <Btn small onClick={onClick}>{button} →</Btn>}
     </div>
-    <div style={{ fontSize:58, fontWeight:900, lineHeight:1, marginTop:20 }}>{value}<span style={{ fontSize:19, marginLeft:12 }}>{lang === JP ? '件' : ''}</span></div>
-    <div style={{ fontSize:15, fontWeight:700, marginTop:10 }}>{note}</div>
+    <div style={{ fontSize:48, fontWeight:900, lineHeight:1, marginTop:16 }}>{value}<span style={{ fontSize:18, marginLeft:10 }}>{lang === JP ? '件' : ''}</span></div>
+    <div style={{ fontSize:14, fontWeight:700, marginTop:8 }}>{note}</div>
   </div>
 }
 
 function MiniMetric({ icon, title, value, note }) {
-  return <div style={{ flex:1, minWidth:280, padding:'22px 32px', display:'flex', gap:24, alignItems:'center', borderRight:`1px solid ${T.line}` }}>
-    {icon ? <div style={{ fontSize:42, color:T.blue }}>{icon}</div> : null}
-    <div><div style={{ color:T.blue, fontSize:18, fontWeight:900 }}>{title}</div><div style={{ fontSize:34, fontWeight:900 }}>{value}</div><div style={{ color:'#c6d8e8', fontSize:15 }}>{note}</div></div>
+  return <div style={{ flex:1, minWidth:240, padding:'18px 24px', display:'flex', gap:18, alignItems:'center', borderRight:`1px solid ${T.line}` }}>
+    {icon ? <div style={{ fontSize:34, color:T.blue }}>{icon}</div> : null}
+    <div><div style={{ color:T.blue, fontSize:16, fontWeight:900 }}>{title}</div><div style={{ fontSize:30, fontWeight:900 }}>{value}</div><div style={{ color:'#c6d8e8', fontSize:14 }}>{note}</div></div>
   </div>
 }
 
 function Panel({ title, children, action }) {
-  return <section style={{ background:'linear-gradient(180deg,rgba(7,43,76,.96),rgba(3,27,50,.96))', border:`1px solid ${T.line}`, borderRadius:10, padding:18, marginTop:16, boxShadow:'0 20px 50px rgba(0,0,0,.22)' }}>
+  return <section style={{ background:'linear-gradient(180deg,rgba(7,43,76,.96),rgba(3,27,50,.96))', border:`1px solid ${T.line}`, borderRadius:10, padding:16, marginTop:16, boxShadow:'0 20px 50px rgba(0,0,0,.22)' }}>
     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, marginBottom:12 }}>
-      <h2 style={{ margin:0, fontSize:26, letterSpacing:'-.03em' }}>{title}</h2>
+      <h2 style={{ margin:0, fontSize:22, letterSpacing:'-.03em' }}>{title}</h2>
       {action && <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>{action}</div>}
     </div>
     {children}
@@ -644,11 +646,11 @@ function Panel({ title, children, action }) {
 
 function HeatCard({ sku, lang, active, onClick }) {
   const st = statusOf(sku), m = statusMeta[st], weeks = calcWeeks(sku)
-  return <button onClick={onClick} style={{ textAlign:'center', minWidth:210, flex:'1 1 210px', background:'linear-gradient(180deg,rgba(9,47,82,.92),rgba(6,32,58,.95))', border:`2px solid ${active ? m.color : T.line}`, borderRadius:10, padding:18, color:T.text, fontFamily:T.font, cursor:'pointer', boxShadow: active ? `0 0 20px ${m.color}55` : 'none' }}>
-    <div style={{ height:58, display:'flex', justifyContent:'center', alignItems:'center' }}><ProductIcon type={sku.icon || 'box'} /></div>
-    <div style={{ fontWeight:800, fontSize:15, minHeight:38, display:'flex', alignItems:'center', justifyContent:'center' }}>{displayName(sku, lang)}</div>
-    <div style={{ color:m.color, fontWeight:900, fontSize:32, marginTop:8 }}>{weeks > 13 ? '13+' : fmtWeeks(weeks)} {copy(lang, 'week')}</div>
-    <div style={{ display:'inline-block', marginTop:8, color:m.color, border:`1px solid ${m.color}`, borderRadius:6, padding:'5px 12px', fontWeight:900 }}>{m[lang]}</div>
+  return <button onClick={onClick} style={{ textAlign:'center', minWidth:180, maxWidth:220, width:'100%', background:'linear-gradient(180deg,rgba(9,47,82,.92),rgba(6,32,58,.95))', border:`2px solid ${active ? m.color : T.line}`, borderRadius:10, padding:14, color:T.text, fontFamily:T.font, cursor:'pointer', boxShadow: active ? `0 0 20px ${m.color}55` : 'none' }}>
+    <div style={{ height:44, display:'flex', justifyContent:'center', alignItems:'center' }}><ProductIcon type={sku.icon || 'box'} /></div>
+    <div style={{ fontWeight:800, fontSize:14, minHeight:34, display:'flex', alignItems:'center', justifyContent:'center' }}>{displayName(sku, lang)}</div>
+    <div style={{ color:m.color, fontWeight:900, fontSize:28, marginTop:6 }}>{weeks > 13 ? '13+' : fmtWeeks(weeks)} {copy(lang, 'week')}</div>
+    <div style={{ display:'inline-block', marginTop:6, color:m.color, border:`1px solid ${m.color}`, borderRadius:6, padding:'4px 10px', fontWeight:900, fontSize:12 }}>{m[lang]}</div>
   </button>
 }
 
@@ -749,19 +751,19 @@ function ForecastSupplyGapTable({ products, items, incrementals, selectedSku, on
     : Array.from({ length: 13 }, (_, i) => ({ label: weekLabel(i + 1, lang), weeks:[i + 1] }))
 
   const shown = (products || []).slice(0, 8)
-  const tableMinWidth = isMonthly ? 760 : 1160
+  const tableMinWidth = isMonthly ? 760 : 1060
   const headerCell = {
     textAlign:'center',
-    padding:'10px 6px',
+    padding:'8px 4px',
     borderBottom:`1px solid ${T.line}`,
     background:'rgba(255,255,255,.04)',
     whiteSpace:'nowrap',
-    fontSize:13,
+    fontSize:12,
     color:'#d8e8f8',
     fontWeight:900,
   }
   const metricCell = {
-    padding:'8px 10px',
+    padding:'7px 8px',
     borderBottom:`1px solid ${T.line}`,
     color:'#f8fbff',
     fontWeight:900,
@@ -778,12 +780,12 @@ function ForecastSupplyGapTable({ products, items, incrementals, selectedSku, on
     return 0
   }
 
-  return <div style={{ overflowX:'auto', border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(0,0,0,.10)' }}>
+  return <div style={{ overflowX:'auto', overflowY:'hidden', border:`1px solid ${T.line}`, borderRadius:12, background:'rgba(0,0,0,.10)' }}>
     <table style={{ width:'100%', minWidth:tableMinWidth, borderCollapse:'collapse', tableLayout:'fixed' }}>
       <thead><tr>
-        <th style={{ position:'sticky', left:0, zIndex:3, textAlign:'left', width:210, padding:'11px 12px', borderBottom:`1px solid ${T.line}`, background:'#082947', color:'#f8fbff', fontSize:13 }}>{lang === JP ? '対象品目' : 'Item'}</th>
-        <th style={{ ...headerCell, width:84 }}>{lang === JP ? '推移' : 'Trend'}</th>
-        <th style={{ ...headerCell, textAlign:'left', width:130 }}>{lang === JP ? '指標' : 'Metric'}</th>
+        <th style={{ position:'sticky', left:0, zIndex:3, textAlign:'left', width:180, padding:'10px 10px', borderBottom:`1px solid ${T.line}`, background:'#082947', color:'#f8fbff', fontSize:12 }}>{lang === JP ? '対象品目' : 'Item'}</th>
+        <th style={{ ...headerCell, width:72 }}>{lang === JP ? '推移' : 'Trend'}</th>
+        <th style={{ ...headerCell, textAlign:'left', width:92 }}>{lang === JP ? '指標' : 'Metric'}</th>
         {periods.map(p => <th key={p.label} style={headerCell}>{p.label}</th>)}
       </tr></thead>
       <tbody>{shown.map(product => {
@@ -798,28 +800,28 @@ function ForecastSupplyGapTable({ products, items, incrementals, selectedSku, on
           { key:'delta', label: lang === JP ? '差分' : 'Gap', values:periods.map(p => periodValue(series, p, 'delta')) },
         ]
         return metricRows.map((row, idx) => <tr key={`${product.id}-${row.key}`}>
-          {idx === 0 && <td rowSpan={3} onClick={()=>onSelect(product)} style={{ position:'sticky', left:0, zIndex:2, cursor:'pointer', background:selected ? 'linear-gradient(90deg,rgba(59,130,246,.26),#06223d)' : '#06223d', padding:'10px 12px', borderBottom:`1px solid ${T.line}`, borderRight:`1px solid ${T.line}` }}>
+          {idx === 0 && <td rowSpan={3} onClick={()=>onSelect(product)} style={{ position:'sticky', left:0, zIndex:2, cursor:'pointer', background:selected ? 'linear-gradient(90deg,rgba(59,130,246,.26),#06223d)' : '#06223d', padding:'8px 10px', borderBottom:`1px solid ${T.line}`, borderRight:`1px solid ${T.line}` }}>
             <div style={{ minWidth:0 }}>
-              <div style={{ fontWeight:900, fontSize:14, color:'#f8fbff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(product, lang)}</div>
-              <div style={{ color:T.muted, fontSize:11, marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{product.supplier || product.subset || (lang === JP ? '全仕入先合計' : 'All suppliers total')}</div>
-              <div style={{ marginTop:5, color:m.color, fontSize:11, fontWeight:900 }}>{m[lang]}</div>
+              <div style={{ fontWeight:900, fontSize:13, color:'#f8fbff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayName(product, lang)}</div>
+              <div style={{ color:T.muted, fontSize:10, marginTop:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{product.supplier || product.subset || (lang === JP ? '全仕入先合計' : 'All suppliers total')}</div>
+              <div style={{ marginTop:5, color:m.color, fontSize:10, fontWeight:900 }}>{m[lang]}</div>
             </div>
           </td>}
-          {idx === 0 && <td rowSpan={3} style={{ padding:'6px 8px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><TinyTrend points={series} /></td>}
+          {idx === 0 && <td rowSpan={3} style={{ padding:'4px 6px', borderBottom:`1px solid ${T.line}`, textAlign:'center' }}><TinyTrend points={series} /></td>}
           <td style={metricCell}>{row.label}</td>
           {row.values.map((v, i) => {
             const tone = row.key === 'delta' ? deltaTone(v, metricRows[0].values[i] || 0) : null
             const color = row.key === 'delta' ? statusMeta[tone].color : '#f8fbff'
-            return <td key={i} style={{ textAlign:'center', padding:'6px 4px', borderBottom:`1px solid ${T.line}` }}>
+            return <td key={i} style={{ textAlign:'center', padding:'5px 3px', borderBottom:`1px solid ${T.line}` }}>
               <div style={{
                 border: row.key === 'delta' ? `1px solid ${color}` : '1px solid rgba(255,255,255,.08)',
                 background: row.key === 'delta' ? `${color}22` : 'rgba(255,255,255,.02)',
                 color,
                 borderRadius:7,
-                padding:'7px 4px',
+                padding:'6px 3px',
                 fontWeight:900,
                 minWidth:0,
-                fontSize: isMonthly ? 14 : 12,
+                fontSize: isMonthly ? 13 : 11,
               }}>{row.key === 'delta' && v > 0 ? '+' : ''}{fmt(v)}</div>
             </td>
           })}
@@ -1444,7 +1446,7 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
         weeks >= 2 && weeks < 8 ? 0 :
         weeks >= 8 ? 1 :
         2
-      return band * 100000 - Math.min(weeks, 13) * 1000 + lead * 5 + cost * 0.01
+      return band * 100000 + cost * 100 + lead * 5 - Math.min(weeks, 13)
     }
     return score(a) - score(b)
   })
@@ -1463,8 +1465,8 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
       <div style={{ color:T.muted, fontSize:14, marginTop:4 }}>
         {displayName(target, lang)}
         {lang === JP
-          ? 'について、品目全体の在庫状況を基準に、在庫余力のある仕入先を優先して表示します。'
-          : ': prioritize suppliers with usable stock coverage based on item-level inventory status.'}
+          ? 'について、品目全体の在庫状況を基準に、在庫余力があり、単価が安い仕入先を優先して表示します。'
+          : ': prioritize suppliers with usable stock coverage and the lowest unit cost based on item-level inventory status.'}
       </div>
     </div>
     <div style={{ overflowX:'auto' }}>
@@ -1488,7 +1490,7 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
             ? (lang === JP ? '品目全体で在庫過多。追加発注停止・生産後ろ倒し確認' : 'Item-level overstock. Stop additional orders and review production postponement')
             : productShortage
               ? (i === 0
-                ? (lang === JP ? '品目全体で不足。必要数量のみ発注検討' : 'Item-level shortage. Consider ordering only the required quantity')
+                ? (lang === JP ? '品目全体で不足。低単価・在庫余力を優先して必要数量のみ発注検討' : 'Item-level shortage. Prioritize low cost and usable stock coverage, then order only the required quantity')
                 : (lang === JP ? '代替仕入先として納期・数量を確認' : 'Check lead time and quantity as backup supplier'))
               : supplierLowButProductOk
                 ? (lang === JP ? '品目合計では不足なし。低在庫仕入先は補充対象外' : 'No item-level shortage. Low-stock supplier is not an order target')
@@ -1867,6 +1869,9 @@ export default function App() {
 // workflow email shortage required-date overstock postponement fix
 // order proposal item-level no-giant-order and heatmap width fix
 // priority supplier stock-coverage and dashboard table readability fix
+// priority supplier lowest-cost among usable suppliers fix
+// weekly 13-column compact width fix
+// dashboard compact card/table sizing fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1876,6 +1881,9 @@ export default function App() {
 // workflow email shortage required-date overstock postponement fix
 // order proposal item-level no-giant-order and heatmap width fix
 // priority supplier stock-coverage and dashboard table readability fix
+// priority supplier lowest-cost among usable suppliers fix
+// weekly 13-column compact width fix
+// dashboard compact card/table sizing fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -1884,6 +1892,9 @@ export default function App() {
 // workflow email shortage required-date overstock postponement fix
 // order proposal item-level no-giant-order and heatmap width fix
 // priority supplier stock-coverage and dashboard table readability fix
+// priority supplier lowest-cost among usable suppliers fix
+// weekly 13-column compact width fix
+// dashboard compact card/table sizing fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2338,19 +2349,19 @@ export default function App() {
       </nav>
 
       {tab === 'dashboard' && <>
-        <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
           <MetricCard lang={lang} tone="red" icon="🛒" title={copy(lang, 'reorder')} sub={copy(lang, 'reorderSub')} value={reorder.length} note={copy(lang, 'reorderNote')} button={copy(lang, 'check')} onClick={scrollToActionItems} />
           <MetricCard lang={lang} tone="blue" icon="📦" title={copy(lang, 'overstock')} sub={copy(lang, 'overstockSub')} value={overItems.length} note={copy(lang, 'overstockNote')} button={copy(lang, 'check')} onClick={scrollToActionItems} />
         </div>
 
-        <div style={{ marginTop:18, display:'flex', flexWrap:'wrap', background:'linear-gradient(90deg,rgba(7,43,76,.9),rgba(5,34,62,.95))', border:`1px solid ${T.line}`, borderRadius:10 }}>
+        <div style={{ marginTop:14, display:'flex', flexWrap:'wrap', background:'linear-gradient(90deg,rgba(7,43,76,.9),rgba(5,34,62,.95))', border:`1px solid ${T.line}`, borderRadius:10 }}>
           <MiniMetric icon="" title={copy(lang, 'inbound')} value={`${fmt(inboundTotal)}${lang === JP ? '個' : ' units'}`} note={lang === JP ? '登録済みの輸入数量予定' : 'Registered inbound plan'} />
           <MiniMetric icon="" title={copy(lang, 'stockValue')} value={currency(stockValue, lang)} note={`${displayProductOptions.length} ${copy(lang, 'activeItems')}`} />
         </div>
 
         <Panel title={copy(lang, 'heatmap')}>
           <p style={{ color:'#cbd9e8', marginTop:-6 }}>{copy(lang, 'heatmapHint')}</p>
-          <div style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:10 }}>{displayProductOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 220px))', justifyContent:'start', gap:12, paddingBottom:6 }}>{displayProductOptions.slice(0,5).map(s=><HeatCard key={s.id} lang={lang} sku={s} active={sameProduct(s, selectedSku)} onClick={()=>{setSelected(s); setTab('heatmap')}} />)}</div>
           <div style={{ display:'flex', gap:18, flexWrap:'wrap', color:'#c9d8e8', fontSize:14 }}>{Object.entries(statusMeta).filter(([k])=>k !== 'attention').map(([k,m])=><span key={k}><b style={{ color:m.color }}>● {m[lang]}</b>：{lang === JP ? m.descJa : m.descEn}</span>)}</div>
         </Panel>
 
