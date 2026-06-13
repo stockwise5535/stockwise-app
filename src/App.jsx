@@ -254,6 +254,24 @@ function uniqueProductCount(items) {
   return seen.size
 }
 
+function billableSupersetKey(item) {
+  const raw = String(item?.superset || item?.name || item?.sku || item?.name_en || '').trim()
+  const marker = '__SW_SUPPLIER__'
+  const cleaned = raw.includes(marker) ? raw.split(marker)[0] : raw
+  return textKey(cleaned)
+}
+
+function billableSupersetCount(items) {
+  const seen = new Set()
+  ;(items || []).forEach(item => {
+    if (isTotalSupplierRow(item)) return
+    const key = billableSupersetKey(item)
+    if (key) seen.add(key)
+  })
+  return seen.size
+}
+
+
 function uniqueActionProducts(items, lang) {
   // Use the same representative row as the supplier heatmap cards.
   // This keeps the dashboard/action list status aligned with the supplier-level heatmap.
@@ -1760,7 +1778,7 @@ export default function App() {
   const actualCsvRef = useRef(null)
   const actionItemsRef = useRef(null)
 
-  const PLAN_FREE_LIMIT = 0
+  const PLAN_FREE_LIMIT = 1
   const PLAN_BASIC_LIMIT = 20
   const BASIC_PRICE_LABEL = '$19.99 / month'
 
@@ -1795,9 +1813,15 @@ export default function App() {
 // supplier detail Supabase sync without total supplier fix
 // paid SKU limit basic 49 monthly fix
 // paid SKU limit 1999 starts from 1 SKU fix
+// paid SKU limit 1999 starts from 2 SKUs fix
+// paywall by second superset not supplier row fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
+// paid SKU limit 1999 starts from 2 SKUs fix
+// paywall by second superset not supplier row fix
 // paid SKU limit 1999 starts from 1 SKU fix
+// paid SKU limit 1999 starts from 2 SKUs fix
+// paywall by second superset not supplier row fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2105,7 +2129,7 @@ export default function App() {
           factory:get(cols, ['生産工場','factory'], 8)?.trim() || '',
         }
       }).filter(r => r.name)
-      const skuCount = uniqueProductCount(rows)
+      const skuCount = billableSupersetCount(rows)
       const basicActive = isBasicPlanActive()
 
       if (skuCount > PLAN_BASIC_LIMIT) {
@@ -2119,8 +2143,8 @@ export default function App() {
 
       if (!basicActive && skuCount > PLAN_FREE_LIMIT) {
         const ok = window.confirm(lang === JP
-          ? `SKUを登録するには、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。最大${PLAN_BASIC_LIMIT}SKUまで登録できます。Stripe Checkoutへ進みますか？`
-          : `To register SKUs, upgrade to Basic ${BASIC_PRICE_LABEL}. You can register up to ${PLAN_BASIC_LIMIT} SKUs. Continue to Stripe Checkout?`
+          ? `同じ品目内のSupplier違いは無料枠内で複数登録できます。2つ目の品目から、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。最大${PLAN_BASIC_LIMIT}品目まで利用できます。Stripe Checkoutへ進みますか？`
+          : `Multiple suppliers under the same item are allowed. To add a second item, upgrade to Basic ${BASIC_PRICE_LABEL}. You can use up to ${PLAN_BASIC_LIMIT} items. Continue to Stripe Checkout?`
         )
         e.target.value = ''
         if (ok) await startUpgradeCheckout('sku_limit_upgrade')
