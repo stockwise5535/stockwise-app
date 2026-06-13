@@ -78,7 +78,7 @@ const calcDays = s => calcWeeks(s) * 7
 const calcRp = s => Math.ceil(Number(s?.lead_time || 0) / 7) * consumptionPerWeek(s)
 const fmt = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
 const displayName = (s, lang) => lang === EN ? (s.name_en || s.name) : s.name
-const currency = (n, lang) => lang === JP ? `¥${Math.round(Number(n || 0) * 150).toLocaleString('ja-JP')}` : `$${Math.round(Number(n || 0) / 1000)}K`
+const currency = (n, lang) => lang === JP ? `¥${Math.round(Number(n || 0)).toLocaleString('ja-JP')}` : `$${Math.round(Number(n || 0)).toLocaleString('en-US')}`
 const weekLabel = (week, lang) => lang === JP ? `${week}週` : `W${week}`
 const fmtWeeks = w => Math.max(0, Math.round(Number(w || 0))).toLocaleString('en-US')
 const csvBlob = rows => new Blob(['\ufeff' + rows.join('\n')], { type:'text/csv;charset=utf-8' })
@@ -273,11 +273,10 @@ function billableSupersetCount(items) {
 
 
 function uniqueActionProducts(items, lang) {
-  // Use the same representative row as the supplier heatmap cards.
-  // This keeps the dashboard/action list status aligned with the supplier-level heatmap.
-  // Example: if one supplier for an item is at 1 week while the total item stock looks healthy,
-  // the item still needs attention because that supplier row is red in the heatmap.
-  return uniqueProductOptions(items)
+  // Dashboard/action counts are product-level (superset/item-level), not supplier-row-level.
+  // Supplier A/B/C under the same item count as one item. This keeps the dashboard aligned
+  // with the uploaded CSV item total rather than showing shortage just because one supplier row is low.
+  return aggregateProductOptions(items, lang)
     .filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention' || statusOf(s) === 'over' || Number(s.stock_qty || 0) < calcRp(s))
 }
 
@@ -520,7 +519,7 @@ function buildSupplierEmailDraft(item, lang) {
 function copy(lang, key) {
   const d = {
     dashboard: { ja:'ダッシュボード', en:'Dashboard' },
-    heatmap: { ja:'在庫ヒートマップ（仕入先別）', en:'Inventory Heatmap by Supplier' },
+    heatmap: { ja:'在庫ヒートマップ', en:'Inventory Heatmap' },
     reorderTab: { ja:'対応必要品目', en:'Items Needing Action' },
     alertBanner: { ja:'現在、対応が必要な不足リスクがあります。発注必要案件は確認ボタンから確認できます。', en:'There are shortage risks requiring attention. Use the check button to review items expected to run short.' },
     shortageListTitle: { ja:'対応必要品目', en:'Items Needing Action' },
@@ -559,7 +558,7 @@ function copy(lang, key) {
     csvTemplateDownload: { ja:'ダウンロード', en:'Download' },
     csvUpload: { ja:'アップロード', en:'Upload' },
     allItems: { ja:'すべての品目を表示', en:'View All Items' },
-    heatmapHint: { ja:'品目をクリックすると、その品目の在庫ヒートマップ（仕入先別）へ移動します。', en:'Click an item to open its supplier heatmap.' },
+    heatmapHint: { ja:'品目ごとの在庫状況を、合計在庫・需要・供給ギャップで確認します。', en:'Review each item by total stock, demand, and supply gap.' },
     itemTemplateSection: { ja:'対応必要品目', en:'Items Needing Action' },
     csvSection: { ja:'輸入数量予定', en:'Inbound Plan' },
     selectItem: { ja:'表示する品目', en:'Selected Item' },
@@ -847,12 +846,17 @@ function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
   const currentWos = calcWeeks(agg)
   const isShort = currentWos < 2 || Number(first.delta || 0) < 0
   const isOver = currentWos >= 8
-  const subject = lang === JP
-    ? `${displayName(sku, lang)}の前倒し出荷可否について`
-    : `Request to confirm earlier shipment for ${displayName(sku, lang)}`
-  const body = lang === JP
-    ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、短期的に供給調整が必要な可能性があります。\n${fmt(recommendedQty)}個の出荷可否をご確認いただけますでしょうか。\n\nどうぞよろしくお願いいたします。`
-    : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and noticed a potential short-term supply adjustment need.\nCould you please confirm whether ${fmt(recommendedQty)} units can be shipped earlier?\n\nBest regards,`
+  const needByText = shortageWeek ? (lang === JP ? `${shortageWeek}週目まで` : `by week ${shortageWeek}`) : (lang === JP ? '必要日まで' : 'by the required date')
+  const subject = isOver
+    ? (lang === JP ? `${displayName(sku, lang)}の部材手配中止・生産後ろ倒し可否について` : `Request to review material cancellation and production postponement for ${displayName(sku, lang)}`)
+    : (lang === JP ? `${displayName(sku, lang)}の必要日までの出荷可否について` : `Request to confirm shipment by required date for ${displayName(sku, lang)}`)
+  const body = isOver
+    ? (lang === JP
+      ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、需要に対して在庫が過多となる可能性があります。\nつきましては、追加の部材手配を一旦中止できるか、または予定している生産・出荷を後ろ倒しできるかご確認いただけますでしょうか。\nすでに手配済みの数量、キャンセル可否、後ろ倒し可能な最短日程もあわせてご共有ください。\n\nどうぞよろしくお願いいたします。`
+      : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and found a potential overstock situation against demand.\nCould you please confirm whether we can pause or cancel additional material arrangements, or postpone the planned production/shipment schedule?\nPlease also share any quantities already arranged, cancellation feasibility, and the earliest possible postponed schedule.\n\nBest regards,`)
+    : (lang === JP
+      ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、必要日に対して在庫が不足する可能性があります。\n${needByText}に必要数量 ${fmt(recommendedQty)}個を確保したいのですが、出荷可否および最短納入日をご確認いただけますでしょうか。\n難しい場合は、分納可能数量と代替可能な納期もご共有ください。\n\nどうぞよろしくお願いいたします。`
+      : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and found a potential shortage against the required date.\nWe would like to secure ${fmt(recommendedQty)} units ${needByText}. Could you please confirm shipment feasibility and the earliest delivery date?\nIf the full quantity is not possible, please share the partial shipment quantity and alternative delivery timing.\n\nBest regards,`)
 
   const copyEmail = () => navigator.clipboard?.writeText(`Subject: ${subject}\n\n${body}`)
 
@@ -1033,10 +1037,19 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
   const recommendedQty = Math.max(Number(agg.moq || 0), Math.ceil(Math.max(0, (sourceSeries[0]?.forecast || 0) - (sourceSeries[0]?.supply || 0)) || Number(agg.moq || 0) || Math.round(consumptionPerWeek(agg) * 2)))
   const bestSupplier = supplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
   const currentWos = calcWeeks(agg)
-  const subject = lang === JP ? `${displayName(sku, lang)}の前倒し出荷可否について` : `Request to confirm earlier shipment for ${displayName(sku, lang)}`
-  const body = lang === JP
-    ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、短期的に供給調整が必要な可能性があります。\n${fmt(recommendedQty)}個の出荷可否をご確認いただけますでしょうか。\n\nどうぞよろしくお願いいたします。`
-    : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and noticed a potential short-term supply adjustment need.\nCould you please confirm whether ${fmt(recommendedQty)} units can be shipped earlier?\n\nBest regards,`
+  const isShort = currentWos < 2 || Number(sourceSeries[0]?.delta || 0) < 0
+  const isOver = currentWos >= 8
+  const needByText = shortageWeek ? (lang === JP ? `${shortageWeek}週目まで` : `by week ${shortageWeek}`) : (lang === JP ? '必要日まで' : 'by the required date')
+  const subject = isOver
+    ? (lang === JP ? `${displayName(sku, lang)}の部材手配中止・生産後ろ倒し可否について` : `Request to review material cancellation and production postponement for ${displayName(sku, lang)}`)
+    : (lang === JP ? `${displayName(sku, lang)}の必要日までの出荷可否について` : `Request to confirm shipment by required date for ${displayName(sku, lang)}`)
+  const body = isOver
+    ? (lang === JP
+      ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、需要に対して在庫が過多となる可能性があります。\nつきましては、追加の部材手配を一旦中止できるか、または予定している生産・出荷を後ろ倒しできるかご確認いただけますでしょうか。\nすでに手配済みの数量、キャンセル可否、後ろ倒し可能な最短日程もあわせてご共有ください。\n\nどうぞよろしくお願いいたします。`
+      : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and found a potential overstock situation against demand.\nCould you please confirm whether we can pause or cancel additional material arrangements, or postpone the planned production/shipment schedule?\nPlease also share any quantities already arranged, cancellation feasibility, and the earliest possible postponed schedule.\n\nBest regards,`)
+    : (lang === JP
+      ? `${bestSupplier.supplier || 'Supplier'} ご担当者様\n\nいつもお世話になっております。\n${displayName(sku, lang)}について、現在の在庫状況を確認したところ、必要日に対して在庫が不足する可能性があります。\n${needByText}に必要数量 ${fmt(recommendedQty)}個を確保したいのですが、出荷可否および最短納入日をご確認いただけますでしょうか。\n難しい場合は、分納可能数量と代替可能な納期もご共有ください。\n\nどうぞよろしくお願いいたします。`
+      : `Hi ${bestSupplier.supplier || 'Supplier'},\n\nWe reviewed the current inventory status for ${displayName(sku, lang)} and found a potential shortage against the required date.\nWe would like to secure ${fmt(recommendedQty)} units ${needByText}. Could you please confirm shipment feasibility and the earliest delivery date?\nIf the full quantity is not possible, please share the partial shipment quantity and alternative delivery timing.\n\nBest regards,`)
   const copyEmail = async () => {
     const text = `Subject: ${subject}\n\n${body}`
     try {
@@ -1145,7 +1158,7 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
 
   const shortageItems = allProducts.filter(s => statusOf(s) === 'alert' || statusOf(s) === 'attention')
   const overItems = allProducts.filter(s => statusOf(s) === 'over')
-  const reorderItems = allProducts.filter(s => Number(s.stock_qty || 0) < calcRp(s))
+  const reorderItems = allProducts.filter(s => statusOf(s) === 'alert' || Number(s.stock_qty || 0) < calcRp(s))
   const inboundTotal = safeArray(incrementals).reduce((a,r)=>a+Number(r.qty||0),0)
   const stockValue = sourceItems.reduce((a,s)=>a+Number(s.stock_qty||0)*Number(s.unit_cost||0),0)
   const displayList = allProducts
@@ -1815,13 +1828,22 @@ export default function App() {
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
+// cross PC authoritative Supabase replace and user scoped fetch fix
+// unit cost raw and superset dashboard metrics fix
+// workflow email shortage required-date overstock postponement fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
+// cross PC authoritative Supabase replace and user scoped fetch fix
+// unit cost raw and superset dashboard metrics fix
+// workflow email shortage required-date overstock postponement fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
+// cross PC authoritative Supabase replace and user scoped fetch fix
+// unit cost raw and superset dashboard metrics fix
+// workflow email shortage required-date overstock postponement fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1913,7 +1935,20 @@ export default function App() {
   async function saveItemsToSupabase(rows, reason = 'manual') {
     const cleanRows = skuRowsForDb(rows)
     try {
-      // Try to clear old rows first. If RLS prevents delete, continue with upsert so current rows still update.
+      // Authoritative replace: use the Vercel API with Supabase service role so old supplier rows are removed across PCs.
+      const apiRes = await fetch('/api/save-skus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, rows: cleanRows, reason }),
+      }).catch(() => null)
+
+      if (apiRes) {
+        const apiData = await apiRes.json().catch(() => ({}))
+        if (apiRes.ok) return true
+        console.warn('Server-side Supabase replace failed; falling back to client upsert', reason, apiData)
+      }
+
+      // Fallback for local/dev: try direct delete + upsert with the user's own Supabase session.
       const del = await supabase.from('skus').delete().eq('user_id', user.id)
       if (del.error) {
         console.warn('Supabase item delete failed; continuing with upsert', reason, del.error)
@@ -1939,7 +1974,7 @@ export default function App() {
   async function fetchSkus() {
     let data = []
     try {
-      const res = await supabase.from('skus').select('*').order('name', { ascending:true })
+      const res = await supabase.from('skus').select('*').eq('user_id', user.id).order('name', { ascending:true })
       if (res.error) console.warn('skus fetch failed', res.error)
       data = safeArray(res.data).map(decodeSupplierDbRow)
     } catch (err) {
@@ -1953,20 +1988,9 @@ export default function App() {
     const localForecast = readStoredArray(`stockwise_forecast_${user.id}`)
     const localActual = readStoredArray(`stockwise_actual_${user.id}`)
 
-    // Publish existing PC localStorage items to Supabase once, so phone can read the same item list.
-    const localHash = JSON.stringify(localItems.map(r => ({
-      name:r.name, supplier:r.supplier || r.subset, stock_qty:r.stock_qty, daily_usage:r.daily_usage,
-      actual_consumption:r.actual_consumption, lead_time:r.lead_time, safety_stock:r.safety_stock, unit_cost:r.unit_cost
-    })))
-    const syncKey = `stockwise_items_synced_hash_${user.id}`
-    if (localItems.length && localStorage.getItem(syncKey) !== localHash) {
-      const ok = await saveItemsToSupabase(localItems, 'localStorage publish')
-      if (ok) localStorage.setItem(syncKey, localHash)
-      data = skuRowsForDb(localItems).map(decodeSupplierDbRow)
-    }
-
     const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    const baseSource = (data && data.length ? data : (localItems.length ? [] : (isLocalDev ? sampleSkus : [])))
+    const hasCloudItems = data && data.length
+    const baseSource = hasCloudItems ? data : (localItems.length ? localItems : (isLocalDev ? sampleSkus : []))
     const base = baseSource.map((s, i) => ({
       ...s,
       id: s.id || `base-${i}-${s.name}-${s.supplier || s.subset || ''}`,
@@ -1987,8 +2011,11 @@ export default function App() {
       superset: s.superset || s.name,
       name_en: s.name_en || s.name,
     }))
-    const merged = includeInboundOnlySuppliers(mergeByItemSupplier(base, normalizedLocal), localInbound)
-    setUploadedItems(localItems)
+    const merged = includeInboundOnlySuppliers(hasCloudItems ? base : mergeByItemSupplier(base, normalizedLocal), localInbound)
+    if (hasCloudItems) {
+      localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(base))
+    }
+    setUploadedItems(hasCloudItems ? base : localItems)
     setSkus(merged)
     setIncrementals(localInbound)
     setForecastRows(localForecast)
@@ -2230,16 +2257,16 @@ export default function App() {
   }
 
   const items = skus.length ? skus : sampleSkus
-  const productOptions = useMemo(() => uniqueProductOptions(items), [items])
+  const productOptions = useMemo(() => aggregateProductOptions(items, lang), [items, lang])
   const displayProductOptions = hideTotalSupplierRowsOnlyIfDetailsExist(productOptions)
-  const selectedSku = findMatchingItem(items, selected) || selected || productOptions[0] || items[0]
+  const selectedSku = productOptions.find(p => sameProduct(p, selected)) || selected || productOptions[0] || items[0]
   const productActionItems = uniqueActionProducts(items, lang)
   const alertItems = productActionItems.filter(s => statusOf(s) === 'alert')
-  const reorder = productActionItems.filter(s => Number(s.stock_qty || 0) < calcRp(s))
+  const reorder = productActionItems.filter(s => statusOf(s) === 'alert' || Number(s.stock_qty || 0) < calcRp(s))
   const overItems = productActionItems.filter(s => statusOf(s) === 'over')
   const actionItems = productActionItems
-  const inboundTotal = safeArray(incrementals).reduce((a,r)=>a+Number(r.qty||0),0) || 1400
-  const stockValue = items.reduce((a,s)=>a+Number(s.stock_qty||0)*Number(s.unit_cost||0),0) || 284000
+  const inboundTotal = safeArray(incrementals).reduce((a,r)=>a+Number(r.qty||0),0)
+  const stockValue = items.reduce((a,s)=>a+Number(s.stock_qty||0)*Number(s.unit_cost||0),0)
   const forecast = selectedSku ? buildForecast(selectedSku, incrementals, 13) : []
   const suppliers = [...new Set(items.map(s => s.supplier || s.subset || '未設定'))]
   const supplierRows = suppliers.map(sup => ({ supplier:sup, items: items.filter(s => (s.supplier || s.subset || '未設定') === sup) }))
