@@ -1760,9 +1760,9 @@ export default function App() {
   const actualCsvRef = useRef(null)
   const actionItemsRef = useRef(null)
 
-  const PLAN_FREE_LIMIT = 1
+  const PLAN_FREE_LIMIT = 0
   const PLAN_BASIC_LIMIT = 20
-  const BASIC_PRICE_LABEL = '$49.99 / month'
+  const BASIC_PRICE_LABEL = '$19.99 / month'
 
   function paidStorageKey() {
     return user?.id ? `stockwise_plan_basic_active_${user.id}` : 'stockwise_plan_basic_active'
@@ -1794,6 +1794,10 @@ export default function App() {
 // safe total supplier display filter and mobile empty-state fix
 // supplier detail Supabase sync without total supplier fix
 // paid SKU limit basic 49 monthly fix
+// paid SKU limit 1999 starts from 1 SKU fix
+// Supabase upsert no 409 SKU sync fix
+// paid SKU limit 1999 starts from 3 SKUs fix
+// paid SKU limit 1999 starts from 1 SKU fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -1885,18 +1889,17 @@ export default function App() {
   async function saveItemsToSupabase(rows, reason = 'manual') {
     const cleanRows = skuRowsForDb(rows)
     try {
+      // Try to clear old rows first. If RLS prevents delete, continue with upsert so current rows still update.
       const del = await supabase.from('skus').delete().eq('user_id', user.id)
       if (del.error) {
-        console.warn('Supabase item delete failed', reason, del.error)
-        alert(lang === JP ? `Supabase保存に失敗しました：${del.error.message}` : `Supabase save failed: ${del.error.message}`)
-        return false
+        console.warn('Supabase item delete failed; continuing with upsert', reason, del.error)
       }
 
       if (cleanRows.length) {
-        const inserted = await supabase.from('skus').insert(cleanRows)
-        if (inserted.error) {
-          console.warn('Supabase item insert failed', reason, inserted.error, cleanRows)
-          alert(lang === JP ? `Supabase保存に失敗しました：${inserted.error.message}` : `Supabase save failed: ${inserted.error.message}`)
+        const upserted = await supabase.from('skus').upsert(cleanRows, { onConflict:'user_id,name' })
+        if (upserted.error) {
+          console.warn('Supabase item upsert failed', reason, upserted.error, cleanRows)
+          alert(lang === JP ? `Supabase保存に失敗しました：${upserted.error.message}` : `Supabase save failed: ${upserted.error.message}`)
           return false
         }
       }
@@ -2039,7 +2042,7 @@ export default function App() {
   }
 
 
-  // SKU limit checkout paywall: Free = 1 SKU, Basic = $49.99/month up to 20 SKUs.
+  // SKU limit checkout paywall: Free = 1 SKU, Basic = $19.99/month up to 20 SKUs.
   async function startUpgradeCheckout(reason = 'second_item') {
     try {
       const res = await fetch('/api/create-checkout-session', {
@@ -2116,8 +2119,8 @@ export default function App() {
 
       if (!basicActive && skuCount > PLAN_FREE_LIMIT) {
         const ok = window.confirm(lang === JP
-          ? `無料プランで登録できるSKUは${PLAN_FREE_LIMIT}件までです。2SKU以上、最大${PLAN_BASIC_LIMIT}SKUまで利用するには、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。Stripe Checkoutへ進みますか？`
-          : `The free plan supports ${PLAN_FREE_LIMIT} SKU. To use 2–${PLAN_BASIC_LIMIT} SKUs, upgrade to Basic ${BASIC_PRICE_LABEL}. Continue to Stripe Checkout?`
+          ? `SKUを登録するには、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。最大${PLAN_BASIC_LIMIT}SKUまで登録できます。Stripe Checkoutへ進みますか？`
+          : `To register SKUs, upgrade to Basic ${BASIC_PRICE_LABEL}. You can register up to ${PLAN_BASIC_LIMIT} SKUs. Continue to Stripe Checkout?`
         )
         e.target.value = ''
         if (ok) await startUpgradeCheckout('sku_limit_upgrade')
@@ -2235,7 +2238,7 @@ export default function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? 'Basic 20SKU' : 'Basic 20 SKU') : (lang === JP ? 'Free 1SKU' : 'Free 1 SKU')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>{isBasicPlanActive() && <span style={{ color:T.muted, fontSize:12, fontWeight:900 }}>{lang === JP ? 'Basic 20SKU' : 'Basic 20 SKU'}</span>}<Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
