@@ -851,7 +851,10 @@ function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
   const agg = aggregateSkuForProduct(items, sku, lang)
   const first = series[0] || { forecast:0, supply:Number(agg.stock_qty || 0), delta:0 }
   const supplierRows = (agg.supplier_rows || sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku))).slice(0, 4)
-  const bestSupplier = supplierRows[0] || agg
+  // Match PC workflow-email supplier selection.
+  // Supplier comparison can still sort by priority, but generated email should use the same supplier as PC.
+  const workflowSupplierRows = (sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku)))
+  const bestSupplier = workflowSupplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
   const shortageWeek = series.find(r => Number(r.delta || 0) < 0)?.week
   const recommendedQty = Math.max(
     Number(agg.moq || 0),
@@ -1887,6 +1890,7 @@ export default function App() {
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
+// mobile workflow email supplier matches PC fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1902,6 +1906,7 @@ export default function App() {
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
+// mobile workflow email supplier matches PC fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -1916,6 +1921,7 @@ export default function App() {
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
+// mobile workflow email supplier matches PC fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
