@@ -851,7 +851,7 @@ function AiMockFeaturesSection({ items, selectedSku, incrementals, lang }) {
   const agg = aggregateSkuForProduct(items, sku, lang)
   const first = series[0] || { forecast:0, supply:Number(agg.stock_qty || 0), delta:0 }
   const supplierRows = (agg.supplier_rows || sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku))).slice(0, 4)
-  const bestSupplier = supplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
+  const bestSupplier = supplierRows[0] || agg
   const shortageWeek = series.find(r => Number(r.delta || 0) < 0)?.week
   const recommendedQty = Math.max(
     Number(agg.moq || 0),
@@ -1044,12 +1044,21 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
         return { week:m, forecast, supply, delta, status:deltaTone(delta, forecast) }
       })
     : sourceSeries
-  const visibleSeries = viewMode === 'monthly' ? series : sourceSeries.slice(0, 4)
+  const visibleSeries = viewMode === 'monthly' ? series : sourceSeries
   const agg = aggregateSkuForProduct(items, sku, lang)
-  const supplierRows = (sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku))).slice(0, 3)
+  const supplierRows = (sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku))).slice().sort((a, b) => {
+    const score = s => {
+      const weeks = calcWeeks(s)
+      const cost = Number(s.unit_cost || 0)
+      const lead = Number(s.lead_time || 999)
+      const band = weeks >= 2 && weeks < 8 ? 0 : weeks >= 8 ? 1 : 2
+      return band * 100000 + cost * 100 + lead * 5 - Math.min(weeks, 13)
+    }
+    return score(a) - score(b)
+  })
   const shortageWeek = sourceSeries.find(r => r.delta < 0)?.week
   const recommendedQty = Math.max(Number(agg.moq || 0), Math.ceil(Math.max(0, (sourceSeries[0]?.forecast || 0) - (sourceSeries[0]?.supply || 0)) || Number(agg.moq || 0) || Math.round(consumptionPerWeek(agg) * 2)))
-  const bestSupplier = supplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
+  const bestSupplier = supplierRows[0] || agg
   const currentWos = calcWeeks(agg)
   const isShort = currentWos < 2 || Number(sourceSeries[0]?.delta || 0) < 0
   const isOver = currentWos >= 8
@@ -1080,7 +1089,7 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
         <div style={{ minWidth:0 }}>
           <h2 style={{ margin:'0 0 4px', fontSize:18, letterSpacing:'-.03em' }}>{lang === JP ? '在庫ヒートマップ' : 'Inventory heatmap'}</h2>
           <div style={{ fontSize:12, color:'#64748b', fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{displayName(sku, lang)}</div>
-          <div style={{ fontSize:11, color:'#94a3b8', fontWeight:800, marginTop:3 }}>{sku.sku || ''} / {sku.supplier || sku.subset || ''}</div>
+          <div style={{ fontSize:11, color:'#94a3b8', fontWeight:800, marginTop:3 }}>{sku.sku || ''} / {lang === JP ? '全仕入先' : 'All suppliers'}</div>
         </div>
         <div style={{ textAlign:'right' }}>
           <div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang === JP ? '需給パルス' : 'Supply pulse'}</div>
@@ -1092,8 +1101,8 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
         <button onClick={()=>setViewMode('monthly')} style={{ border:'none', background:viewMode === 'monthly' ? T.green : '#f1f5f9', color:viewMode === 'monthly' ? '#fff' : '#475569', borderRadius:999, padding:'6px 12px', fontSize:11, fontWeight:900 }}>Monthly</button>
       </div>
       <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', border:'1px solid #e5edf5', borderRadius:12 }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:420 }}>
-          <thead><tr>{['', ...(viewMode === 'monthly' ? ['M1','M2','M3'] : ['1週','2週','3週','4週'])].map(h=><th key={h} style={{ padding:'7px 6px', background:'#f8fafc', color:'#64748b', fontSize:11, fontWeight:900, borderBottom:'1px solid #e5edf5', textAlign:'right' }}>{h}</th>)}</tr></thead>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:viewMode === 'monthly' ? 360 : 760, tableLayout:'fixed' }}>
+          <thead><tr>{['', ...(viewMode === 'monthly' ? ['M1','M2','M3'] : Array.from({ length:13 }, (_, i) => weekLabel(i + 1, lang)))].map(h=><th key={h} style={{ padding:'6px 5px', background:'#f8fafc', color:'#64748b', fontSize:10, fontWeight:900, borderBottom:'1px solid #e5edf5', textAlign:'right', whiteSpace:'nowrap' }}>{h}</th>)}</tr></thead>
           <tbody>
             {[
               [lang === JP ? '需要' : 'Forecast', 'forecast'],
@@ -1110,8 +1119,8 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
 
     <section style={{ background:'#fff', color:'#0f172a', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
       <h3 style={{ margin:'0 0 12px', fontSize:17 }}>{lang === JP ? '仕入先比較' : 'Supplier comparison'}</h3>
-      <div style={{ border:'1px solid #e5edf5', borderRadius:12, overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+      <div style={{ border:'1px solid #e5edf5', borderRadius:12, overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}>
+        <table style={{ width:'100%', minWidth:520, borderCollapse:'collapse', tableLayout:'fixed' }}>
           <thead><tr>{[lang===JP?'優先':'Priority',lang===JP?'仕入先':'Supplier',lang===JP?'在庫週数':'WOS',lang===JP?'単価':'Cost',lang===JP?'LT':'LT'].map(h=><th key={h} style={{ background:'#f8fafc', padding:'7px 6px', borderBottom:'1px solid #e5edf5', fontSize:11, textAlign:'left' }}>{h}</th>)}</tr></thead>
           <tbody>{supplierRows.map((s,i)=><tr key={s.id || i}>
             <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', color:i===0?T.red:'#64748b', fontWeight:900 }}>{i+1}</td>
@@ -1152,7 +1161,7 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
   </div>
 }
 
-function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals, selectedSku, setSelected, setTab }) {
+function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals, selectedSku, setSelected, setTab, onLogout }) {
   // Mobile must use the same authoritative item rows as PC.
   // Do not inject stale selectedSku rows from another device/session.
   const sourceItems = (items && items.length) ? items : (productOptions || [])
@@ -1203,7 +1212,10 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
           <img src="/stockwise-icon.png" alt="Stockwise" style={{ width:28, height:28, borderRadius:0, objectFit:'cover', boxShadow:'0 6px 16px rgba(0,0,0,.25)' }} />
           <div style={{ fontSize:18, fontWeight:900 }}>Stockwise</div>
         </div>
-        <button onClick={()=>setLang(lang === JP ? EN : JP)} style={{ border:'1px solid rgba(255,255,255,.25)', background:'rgba(255,255,255,.08)', color:'#fff', borderRadius:999, padding:'7px 11px', fontWeight:900 }}>{lang === JP ? 'EN' : 'JP'}</button>
+        <div style={{ display:'flex', gap:7, alignItems:'center' }}>
+          <button onClick={()=>setLang(lang === JP ? EN : JP)} style={{ border:'1px solid rgba(255,255,255,.25)', background:'rgba(255,255,255,.08)', color:'#fff', borderRadius:999, padding:'7px 10px', fontWeight:900 }}>{lang === JP ? 'EN' : 'JP'}</button>
+          <button onClick={onLogout} style={{ border:'1px solid rgba(255,255,255,.25)', background:'rgba(255,255,255,.08)', color:'#fff', borderRadius:999, padding:'7px 10px', fontWeight:900 }}>{lang === JP ? 'ログアウト' : 'Logout'}</button>
+        </div>
       </div>
     </header>
 
@@ -1874,6 +1886,7 @@ export default function App() {
 // dashboard compact card/table sizing fix
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
+// mobile heatmap PC parity all suppliers 13 weeks logout fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1888,6 +1901,7 @@ export default function App() {
 // dashboard compact card/table sizing fix
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
+// mobile heatmap PC parity all suppliers 13 weeks logout fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -1901,6 +1915,7 @@ export default function App() {
 // dashboard compact card/table sizing fix
 // mobile PC metric parity and aggressive Supabase refresh fix
 // mobile table compact no overflow fix
+// mobile heatmap PC parity all suppliers 13 weeks logout fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2340,6 +2355,7 @@ export default function App() {
     selectedSku={selectedSku}
     setSelected={setSelected}
     setTab={setTab}
+    onLogout={signOut}
   />
 
   return <div style={{ minHeight:'100vh', background:`radial-gradient(circle at 50% -10%, #093255 0%, ${T.bg} 45%, #000915 100%)`, color:T.text, fontFamily:T.font }}>
