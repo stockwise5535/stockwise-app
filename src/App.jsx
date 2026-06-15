@@ -1996,7 +1996,7 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
   </div>
 }
 
-function App() {
+export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [lang, setLang] = useState(() => detectLang())
   const [tab, setTab] = useState('dashboard')
@@ -2075,6 +2075,7 @@ function App() {
 // limited free beta early access request form fix
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
+// fix default export so early access modal not initial page
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2098,6 +2099,7 @@ function App() {
 // limited free beta early access request form fix
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
+// fix default export so early access modal not initial page
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2120,6 +2122,7 @@ function App() {
 // limited free beta early access request form fix
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
+// fix default export so early access modal not initial page
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2618,7 +2621,7 @@ function App() {
 
     </div>
 
-    {showEarlyAccess && <EarlyAccessModal lang={lang} user={user} requestedItemCount={earlyAccessItemCount} onClose={()=>setShowEarlyAccess(false)} />}
+    {showEarlyAccess && earlyAccessItemCount && <EarlyAccessModal lang={lang} user={user} requestedItemCount={earlyAccessItemCount} onClose={()=>setShowEarlyAccess(false)} />}
     {showCsvSettings && <CsvSettingsModal lang={lang} onClose={()=>setShowCsvSettings(false)} onDownloadSku={downloadSkuTemplate} onUploadSku={()=>skuCsvRef.current?.click()} onDownloadInbound={downloadCsvTemplate} onUploadInbound={()=>incCsvRef.current?.click()} />}
   </div>
 }
