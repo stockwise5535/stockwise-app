@@ -2074,6 +2074,7 @@ function App() {
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
 // early access only after second item language process group fix
+// early access modal only opens after second item upload fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2096,6 +2097,7 @@ function App() {
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
 // early access only after second item language process group fix
+// early access modal only opens after second item upload fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2117,6 +2119,7 @@ function App() {
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
 // early access only after second item language process group fix
+// early access modal only opens after second item upload fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2424,6 +2427,7 @@ function App() {
           : `During the limited free beta, 1 item is included for free. If you need to manage 2 or more items, please submit an Early Access request.`
         )
         e.target.value = ''
+        /* early access modal only opens after second item upload fix */
         startEarlyAccessRequest('sku_limit_beta_request', skuCount)
         return
       }
