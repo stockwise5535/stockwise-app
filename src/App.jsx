@@ -240,6 +240,7 @@ function aggregateProductOptions(items, lang = JP) {
       safety_stock: Math.max(...rows.map(s => Number(s.safety_stock || 0)), Number(base.safety_stock || 0), 0),
       moq: Math.max(...rows.map(s => Number(s.moq || 0)), Number(base.moq || 0), 0),
       supplier_rows: rows,
+      icon: base.icon || detectProductIcon(base),
     }
   })
 }
@@ -602,12 +603,60 @@ function Btn({ children, onClick, kind='ghost', small=false }) {
   return <button onClick={onClick} style={{ ...styles[kind], borderRadius:8, padding:small?'7px 12px':'10px 16px', fontFamily:T.font, fontWeight:700, fontSize:small?12:14, cursor:'pointer' }}>{children}</button>
 }
 
+function detectProductIcon(s) {
+  const productText = [s?.name, s?.name_en, s?.sku, s?.superset].filter(Boolean).join(' ').toLowerCase()
+  const text = productText || [s?.subset, s?.supplier].filter(Boolean).join(' ').toLowerCase()
+
+  if (/heat\s*sink|heatsink|冷却|放熱|thermal|cooler|cooling|aluminum|aluminium|radiator/.test(text)) return 'thermal'
+  if (/fan|blower|ventilator|ファン|送風/.test(text)) return 'fan'
+  if (/motor|actuator|servo|モーター|アクチュエータ/.test(text)) return 'motor'
+  if (/sensor|detector|probe|センサー|検知|検出/.test(text)) return 'sensor'
+  if (/connector|terminal|socket|plug|コネクタ|端子|ソケット|プラグ/.test(text)) return 'connector'
+  if (/adapter|adaptor|charger|power\s*supply|ac\s*dc|電源|充電|アダプタ/.test(text)) return 'power'
+  if (/battery|cell|電池|バッテリー/.test(text)) return 'battery'
+  if (/board|pcb|pcba|chip|ic|semiconductor|module|基板|チップ|半導体|モジュール/.test(text)) return 'board'
+  if (/display|screen|lcd|oled|monitor|panel|画面|ディスプレイ|パネル/.test(text)) return 'display'
+  if (/camera|lens|カメラ|レンズ/.test(text)) return 'camera'
+  if (/earbud|earphone|headphone|speaker|audio|イヤホン|ヘッドホン|スピーカー|オーディオ/.test(text)) return 'audio'
+  if (/mouse|マウス/.test(text)) return 'mouse'
+  if (/keyboard|keycap|キーボード|キーキャップ/.test(text)) return 'keyboard'
+  if (/cable|wire|usb|type-c|type c|harness|ケーブル|ワイヤ|ハーネス/.test(text)) return 'cable'
+  if (/screw|bolt|nut|washer|fastener|ねじ|ネジ|ボルト|ナット|ワッシャ/.test(text)) return 'fastener'
+  if (/housing|case|cover|enclosure|bracket|frame|chassis|筐体|ケース|カバー|ブラケット|フレーム/.test(text)) return 'housing'
+  if (/spring|coil|スプリング|ばね|バネ/.test(text)) return 'spring'
+  if (/gear|shaft|bearing|roller|ギア|歯車|シャフト|ベアリング|ローラー/.test(text)) return 'mechanical'
+  if (/label|sticker|barcode|qr|ラベル|ステッカー|バーコード/.test(text)) return 'label'
+  if (/packaging|carton|box|bag|pouch|包装|梱包|箱|袋/.test(text)) return 'package'
+  if (/chemical|adhesive|glue|tape|resin|paint|oil|grease|接着|テープ|樹脂|塗料|オイル|グリス/.test(text)) return 'material'
+  return 'box'
+}
+
 function ProductIcon({ type='box', active=false }) {
   const common = { position:'relative', width: active ? 88 : 58, height: active ? 70 : 48, opacity:.88 }
   if (type === 'audio') return <div style={common}><span style={{ position:'absolute', left:'20%', top:'18%', width:'60%', height:'58%', border:`${active?6:4}px solid #9fb2c6`, borderBottom:'none', borderRadius:'50% 50% 0 0' }} /><span style={{ position:'absolute', left:'10%', bottom:'8%', width:'18%', height:'34%', background:'#9fb2c6', borderRadius:8 }} /><span style={{ position:'absolute', right:'10%', bottom:'8%', width:'18%', height:'34%', background:'#9fb2c6', borderRadius:8 }} /></div>
   if (type === 'mouse') return <div style={common}><span style={{ position:'absolute', left:'28%', top:'5%', width:'44%', height:'85%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'46%' }} /><span style={{ position:'absolute', left:'49%', top:'11%', width:2, height:'22%', background:'#9fb2c6' }} /></div>
   if (type === 'keyboard') return <div style={common}><span style={{ position:'absolute', inset:'18% 4%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:8 }} /><span style={{ position:'absolute', left:'16%', top:'42%', width:'68%', height:active?5:3, background:'#9fb2c6', boxShadow:`0 ${active?12:8}px 0 #9fb2c6` }} /></div>
   if (type === 'cable') return <div style={common}><span style={{ position:'absolute', left:'10%', top:'30%', width:'80%', height:'38%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} /><span style={{ position:'absolute', right:'6%', top:'44%', width:'18%', height:'16%', background:'#9fb2c6', borderRadius:4 }} /></div>
+  if (type === 'thermal') return <div style={common}>
+    <span style={{ position:'absolute', left:'14%', top:'20%', width:'72%', height:'56%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:5 }} />
+    {[22,38,54,70].map(x => <span key={x} style={{ position:'absolute', left:`${x}%`, top:'24%', width:active?4:3, height:'48%', background:'#9fb2c6', borderRadius:4 }} />)}
+  </div>
+  if (type === 'battery') return <div style={common}><span style={{ position:'absolute', left:'15%', top:'28%', width:'68%', height:'44%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:6 }} /><span style={{ position:'absolute', right:'6%', top:'42%', width:'10%', height:'18%', background:'#9fb2c6', borderRadius:3 }} /><span style={{ position:'absolute', left:'26%', top:'40%', width:'38%', height:'20%', background:'#9fb2c6', borderRadius:4 }} /></div>
+  if (type === 'camera') return <div style={common}><span style={{ position:'absolute', left:'14%', top:'28%', width:'72%', height:'48%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:8 }} /><span style={{ position:'absolute', left:'36%', top:'38%', width:'28%', height:'28%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} /><span style={{ position:'absolute', left:'24%', top:'18%', width:'22%', height:'16%', background:'#9fb2c6', borderRadius:5 }} /></div>
+  if (type === 'display') return <div style={common}><span style={{ position:'absolute', left:'12%', top:'16%', width:'76%', height:'54%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:6 }} /><span style={{ position:'absolute', left:'44%', top:'72%', width:'12%', height:'14%', background:'#9fb2c6' }} /><span style={{ position:'absolute', left:'30%', bottom:'7%', width:'40%', height:active?5:3, background:'#9fb2c6', borderRadius:4 }} /></div>
+  if (type === 'board') return <div style={common}><span style={{ position:'absolute', left:'14%', top:'20%', width:'72%', height:'58%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:6 }} /><span style={{ position:'absolute', left:'28%', top:'34%', width:'22%', height:'22%', border:`${active?4:3}px solid #9fb2c6`, borderRadius:4 }} /><span style={{ position:'absolute', right:'24%', top:'36%', width:'10%', height:'10%', background:'#9fb2c6', borderRadius:'50%', boxShadow:'0 12px 0 #9fb2c6' }} /></div>
+  if (type === 'fan') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'18%', width:'64%', height:'64%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} />{[0,1,2].map(i => <span key={i} style={{ position:'absolute', left:'47%', top:'22%', width:active?7:5, height:'30%', background:'#9fb2c6', borderRadius:'70% 70% 35% 35%', transformOrigin:'50% 95%', transform:`rotate(${i*120}deg)` }} />)}</div>
+  if (type === 'motor') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'26%', width:'56%', height:'44%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:8 }} /><span style={{ position:'absolute', right:'8%', top:'43%', width:'18%', height:active?6:4, background:'#9fb2c6', borderRadius:4 }} /><span style={{ position:'absolute', left:'27%', top:'36%', width:'18%', height:'24%', border:`${active?4:3}px solid #9fb2c6`, borderRadius:'50%' }} /></div>
+  if (type === 'sensor') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'24%', width:'42%', height:'52%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:8 }} /><span style={{ position:'absolute', right:'20%', top:'32%', width:'20%', height:'20%', border:`${active?4:3}px solid #9fb2c6`, borderRadius:'50%' }} /><span style={{ position:'absolute', right:'7%', top:'22%', width:'22%', height:'54%', borderRight:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} /></div>
+  if (type === 'connector') return <div style={common}><span style={{ position:'absolute', left:'14%', top:'30%', width:'48%', height:'40%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:6 }} /><span style={{ position:'absolute', right:'12%', top:'38%', width:'26%', height:'24%', background:'#9fb2c6', borderRadius:4 }} />{[28,43].map(x => <span key={x} style={{ position:'absolute', left:`${x}%`, top:'40%', width:active?4:3, height:'20%', background:'#9fb2c6', borderRadius:2 }} />)}</div>
+  if (type === 'power') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'24%', width:'52%', height:'52%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:7 }} /><span style={{ position:'absolute', right:'12%', top:'34%', width:active?5:3, height:'12%', background:'#9fb2c6', boxShadow:`0 ${active?15:11}px 0 #9fb2c6` }} /><span style={{ position:'absolute', left:'38%', top:'36%', width:'14%', height:'28%', borderLeft:`${active?5:3}px solid #9fb2c6`, borderBottom:`${active?5:3}px solid #9fb2c6`, transform:'skewX(-18deg)' }} /></div>
+  if (type === 'fastener') return <div style={common}><span style={{ position:'absolute', left:'24%', top:'18%', width:'30%', height:'30%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} /><span style={{ position:'absolute', left:'39%', top:'45%', width:active?5:3, height:'36%', background:'#9fb2c6', borderRadius:4 }} /><span style={{ position:'absolute', left:'48%', top:'52%', width:'26%', height:active?5:3, background:'#9fb2c6', transform:'rotate(28deg)', borderRadius:4 }} /></div>
+  if (type === 'housing') return <div style={common}><span style={{ position:'absolute', left:'15%', top:'20%', width:'70%', height:'56%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:9 }} /><span style={{ position:'absolute', left:'26%', top:'34%', width:'48%', height:'28%', border:`${active?4:3}px solid #9fb2c6`, borderRadius:5 }} /></div>
+  if (type === 'spring') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'45%', width:'64%', height:'20%', borderTop:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%', boxShadow:`0 -10px 0 -2px #9fb2c6, 0 10px 0 -2px #9fb2c6` }} /><span style={{ position:'absolute', left:'14%', top:'34%', width:'10%', height:'32%', background:'#9fb2c6', borderRadius:4 }} /><span style={{ position:'absolute', right:'14%', top:'34%', width:'10%', height:'32%', background:'#9fb2c6', borderRadius:4 }} /></div>
+  if (type === 'mechanical') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'24%', width:'42%', height:'42%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'50%' }} />{[0,45,90,135].map(r => <span key={r} style={{ position:'absolute', left:'37%', top:'13%', width:active?5:3, height:'64%', background:'#9fb2c6', transform:`rotate(${r}deg)`, borderRadius:4 }} />)}<span style={{ position:'absolute', right:'14%', top:'44%', width:'24%', height:active?6:4, background:'#9fb2c6', borderRadius:4 }} /></div>
+  if (type === 'label') return <div style={common}><span style={{ position:'absolute', left:'18%', top:'20%', width:'58%', height:'58%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'8px 8px 18px 8px', transform:'rotate(-8deg)' }} /><span style={{ position:'absolute', left:'30%', top:'40%', width:'34%', height:active?5:3, background:'#9fb2c6', boxShadow:`0 ${active?12:8}px 0 #9fb2c6` }} /></div>
+  if (type === 'package') return <div style={common}><span style={{ position:'absolute', left:'15%', top:'22%', width:'70%', height:'54%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:5 }} /><span style={{ position:'absolute', left:'15%', top:'37%', width:'70%', height:active?5:3, background:'#9fb2c6' }} /><span style={{ position:'absolute', left:'48%', top:'22%', width:active?5:3, height:'54%', background:'#9fb2c6' }} /></div>
+  if (type === 'material') return <div style={common}><span style={{ position:'absolute', left:'30%', top:'16%', width:'40%', height:'64%', border:`${active?5:3}px solid #9fb2c6`, borderRadius:'18px 18px 8px 8px' }} /><span style={{ position:'absolute', left:'39%', top:'8%', width:'22%', height:'14%', background:'#9fb2c6', borderRadius:5 }} /><span style={{ position:'absolute', left:'37%', top:'42%', width:'26%', height:'18%', background:'#9fb2c6', borderRadius:'50%' }} /></div>
   return <div style={common}><span style={{ position:'absolute', left:'14%', top:'24%', width:'72%', height:'52%', border:`${active?5:3}px solid #9fb2c6`, transform:'skewY(-18deg)', borderRadius:4 }} /></div>
 }
 
@@ -1061,7 +1110,9 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
   })
   const shortageWeek = sourceSeries.find(r => r.delta < 0)?.week
   const recommendedQty = Math.max(Number(agg.moq || 0), Math.ceil(Math.max(0, (sourceSeries[0]?.forecast || 0) - (sourceSeries[0]?.supply || 0)) || Number(agg.moq || 0) || Math.round(consumptionPerWeek(agg) * 2)))
-  const bestSupplier = supplierRows[0] || agg
+  // Match PC業務サポート: use the same supplier for generated workflow email/order support.
+  const workflowSupplierRows = (sku.supplier_rows || (items || []).filter(s => sameProduct(s, sku)))
+  const bestSupplier = workflowSupplierRows.slice().sort((a,b)=>Number(a.lead_time||99)-Number(b.lead_time||99))[0] || agg
   const currentWos = calcWeeks(agg)
   const isShort = currentWos < 2 || Number(sourceSeries[0]?.delta || 0) < 0
   const isOver = currentWos >= 8
@@ -1139,12 +1190,17 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
     <section style={{ background:'#fff', color:'#0f172a', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
         <h3 style={{ margin:0, fontSize:17 }}>{lang === JP ? '分析・発注サポート' : 'Analysis & order support'}</h3>
-        <span style={{ border:`1px solid ${currentWos < 2 ? T.red : T.blue}`, color:currentWos < 2 ? T.red : T.blue, borderRadius:999, padding:'4px 8px', fontSize:11, fontWeight:900 }}>{currentWos < 2 ? (lang===JP?'欠品リスク':'Shortage risk') : (lang===JP?'過剰リスク':'Overstock risk')}</span>
+        <span style={{ border:`1px solid ${isShort ? T.red : isOver ? T.blue : T.green}`, color:isShort ? T.red : isOver ? T.blue : T.green, borderRadius:999, padding:'4px 8px', fontSize:11, fontWeight:900 }}>{isShort ? (lang===JP?'欠品リスク':'Shortage risk') : isOver ? (lang===JP?'過剰リスク':'Overstock risk') : (lang===JP?'通常監視':'Normal')}</span>
       </div>
       <div style={{ display:'grid', gap:10, marginTop:12 }}>
         <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
           <div style={{ fontWeight:900, marginBottom:7 }}>{lang === JP ? '分析サマリー' : 'Analysis summary'}</div>
-          <div style={{ color:'#475569', fontSize:12, lineHeight:1.65 }}>{currentWos < 2 ? (lang===JP?'需要に対して在庫が不足する可能性があります。最短リードタイムの仕入先を優先し、必要数量のみを提案します。':'Inventory may be short against demand. Prioritize the shortest lead-time supplier and propose only the required quantity.') : (lang===JP?'供給が需要を上回る週があります。在庫過多の可能性があるため、次回発注の一時停止または数量調整を推奨します。':'Supply exceeds demand in some weeks. Pause the next order or adjust quantity.')}</div>
+          <div style={{ color:'#475569', fontSize:12, lineHeight:1.65 }}>{isShort
+              ? (lang === JP ? '需要に対して在庫が不足する可能性があります。最短リードタイムの仕入先を優先し、必要数量のみを提案します。' : 'Inventory may fall short against demand. Prioritize the shortest lead-time supplier and propose only the required quantity.')
+              : isOver
+                ? (lang === JP ? '供給が需要を大きく上回る可能性があります。次回発注の一時停止または数量調整を推奨します。' : 'Supply may exceed demand. Pause the next order or adjust quantity.')
+                : (lang === JP ? '現在の需給は大きな不足・過剰がなく、通常監視で問題ありません。' : 'Current supply and demand are balanced. Continue normal monitoring.')
+            }</div>
         </div>
         <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
           <div style={{ fontWeight:900, marginBottom:8 }}>{lang === JP ? '発注提案' : 'Order proposal'}</div>
@@ -1152,7 +1208,7 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
             <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'推奨仕入先':'Supplier'}</div><b>{bestSupplier.supplier || bestSupplier.subset || 'Supplier A'}</b></div>
             <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注数量':'Order qty'}</div><b>{fmt(recommendedQty)} {lang===JP?'個':'units'}</b></div>
             <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'希望納期':'Target ETA'}</div><b>{shortageWeek ? (lang===JP?`${shortageWeek}週目前`:`Before W${shortageWeek}`) : (lang===JP?'次回入荷可能週':'Next available week')}</b></div>
-            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注種別':'Order type'}</div><b>{shortageWeek ? (lang===JP?'通常発注':'Standard') : (lang===JP?'数量調整':'Quantity adjustment')}</b></div>
+            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注種別':'Order type'}</div><b>{isShort ? (lang === JP ? '通常発注' : 'Standard') : (lang === JP ? '数量調整' : 'Quantity adjustment')}</b></div>
           </div>
         </div>
         <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
@@ -1891,6 +1947,9 @@ export default function App() {
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
 // mobile workflow email supplier matches PC fix
+// mobile business support full PC parity fix
+// auto product icon by item name fix
+// expanded product icon library all items fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1907,6 +1966,9 @@ export default function App() {
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
 // mobile workflow email supplier matches PC fix
+// mobile business support full PC parity fix
+// auto product icon by item name fix
+// expanded product icon library all items fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -1922,6 +1984,9 @@ export default function App() {
 // mobile table compact no overflow fix
 // mobile heatmap PC parity all suppliers 13 weeks logout fix
 // mobile workflow email supplier matches PC fix
+// mobile business support full PC parity fix
+// auto product icon by item name fix
+// expanded product icon library all items fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2072,7 +2137,7 @@ export default function App() {
     const base = baseSource.map((s, i) => ({
       ...s,
       id: s.id || `base-${i}-${s.name}-${s.supplier || s.subset || ''}`,
-      icon: s.icon || ['audio','box','mouse','keyboard','cable','box'][i % 6],
+      icon: s.icon || detectProductIcon(s),
       sku: s.sku || s.name,
       supplier: s.supplier || s.subset || 'Supplier',
       subset: s.subset || s.supplier || 'Supplier',
@@ -2082,7 +2147,7 @@ export default function App() {
     const normalizedLocal = localItems.map((s, i) => ({
       ...s,
       id: s.id || `local-item-${i}-${s.name}-${s.supplier || s.subset || ''}`,
-      icon: s.icon || ['audio','box','mouse','keyboard','cable','box'][i % 6],
+      icon: s.icon || detectProductIcon(s),
       sku: s.sku || s.name,
       supplier: s.supplier || s.subset || 'Supplier',
       subset: s.subset || s.supplier || 'Supplier',
