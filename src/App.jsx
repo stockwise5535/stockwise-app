@@ -1282,6 +1282,10 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
         </div>
       </div>
     </header>
+    <div style={{ background:'#fff', border:'1px solid #d9efe5', borderRadius:14, padding:12, marginBottom:12, boxShadow:'0 8px 24px rgba(15,23,42,.06)' }}>
+      <div style={{ fontWeight:900, color:'#0f5132' }}>{lang === JP ? '期間限定無料β版' : 'Limited Free Beta'}</div>
+      <div style={{ color:'#475569', fontSize:12, lineHeight:1.55, marginTop:4 }}>{lang === JP ? '1品目まで無料。2品目以上はPC版からEarly Access申請をお願いします。' : '1 item is included for free. For 2+ items, please submit an Early Access request from the desktop view.'}</div>
+    </div>
 
     {mobileTab === 'dashboard' && <main style={{ display:'grid', gap:10 }}>
       <section style={{ background:'#fff', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
@@ -1891,7 +1895,105 @@ function AiPlanTab({ items, selectedSku, incrementals, lang, onBack }) {
   </Panel>
 }
 
-export default function App() {
+export default 
+function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
+  const [form, setForm] = useState({
+    company_name:'',
+    contact_name:'',
+    email:user?.email || '',
+    item_count: requestedItemCount || '',
+    current_process:'',
+    pain_point:'',
+  })
+  const [sending, setSending] = useState(false)
+  const setField = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
+
+  async function submitRequest(e) {
+    e.preventDefault()
+    if (!form.email.trim()) {
+      alert(lang === JP ? '連絡先メールを入力してください。' : 'Please enter a contact email.')
+      return
+    }
+    setSending(true)
+    try {
+      const res = await fetch('/api/save-early-access', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify({
+          ...form,
+          user_id:user?.id || null,
+          user_email:user?.email || null,
+          lang,
+          source:'stockwise_beta_limit',
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Request failed')
+      alert(lang === JP
+        ? '申請を受け付けました。内容を確認のうえ、利用枠拡張についてご案内します。'
+        : 'Your request has been received. We will review it and follow up about expanding your item limit.'
+      )
+      onClose()
+    } catch (err) {
+      console.error('early access request failed', err)
+      alert(lang === JP
+        ? `申請を保存できませんでした。時間をおいて再度お試しください。\n${err?.message || err}`
+        : `Could not save your request. Please try again later.\n${err?.message || err}`
+      )
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const label = {
+    title: lang === JP ? 'Early Access申請' : 'Early Access Request',
+    desc: lang === JP
+      ? '期間限定無料β版では1品目まで無料で利用できます。2品目以上を管理したい場合は、申請内容を確認後、利用枠拡張をご案内します。'
+      : 'During the limited free beta, 1 item is included for free. If you need to manage 2 or more items, submit a request and we will follow up about expanding your access.',
+    company: lang === JP ? '会社名' : 'Company',
+    name: lang === JP ? 'お名前' : 'Your name',
+    email: lang === JP ? '連絡先メール' : 'Contact email',
+    count: lang === JP ? '管理したい品目数' : 'Number of items you want to manage',
+    process: lang === JP ? '現在の管理方法' : 'Current management process',
+    pain: lang === JP ? '困っていること' : 'Current pain points',
+    submit: lang === JP ? '申請する' : 'Submit request',
+    planned: lang === JP ? '正式版予定価格：月額3,000円前後 / $19.99相当' : 'Planned paid plan: around ¥3,000 / $19.99 per month',
+  }
+
+  const inputStyle = { width:'100%', boxSizing:'border-box', border:'1px solid #d7e3ee', borderRadius:10, padding:'10px 12px', fontSize:14, fontFamily:T.font, outline:'none' }
+  const fieldWrap = { display:'grid', gap:5 }
+  const textLabel = { fontSize:12, fontWeight:900, color:'#334155' }
+
+  return <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:90, background:'rgba(0,0,0,.64)', display:'grid', placeItems:'center', padding:18 }}>
+    <form onSubmit={submitRequest} onClick={e=>e.stopPropagation()} style={{ width:'min(560px, calc(100vw - 36px))', maxHeight:'calc(100vh - 36px)', overflowY:'auto', background:'#fff', color:'#0f172a', borderRadius:18, padding:20, boxShadow:'0 28px 90px rgba(0,0,0,.38)', fontFamily:T.font }}>
+      <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'flex-start', marginBottom:12 }}>
+        <div>
+          <h2 style={{ margin:'0 0 6px', fontSize:22, letterSpacing:'-.03em' }}>{label.title}</h2>
+          <p style={{ margin:0, color:'#475569', fontSize:13, lineHeight:1.6 }}>{label.desc}</p>
+          <div style={{ marginTop:10, color:T.blue, fontSize:12, fontWeight:900 }}>{label.planned}</div>
+        </div>
+        <button type="button" onClick={onClose} style={{ border:'1px solid #e5edf5', background:'#f8fafc', borderRadius:10, width:36, height:36, cursor:'pointer', fontSize:18 }}>×</button>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:12 }}>
+        <label style={fieldWrap}><span style={textLabel}>{label.company}</span><input style={inputStyle} value={form.company_name} onChange={e=>setField('company_name', e.target.value)} placeholder={lang===JP?'例：ABC株式会社':'Example: ABC Inc.'} /></label>
+        <label style={fieldWrap}><span style={textLabel}>{label.name}</span><input style={inputStyle} value={form.contact_name} onChange={e=>setField('contact_name', e.target.value)} placeholder={lang===JP?'例：山田 太郎':'Example: Taro Yamada'} /></label>
+        <label style={fieldWrap}><span style={textLabel}>{label.email}</span><input type="email" required style={inputStyle} value={form.email} onChange={e=>setField('email', e.target.value)} placeholder="name@company.com" /></label>
+        <label style={fieldWrap}><span style={textLabel}>{label.count}</span><input style={inputStyle} value={form.item_count} onChange={e=>setField('item_count', e.target.value)} placeholder={lang===JP?'例：10〜30品目':'Example: 10–30 items'} /></label>
+      </div>
+
+      <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.process}</span><textarea style={{ ...inputStyle, minHeight:74, resize:'vertical' }} value={form.current_process} onChange={e=>setField('current_process', e.target.value)} placeholder={lang===JP?'例：Excelで在庫数と発注予定を管理':'Example: We manage stock and order plans in Excel'} /></label>
+      <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.pain}</span><textarea style={{ ...inputStyle, minHeight:88, resize:'vertical' }} value={form.pain_point} onChange={e=>setField('pain_point', e.target.value)} placeholder={lang===JP?'例：欠品と在庫過多の判断、仕入先への確認メール作成に時間がかかる':'Example: It takes time to judge shortages/overstock and draft supplier emails'} /></label>
+
+      <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16, flexWrap:'wrap' }}>
+        <button type="button" onClick={onClose} style={{ border:'1px solid #d7e3ee', background:'#fff', color:'#334155', borderRadius:10, padding:'10px 14px', fontWeight:900, cursor:'pointer' }}>{lang===JP?'閉じる':'Close'}</button>
+        <button type="submit" disabled={sending} style={{ border:'none', background:T.green, color:'#fff', borderRadius:10, padding:'10px 16px', fontWeight:900, cursor:sending?'wait':'pointer', opacity:sending?.7:1 }}>{sending ? (lang===JP?'送信中...':'Sending...') : label.submit}</button>
+      </div>
+    </form>
+  </div>
+}
+
+function App() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [lang, setLang] = useState(() => detectLang())
   const [tab, setTab] = useState('dashboard')
@@ -1904,6 +2006,8 @@ export default function App() {
   const [uploadedItems, setUploadedItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [showCsvSettings, setShowCsvSettings] = useState(false)
+  const [showEarlyAccess, setShowEarlyAccess] = useState(false)
+  const [earlyAccessItemCount, setEarlyAccessItemCount] = useState('')
   const [forecastRows, setForecastRows] = useState([])
   const [actualRows, setActualRows] = useState([])
   const skuCsvRef = useRef(null)
@@ -1935,7 +2039,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     if (params.get('checkout') === 'success') {
       markBasicPlanActive()
-      alert(lang === JP ? 'アップグレードが完了しました。20SKUまで登録できます。' : 'Upgrade completed. You can register up to 20 SKUs.')
+      alert(lang === JP ? '利用枠の拡張が完了しました。20品目まで登録できます。' : 'Access expanded. You can register up to 20 items.')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [user])
@@ -1965,6 +2069,7 @@ export default function App() {
 // auto product icon by item name fix
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
+// limited free beta early access request form fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1985,6 +2090,7 @@ export default function App() {
 // auto product icon by item name fix
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
+// limited free beta early access request form fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2004,6 +2110,7 @@ export default function App() {
 // auto product icon by item name fix
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
+// limited free beta early access request form fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2253,33 +2360,10 @@ export default function App() {
   }
 
 
-  // SKU limit checkout paywall: Free = 1 SKU, Basic = $19.99/month up to 20 SKUs.
-  async function startUpgradeCheckout(reason = 'second_item') {
-    try {
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: 'basic_20_sku',
-          reason,
-          userId: user?.id || null,
-          email: user?.email || null,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || data?.message || 'Checkout session failed')
-      if (data?.url) {
-        window.location.href = data.url
-        return
-      }
-      throw new Error(lang === JP ? 'Stripe Checkout URLを取得できませんでした。' : 'Could not get Stripe Checkout URL.')
-    } catch (err) {
-      console.error('Stripe checkout error', err)
-      alert(lang === JP
-        ? `アップグレード画面を開けませんでした。\nVercelのSTRIPE_SECRET_KEY / STRIPE_PRICE_BASIC / APIログを確認してください。\n\n${err?.message || err}`
-        : `Could not open the upgrade checkout.\nPlease check Vercel STRIPE_SECRET_KEY / STRIPE_PRICE_BASIC / API logs.\n\n${err?.message || err}`
-      )
-    }
+  // Limited free beta: Free = 1 item. For 2+ items, collect Early Access requests instead of sending users to Stripe Checkout.
+  function startEarlyAccessRequest(reason = 'second_item', requestedCount = '') {
+    setEarlyAccessItemCount(requestedCount ? String(requestedCount) : '')
+    setShowEarlyAccess(true)
   }
 
   function uploadSkuCSV(e) {
@@ -2329,12 +2413,12 @@ export default function App() {
       }
 
       if (!basicActive && skuCount > PLAN_FREE_LIMIT) {
-        const ok = window.confirm(lang === JP
-          ? `同じ品目内のSupplier違いは無料枠内で複数登録できます。2つ目の品目から、Basic ${BASIC_PRICE_LABEL} のアップグレードが必要です。最大${PLAN_BASIC_LIMIT}品目まで利用できます。Stripe Checkoutへ進みますか？`
-          : `Multiple suppliers under the same item are allowed. To add a second item, upgrade to Basic ${BASIC_PRICE_LABEL}. You can use up to ${PLAN_BASIC_LIMIT} items. Continue to Stripe Checkout?`
+        alert(lang === JP
+          ? `期間限定無料β版では1品目まで無料で利用できます。2品目以上を管理したい場合は、Early Access申請をお願いします。`
+          : `During the limited free beta, 1 item is included for free. If you need to manage 2 or more items, please submit an Early Access request.`
         )
         e.target.value = ''
-        if (ok) await startUpgradeCheckout('sku_limit_upgrade')
+        startEarlyAccessRequest('sku_limit_beta_request', skuCount)
         return
       }
       // CSVアップロードは「差分追加」ではなく、CSVの内容で発注候補品目を置き換えます。
@@ -2450,13 +2534,20 @@ export default function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>{isBasicPlanActive() && <span style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{lang === JP ? 'Basic 20SKU' : 'Basic 20 SKU'}</span>}<Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? 'Early Access 20品目' : 'Early Access 20 items') : (lang === JP ? '無料β 1品目' : 'Free beta 1 item')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
       </nav>
+      <div style={{ border:`1px solid ${T.green}`, background:'rgba(34,201,133,.10)', borderRadius:12, padding:'12px 14px', marginBottom:16, display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+        <div>
+          <div style={{ fontWeight:900, color:'#dfffee' }}>{lang === JP ? '期間限定無料β版' : 'Limited Free Beta'}</div>
+          <div style={{ color:'#cfe7ff', fontSize:13, marginTop:3 }}>{lang === JP ? '1品目まで無料。2品目以上を管理したい場合はEarly Access申請をお願いします。' : '1 item is included for free. Need 2+ items? Submit an Early Access request.'}</div>
+        </div>
+        <button onClick={()=>startEarlyAccessRequest('header_beta_request', billableSupersetCount(items))} style={{ border:'none', background:T.green, color:'#fff', borderRadius:10, padding:'9px 13px', fontWeight:900, cursor:'pointer' }}>{lang === JP ? 'Early Accessを申請' : 'Request Early Access'}</button>
+      </div>
 
       {tab === 'dashboard' && <>
         <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
@@ -2524,6 +2615,7 @@ export default function App() {
 
     </div>
 
+    {showEarlyAccess && <EarlyAccessModal lang={lang} user={user} requestedItemCount={earlyAccessItemCount} onClose={()=>setShowEarlyAccess(false)} />}
     {showCsvSettings && <CsvSettingsModal lang={lang} onClose={()=>setShowCsvSettings(false)} onDownloadSku={downloadSkuTemplate} onUploadSku={()=>skuCsvRef.current?.click()} onDownloadInbound={downloadCsvTemplate} onUploadInbound={()=>incCsvRef.current?.click()} />}
   </div>
 }
