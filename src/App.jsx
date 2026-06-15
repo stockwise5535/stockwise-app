@@ -1891,7 +1891,6 @@ function AiPlanTab({ items, selectedSku, incrementals, lang, onBack }) {
   </Panel>
 }
 
-export default 
 function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
   const [form, setForm] = useState({
     company_name:'',
@@ -2076,6 +2075,7 @@ export default function App() {
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
+// build fix single default export early access modal
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2100,6 +2100,7 @@ export default function App() {
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
+// build fix single default export early access modal
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2123,6 +2124,7 @@ export default function App() {
 // early access only after second item language process group fix
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
+// build fix single default export early access modal
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
