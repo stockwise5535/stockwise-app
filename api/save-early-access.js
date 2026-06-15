@@ -25,6 +25,7 @@ export default async function handler(req, res) {
       contact_name: body.contact_name || null,
       email: body.email || null,
       item_count: body.item_count || null,
+      preferred_language: body.preferred_language || body.lang || 'ja',
       current_process: body.current_process || null,
       pain_point: body.pain_point || null,
       lang: body.lang || 'ja',

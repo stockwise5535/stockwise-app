@@ -1282,10 +1282,6 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
         </div>
       </div>
     </header>
-    <div style={{ background:'#fff', border:'1px solid #d9efe5', borderRadius:14, padding:12, marginBottom:12, boxShadow:'0 8px 24px rgba(15,23,42,.06)' }}>
-      <div style={{ fontWeight:900, color:'#0f5132' }}>{lang === JP ? '期間限定無料β版' : 'Limited Free Beta'}</div>
-      <div style={{ color:'#475569', fontSize:12, lineHeight:1.55, marginTop:4 }}>{lang === JP ? '1品目まで無料。2品目以上はPC版からEarly Access申請をお願いします。' : '1 item is included for free. For 2+ items, please submit an Early Access request from the desktop view.'}</div>
-    </div>
 
     {mobileTab === 'dashboard' && <main style={{ display:'grid', gap:10 }}>
       <section style={{ background:'#fff', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
@@ -1902,6 +1898,7 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
     contact_name:'',
     email:user?.email || '',
     item_count: requestedItemCount || '',
+    preferred_language: lang,
     current_process:'',
     pain_point:'',
   })
@@ -1954,10 +1951,12 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
     name: lang === JP ? 'お名前' : 'Your name',
     email: lang === JP ? '連絡先メール' : 'Contact email',
     count: lang === JP ? '管理したい品目数' : 'Number of items you want to manage',
+    preferredLanguage: lang === JP ? '希望する表示言語' : 'Preferred display language',
+    managementGroup: lang === JP ? '現在の管理状況・課題' : 'Management process & pain points',
     process: lang === JP ? '現在の管理方法' : 'Current management process',
     pain: lang === JP ? '困っていること' : 'Current pain points',
     submit: lang === JP ? '申請する' : 'Submit request',
-    planned: lang === JP ? '正式版予定価格：月額3,000円前後 / $19.99相当' : 'Planned paid plan: around ¥3,000 / $19.99 per month',
+    planned: lang === JP ? '正式版予定価格：月額3,000円前後' : 'Planned paid plan: $19.99 / month',
   }
 
   const inputStyle = { width:'100%', boxSizing:'border-box', border:'1px solid #d7e3ee', borderRadius:10, padding:'10px 12px', fontSize:14, fontFamily:T.font, outline:'none' }
@@ -1980,10 +1979,14 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
         <label style={fieldWrap}><span style={textLabel}>{label.name}</span><input style={inputStyle} value={form.contact_name} onChange={e=>setField('contact_name', e.target.value)} placeholder={lang===JP?'例：山田 太郎':'Example: Taro Yamada'} /></label>
         <label style={fieldWrap}><span style={textLabel}>{label.email}</span><input type="email" required style={inputStyle} value={form.email} onChange={e=>setField('email', e.target.value)} placeholder="name@company.com" /></label>
         <label style={fieldWrap}><span style={textLabel}>{label.count}</span><input style={inputStyle} value={form.item_count} onChange={e=>setField('item_count', e.target.value)} placeholder={lang===JP?'例：10〜30品目':'Example: 10–30 items'} /></label>
+        <label style={fieldWrap}><span style={textLabel}>{label.preferredLanguage}</span><select style={inputStyle} value={form.preferred_language} onChange={e=>setField('preferred_language', e.target.value)}><option value="ja">日本語</option><option value="en">English</option></select></label>
       </div>
 
-      <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.process}</span><textarea style={{ ...inputStyle, minHeight:74, resize:'vertical' }} value={form.current_process} onChange={e=>setField('current_process', e.target.value)} placeholder={lang===JP?'例：Excelで在庫数と発注予定を管理':'Example: We manage stock and order plans in Excel'} /></label>
-      <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.pain}</span><textarea style={{ ...inputStyle, minHeight:88, resize:'vertical' }} value={form.pain_point} onChange={e=>setField('pain_point', e.target.value)} placeholder={lang===JP?'例：欠品と在庫過多の判断、仕入先への確認メール作成に時間がかかる':'Example: It takes time to judge shortages/overstock and draft supplier emails'} /></label>
+      <div style={{ border:'1px solid #e5edf5', borderRadius:14, padding:12, marginTop:14, background:'#f8fafc' }}>
+        <div style={{ fontSize:13, fontWeight:900, color:'#0f172a', marginBottom:10 }}>{label.managementGroup}</div>
+        <label style={fieldWrap}><span style={textLabel}>{label.process}</span><textarea style={{ ...inputStyle, minHeight:74, resize:'vertical' }} value={form.current_process} onChange={e=>setField('current_process', e.target.value)} placeholder={lang===JP?'例：Excelで在庫数と発注予定を管理':'Example: We manage stock and order plans in Excel'} /></label>
+        <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.pain}</span><textarea style={{ ...inputStyle, minHeight:88, resize:'vertical' }} value={form.pain_point} onChange={e=>setField('pain_point', e.target.value)} placeholder={lang===JP?'例：欠品と在庫過多の判断、仕入先への確認メール作成に時間がかかる':'Example: It takes time to judge shortages/overstock and draft supplier emails'} /></label>
+      </div>
 
       <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16, flexWrap:'wrap' }}>
         <button type="button" onClick={onClose} style={{ border:'1px solid #d7e3ee', background:'#fff', color:'#334155', borderRadius:10, padding:'10px 14px', fontWeight:900, cursor:'pointer' }}>{lang===JP?'閉じる':'Close'}</button>
@@ -2070,6 +2073,7 @@ function App() {
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
+// early access only after second item language process group fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2091,6 +2095,7 @@ function App() {
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
+// early access only after second item language process group fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2111,6 +2116,7 @@ function App() {
 // expanded product icon library all items fix
 // currency usd jpy and pc table readability fix
 // limited free beta early access request form fix
+// early access only after second item language process group fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2534,20 +2540,13 @@ function App() {
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? 'Early Access 20品目' : 'Early Access 20 items') : (lang === JP ? '無料β 1品目' : 'Free beta 1 item')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? '利用枠 20品目' : '20 item access') : (lang === JP ? '無料β 1品目' : 'Free beta: 1 item')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
       </nav>
-      <div style={{ border:`1px solid ${T.green}`, background:'rgba(34,201,133,.10)', borderRadius:12, padding:'12px 14px', marginBottom:16, display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', flexWrap:'wrap' }}>
-        <div>
-          <div style={{ fontWeight:900, color:'#dfffee' }}>{lang === JP ? '期間限定無料β版' : 'Limited Free Beta'}</div>
-          <div style={{ color:'#cfe7ff', fontSize:13, marginTop:3 }}>{lang === JP ? '1品目まで無料。2品目以上を管理したい場合はEarly Access申請をお願いします。' : '1 item is included for free. Need 2+ items? Submit an Early Access request.'}</div>
-        </div>
-        <button onClick={()=>startEarlyAccessRequest('header_beta_request', billableSupersetCount(items))} style={{ border:'none', background:T.green, color:'#fff', borderRadius:10, padding:'9px 13px', fontWeight:900, cursor:'pointer' }}>{lang === JP ? 'Early Accessを申請' : 'Request Early Access'}</button>
-      </div>
 
       {tab === 'dashboard' && <>
         <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
