@@ -78,7 +78,12 @@ const calcDays = s => calcWeeks(s) * 7
 const calcRp = s => Math.ceil(Number(s?.lead_time || 0) / 7) * consumptionPerWeek(s)
 const fmt = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
 const displayName = (s, lang) => lang === EN ? (s.name_en || s.name) : s.name
-const currency = (n, lang) => lang === JP ? `¥${Math.round(Number(n || 0)).toLocaleString('ja-JP')}` : `$${Math.round(Number(n || 0)).toLocaleString('en-US')}`
+const FX_USD_JPY = 150
+const currency = (n, lang) => {
+  const value = Number(n || 0)
+  if (lang === JP) return `¥${Math.round(value).toLocaleString('ja-JP')}`
+  return `$${Math.round(value / FX_USD_JPY).toLocaleString('en-US')}`
+}
 const weekLabel = (week, lang) => lang === JP ? `${week}週` : `W${week}`
 const fmtWeeks = w => Math.max(0, Math.round(Number(w || 0))).toLocaleString('en-US')
 const csvBlob = rows => new Blob(['\ufeff' + rows.join('\n')], { type:'text/csv;charset=utf-8' })
@@ -661,7 +666,7 @@ function ProductIcon({ type='box', active=false }) {
 }
 
 function IconBox({ icon, active=false }) {
-  return <div style={{ width:120, height:90, borderRadius:10, background:'linear-gradient(145deg,#e9eef4,#b8c5d2)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(255,255,255,.55)' }}><ProductIcon type={icon} active={active} /></div>
+  return <div style={{ width:64, height:52, borderRadius:10, background:'linear-gradient(145deg,#e9eef4,#b8c5d2)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(255,255,255,.55)', overflow:'hidden', flexShrink:0 }}><ProductIcon type={icon} active={false} /></div>
 }
 
 function MetricCard({ tone, icon, title, sub, value, note, button, onClick, lang }) {
@@ -1180,7 +1185,7 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
             <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', color:i===0?T.red:'#64748b', fontWeight:900 }}>{i+1}</td>
             <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:900 }}>{s.supplier || s.subset || `Supplier ${i+1}`}</td>
             <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', color:calcWeeks(s) < 2 ? T.red : calcWeeks(s) >= 8 ? T.blue : T.green, fontWeight:900 }}>{calcWeeks(s).toFixed(1)}{lang===JP?'週':'w'}</td>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:800 }}>¥{fmt(Number(s.unit_cost || 0))}</td>
+            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:800 }}>{currency(Number(s.unit_cost || 0), lang)}</td>
             <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:800 }}>{Number(s.lead_time || 0)}{lang===JP?'日':'d'}</td>
           </tr>)}</tbody>
         </table>
@@ -1540,8 +1545,17 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
           : ': prioritize suppliers with usable stock coverage and the lowest unit cost based on item-level inventory status.'}
       </div>
     </div>
-    <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}>
-      <table style={{ width:'100%', minWidth:680, tableLayout:'fixed', borderCollapse:'collapse' }}>
+    <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}>
+      <table style={{ width:'100%', minWidth:1040, tableLayout:'fixed', borderCollapse:'collapse' }}>
+        <colgroup>
+          <col style={{ width:64 }} />
+          <col style={{ width:150 }} />
+          <col style={{ width:96 }} />
+          <col style={{ width:110 }} />
+          <col style={{ width:100 }} />
+          <col style={{ width:150 }} />
+          <col style={{ width:370 }} />
+        </colgroup>
         <thead><tr>{[
           lang === JP ? '優先' : 'Priority',
           copy(lang, 'supplier'),
@@ -1570,10 +1584,10 @@ function ReorderSimulationPanel({ items, selectedSku, incrementals, lang }) {
             <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}`, color:i===0?T.red:T.muted, fontWeight:900 }}>{i+1}</td>
             <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{r.supplier}</td>
             <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}`, color:m.color, fontWeight:900 }}>{fmtWeeks(r.weeks)} {copy(lang, 'week')}</td>
-            <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}` }}>{lang === JP ? `¥${Math.round(cost).toLocaleString('ja-JP')}` : `$${cost.toLocaleString('en-US')}`}</td>
+            <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}` }}>{currency(cost, lang)}</td>
             <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}` }}>{lead}{lang === JP ? '日' : 'd'}</td>
             <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}`, color:qty?T.red:T.muted, fontWeight:900 }}>{qty ? `+${fmt(qty)} ${copy(lang, 'units')}` : '—'}</td>
-            <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}` }}>{decision}</td>
+            <td style={{ padding:'8px 8px', borderBottom:`1px solid ${T.line}`, whiteSpace:'normal', lineHeight:1.45 }}>{decision}</td>
           </tr>
         })}</tbody>
       </table>
@@ -1867,7 +1881,7 @@ function AiPlanTab({ items, selectedSku, incrementals, lang, onBack }) {
   return <Panel title={copy(lang, 'aiPlan')} action={<Btn small onClick={onBack}>← {lang === JP ? 'ヒートマップへ戻る' : 'Back to Heatmap'}</Btn>}>
     <p style={{ color:'#d8e6f4', marginTop:-4, lineHeight:1.7 }}>{lang === JP ? 'StockwiseのAI機能を通して、CSV・在庫・入荷予定・実際の消費量から発注計画を整理します。' : 'Through Stockwise AI, this tab organizes an order plan from CSV, stock, inbound plan, and actual consumption data.'}</p>
     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))', gap:10, marginTop:14 }}>
-      <div style={{ border:`1px solid ${T.red}`, background:'rgba(255,70,93,.12)', borderRadius:12, padding:18 }}><b style={{ color:T.red }}>{lang === JP ? 'リスク週' : 'Risk Weeks'}</b><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>{criticalWeeks}</div></div>
+      <div style={{ border:`1px solid ${T.red}`, background:'rgba(255,70,93,.12)', borderRadius:12, padding:18 }}><b style={{ color:T.red }}>{lang === JP ? 'リスク週' : 'Risk Weeks'}</b><div style={{ fontSize:20, fontWeight:900, marginTop:6 }}>{criticalWeeks}</div></div>
       <div style={{ border:`1px solid ${T.red}`, background:'rgba(255,138,28,.12)', borderRadius:12, padding:18 }}><b style={{ color:T.red }}>{lang === JP ? '推奨発注量' : 'Recommended Order'}</b><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>+{fmt(qty)} {copy(lang, 'units')}</div></div>
       <div style={{ border:`1px solid ${T.green}`, background:'rgba(34,201,133,.12)', borderRadius:12, padding:18 }}><b style={{ color:T.green }}>{lang === JP ? '優先仕入先' : 'Supplier Priority'}</b><div style={{ fontSize:18, fontWeight:900, marginTop:10 }}>{rows.slice(0,3).map(r=>r.supplier).join(' → ') || '—'}</div></div>
     </div>
@@ -1950,6 +1964,7 @@ export default function App() {
 // mobile business support full PC parity fix
 // auto product icon by item name fix
 // expanded product icon library all items fix
+// currency usd jpy and pc table readability fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -1969,6 +1984,7 @@ export default function App() {
 // mobile business support full PC parity fix
 // auto product icon by item name fix
 // expanded product icon library all items fix
+// currency usd jpy and pc table readability fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -1987,6 +2003,7 @@ export default function App() {
 // mobile business support full PC parity fix
 // auto product icon by item name fix
 // expanded product icon library all items fix
+// currency usd jpy and pc table readability fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2460,14 +2477,14 @@ export default function App() {
 
         <div ref={actionItemsRef} style={{ scrollMarginTop:20 }}><Panel title={copy(lang, 'reorderItems')}>
           <div style={{ display:'grid', gap:10 }}>
-            {(actionItems.length ? actionItems : displayProductOptions).map(s => { const st=statusOf(s); const m=statusMeta[st]; const recommended = st === 'over' ? 0 : (s.moq || Math.max(0, calcRp(s)-Number(s.stock_qty||0))); return <div key={s.id} onClick={()=>{setSelected(s); setTab('heatmap')}} style={{ display:'grid', gridTemplateColumns:'78px minmax(180px,1.4fr) 90px 120px minmax(220px,1fr)', gap:10, alignItems:'center', cursor:'pointer', border:`1px solid ${m.color}`, background:`${m.color}12`, borderRadius:10, padding:10 }}>
+            {(actionItems.length ? actionItems : displayProductOptions).map(s => { const st=statusOf(s); const m=statusMeta[st]; const recommended = st === 'over' ? 0 : (s.moq || Math.max(0, calcRp(s)-Number(s.stock_qty||0))); return <div key={s.id} onClick={()=>{setSelected(s); setTab('heatmap')}} style={{ display:'grid', gridTemplateColumns:'68px minmax(260px,1.7fr) 130px 150px minmax(250px,1fr)', gap:12, alignItems:'center', cursor:'pointer', border:`1px solid ${m.color}`, background:`${m.color}12`, borderRadius:10, padding:'10px 12px', overflowX:'auto' }}>
               <IconBox icon={s.icon || 'box'} active />
-              <div><h3 style={{ margin:'0 0 8px', fontSize:19 }}>{displayName(s, lang)}</h3><div style={{ color:T.muted, fontSize:13 }}>{copy(lang, 'itemLabel')}: {s.name}</div><div style={{ marginTop:9 }}><span style={{ background:m.color, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:12, fontWeight:900 }}>{m[lang].toUpperCase()}</span><span style={{ marginLeft:10, color:'#cfddeb' }}>{st === 'over' ? (lang === JP ? '在庫過多の可能性があります' : 'Possible overstock detected') : (lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected')}</span></div></div>
-              <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:18 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'currentStock')}</div><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>{fmt(s.stock_qty)} <span style={{ fontSize:13 }}>{copy(lang, 'units')}</span></div></div>
-              <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:18 }}><div style={{ color:T.muted, fontWeight:800 }}>{st === 'over' ? (lang === JP ? '対応' : 'Action') : copy(lang, 'recommendedOrder')}</div><div style={{ color:st === 'over' ? T.blue : T.red, fontSize:19, fontWeight:900, marginTop:10 }}>{st === 'over' ? (lang === JP ? '追加停止' : 'Stop') : `+${fmt(recommended)} ${copy(lang, 'units')}`}</div></div>
-              <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:14 }}>
+              <div style={{ minWidth:0 }}><h3 style={{ margin:'0 0 5px', fontSize:17, lineHeight:1.25 }}>{displayName(s, lang)}</h3><div style={{ color:T.muted, fontSize:12, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{copy(lang, 'itemLabel')}: {s.name}</div><div style={{ marginTop:7, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}><span style={{ background:m.color, color:'#fff', borderRadius:4, padding:'4px 8px', fontSize:12, fontWeight:900 }}>{m[lang].toUpperCase()}</span><span style={{ color:'#cfddeb', fontSize:12 }}>{st === 'over' ? (lang === JP ? '在庫過多の可能性があります' : 'Possible overstock detected') : (lang === JP ? '在庫不足のリスクがあります' : 'Stockout risk detected')}</span></div></div>
+              <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:12 }}><div style={{ color:T.muted, fontWeight:800 }}>{copy(lang, 'currentStock')}</div><div style={{ fontSize:24, fontWeight:900, marginTop:10 }}>{fmt(s.stock_qty)} <span style={{ fontSize:13 }}>{copy(lang, 'units')}</span></div></div>
+              <div style={{ borderLeft:`1px solid ${T.line}`, paddingLeft:12 }}><div style={{ color:T.muted, fontWeight:800 }}>{st === 'over' ? (lang === JP ? '対応' : 'Action') : copy(lang, 'recommendedOrder')}</div><div style={{ color:st === 'over' ? T.blue : T.red, fontSize:17, fontWeight:900, marginTop:6 }}>{st === 'over' ? (lang === JP ? '追加停止' : 'Stop') : `+${fmt(recommended)} ${copy(lang, 'units')}`}</div></div>
+              <div style={{ border:`1px solid ${T.line}`, borderRadius:8, padding:10, minWidth:0 }}>
                 <b>{lang === JP ? '需給確認' : 'Supply check'}</b>
-                <div style={{ display:'grid', gap:8, marginTop:10, fontSize:13, color:'#d7e7f7' }}>
+                <div style={{ display:'grid', gap:5, marginTop:8, fontSize:12, color:'#d7e7f7' }}>
                   <div>{lang === JP ? '週次所要' : 'Weekly need'}：<b>{fmt(consumptionPerWeek(s))}</b> {copy(lang, 'units')}</div>
                   <div>{lang === JP ? 'LT必要数' : 'Lead-time need'}：<b>{fmt(calcRp(s))}</b> {copy(lang, 'units')}</div>
                   <div>{lang === JP ? '安全在庫' : 'Safety stock'}：<b>{fmt(s.safety_stock || 0)}</b> {copy(lang, 'units')}</div>
