@@ -2076,6 +2076,7 @@ export default function App() {
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
+// logo header image and access label removal fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2101,6 +2102,7 @@ export default function App() {
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
+// logo header image and access label removal fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2125,6 +2127,7 @@ export default function App() {
 // early access modal only opens after second item upload fix
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
+// logo header image and access label removal fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2548,8 +2551,8 @@ export default function App() {
   return <div style={{ minHeight:'100vh', background:`radial-gradient(circle at 50% -10%, #093255 0%, ${T.bg} 45%, #000915 100%)`, color:T.text, fontFamily:T.font }}>
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-icon.png" alt="Stockwise" style={{ width:40, height:40, borderRadius:0, objectFit:'cover', boxShadow:'0 8px 24px rgba(0,0,0,.25)' }} /><div style={{ fontSize:26, fontWeight:900 }}>Stockwise</div></div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><span style={{ color:T.muted, fontSize:11, fontWeight:900 }}>{isBasicPlanActive() ? (lang === JP ? '利用枠 20品目' : '20 item access') : (lang === JP ? '無料β 1品目' : 'Free beta: 1 item')}</span><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-logo.png" alt="Stockwise" style={{ height:48, width:'auto', maxWidth:260, objectFit:'contain', display:'block' }} /></div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
       <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
