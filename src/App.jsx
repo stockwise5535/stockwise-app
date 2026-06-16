@@ -1007,13 +1007,13 @@ function MobileSummaryCard({ title, value, note, tone='blue' }) {
     flex:1,
     minWidth:0,
     border:`1px solid ${color}55`,
-    background:'#fff',
+    background:'linear-gradient(180deg, rgba(7,33,59,.96), rgba(4,25,46,.96))',
     borderRadius:12,
     padding:'13px 12px',
-    boxShadow:'0 8px 20px rgba(15,23,42,.06)'
+    boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)'
   }}>
     <div style={{ color, fontSize:11, fontWeight:900, lineHeight:1.25 }}>{title}</div>
-    <div style={{ color, fontSize:26, lineHeight:1, fontWeight:900, marginTop:8 }}>{value}<span style={{ fontSize:11, color:'#64748b', marginLeft:4 }}>{langSafeUnit(note)}</span></div>
+    <div style={{ color:T.text, fontSize:26, lineHeight:1, fontWeight:900, marginTop:8 }}>{value}<span style={{ fontSize:11, color:T.muted, marginLeft:4 }}>{langSafeUnit(note)}</span></div>
     {note && <div style={{ color, fontSize:11, fontWeight:900, marginTop:6 }}>{note}</div>}
   </div>
 }
@@ -1047,17 +1047,17 @@ function MobileItemCard({ sku, lang, incrementals, onOpen }) {
   const weeks = calcWeeks(sku)
   const status = statusOf(sku)
   const color = weeks < 2 ? T.red : weeks >= 8 ? T.blue : T.green
-  return <button onClick={onOpen} style={{ width:'100%', textAlign:'left', border:'none', borderBottom:'1px solid #e5edf5', background:'#fff', padding:'14px 2px', color:'#0f172a', fontFamily:T.font }}>
+  return <button onClick={onOpen} style={{ width:'100%', textAlign:'left', border:'none', borderBottom:`1px solid ${T.line}`, background:'transparent', padding:'14px 2px', color:T.text, fontFamily:T.font }}>
     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:15.5, fontWeight:900, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{displayName(sku, lang)}</div>
-        <div style={{ color:'#64748b', fontSize:11, fontWeight:800, marginTop:3 }}>{sku.sku || 'SKU'} / {sku.supplier || sku.subset || (lang === JP ? '本社倉庫' : 'Warehouse')}</div>
+        <div style={{ color:T.muted, fontSize:11, fontWeight:800, marginTop:3 }}>{sku.sku || 'SKU'} / {sku.supplier || sku.subset || (lang === JP ? '本社倉庫' : 'Warehouse')}</div>
         <div style={{ marginTop:7 }}><MobileStatusChip status={status} lang={lang} /></div>
       </div>
       <div style={{ textAlign:'right', color, fontSize:18, fontWeight:900, whiteSpace:'nowrap' }}>
-        {Number(weeks || 0).toFixed(1)}<span style={{ fontSize:11, color:'#64748b', marginLeft:2 }}>{lang === JP ? '週分' : 'w'}</span>
+        {Number(weeks || 0).toFixed(1)}<span style={{ fontSize:11, color:T.muted, marginLeft:2 }}>{lang === JP ? '週分' : 'w'}</span>
       </div>
-      <div style={{ color:'#94a3b8', fontSize:19 }}>›</div>
+      <div style={{ color:T.muted, fontSize:19 }}>›</div>
     </div>
   </button>
 }
@@ -1074,18 +1074,18 @@ function MobileProductPulse({ series }) {
     return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
   }).join(' ')
   return <svg viewBox="0 0 120 48" style={{ width:120, height:48 }}>
-    <path d={d} fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d={d} fill="none" stroke={T.blue} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     {values.map((v,i)=>{
       const x = 4 + (i / Math.max(1, values.length - 1)) * 108
       const y = 42 - ((v - min) / span) * 32
-      return <circle key={i} cx={x} cy={y} r="2.5" fill="#2563eb" />
+      return <circle key={i} cx={x} cy={y} r="2.5" fill={T.blue} />
     })}
   </svg>
 }
 
 function MobileHeatCell({ row, children }) {
   const meta = statusMeta[row.status] || statusMeta.good
-  return <td style={{ padding:'7px 6px', textAlign:'center', background:`${meta.color}12`, border:'1px solid #e5edf5', fontSize:11, fontWeight:900, color:children !== undefined && String(children).startsWith('-') ? T.red : '#0f172a' }}>{children}</td>
+  return <td style={{ padding:'7px 6px', textAlign:'center', background:`${meta.color}14`, border:`1px solid ${T.line}`, fontSize:11, fontWeight:900, color:children !== undefined && String(children).startsWith('-') ? T.red : T.text }}>{children}</td>
 }
 
 function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
@@ -1143,12 +1143,12 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
   }
 
   return <div style={{ display:'grid', gap:10 }}>
-    <section style={{ background:'#fff', color:'#0f172a', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+    <section style={{ background:T.panel, color:T.text, border:`1px solid ${T.line}`, borderRadius:14, padding:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
       <div style={{ display:'flex', justifyContent:'space-between', gap:10, alignItems:'flex-start' }}>
         <div style={{ minWidth:0 }}>
           <h2 style={{ margin:'0 0 4px', fontSize:18, letterSpacing:'-.03em' }}>{lang === JP ? '在庫ヒートマップ' : 'Inventory heatmap'}</h2>
-          <div style={{ fontSize:12, color:'#64748b', fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{displayName(sku, lang)}</div>
-          <div style={{ fontSize:11, color:'#94a3b8', fontWeight:800, marginTop:3 }}>{sku.sku || ''} / {lang === JP ? '全仕入先' : 'All suppliers'}</div>
+          <div style={{ fontSize:12, color:T.muted, fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{displayName(sku, lang)}</div>
+          <div style={{ fontSize:11, color:T.muted, fontWeight:800, marginTop:3 }}>{sku.sku || ''} / {lang === JP ? '全仕入先' : 'All suppliers'}</div>
         </div>
         <div style={{ textAlign:'right' }}>
           <div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang === JP ? '需給パルス' : 'Supply pulse'}</div>
@@ -1156,69 +1156,69 @@ function MobileSupplierHeatmap({ sku, items, incrementals, lang }) {
         </div>
       </div>
       <div style={{ display:'flex', gap:8, margin:'10px 0 12px' }}>
-        <button onClick={()=>setViewMode('weekly')} style={{ border:'none', background:viewMode === 'weekly' ? T.green : '#f1f5f9', color:viewMode === 'weekly' ? '#fff' : '#475569', borderRadius:999, padding:'6px 12px', fontSize:11, fontWeight:900 }}>Weekly</button>
-        <button onClick={()=>setViewMode('monthly')} style={{ border:'none', background:viewMode === 'monthly' ? T.green : '#f1f5f9', color:viewMode === 'monthly' ? '#fff' : '#475569', borderRadius:999, padding:'6px 12px', fontSize:11, fontWeight:900 }}>Monthly</button>
+        <button onClick={()=>setViewMode('weekly')} style={{ border:'none', background:viewMode === 'weekly' ? T.green : 'rgba(255,255,255,.05)', color:viewMode === 'weekly' ? '#fff' : T.text, borderRadius:999, padding:'6px 12px', fontSize:11, fontWeight:900 }}>Weekly</button>
+        <button onClick={()=>setViewMode('monthly')} style={{ border:'none', background:viewMode === 'monthly' ? T.green : 'rgba(255,255,255,.05)', color:viewMode === 'monthly' ? '#fff' : T.text, borderRadius:999, padding:'6px 12px', fontSize:11, fontWeight:900 }}>Monthly</button>
       </div>
-      <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', border:'1px solid #e5edf5', borderRadius:12 }}>
+      <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', border:`1px solid ${T.line}`, borderRadius:12 }}>
         <table style={{ width:'100%', borderCollapse:'collapse', minWidth:viewMode === 'monthly' ? 360 : 760, tableLayout:'fixed' }}>
-          <thead><tr>{['', ...(viewMode === 'monthly' ? ['M1','M2','M3'] : Array.from({ length:13 }, (_, i) => weekLabel(i + 1, lang)))].map(h=><th key={h} style={{ padding:'6px 5px', background:'#f8fafc', color:'#64748b', fontSize:10, fontWeight:900, borderBottom:'1px solid #e5edf5', textAlign:'right', whiteSpace:'nowrap' }}>{h}</th>)}</tr></thead>
+          <thead><tr>{['', ...(viewMode === 'monthly' ? ['M1','M2','M3'] : Array.from({ length:13 }, (_, i) => weekLabel(i + 1, lang)))].map(h=><th key={h} style={{ padding:'6px 5px', background:'rgba(255,255,255,.04)', color:T.muted, fontSize:10, fontWeight:900, borderBottom:'1px solid #e5edf5', textAlign:'right', whiteSpace:'nowrap' }}>{h}</th>)}</tr></thead>
           <tbody>
             {[
               [lang === JP ? '需要' : 'Forecast', 'forecast'],
               [lang === JP ? '供給' : 'Supply', 'supply'],
               [lang === JP ? '差分' : 'Gap', 'delta']
             ].map(([label,key]) => <tr key={key}>
-              <td style={{ padding:'10px 8px', color:'#334155', fontSize:11, fontWeight:900, borderBottom:'1px solid #edf2f7', textAlign:'left' }}>{label}</td>
-              {visibleSeries.map(r => <td key={`${key}-${r.week}`} style={{ padding:'10px 8px', color:key === 'delta' ? (Number(r.delta) < 0 ? T.red : T.green) : '#0f172a', fontSize:11, fontWeight:900, borderBottom:'1px solid #edf2f7', textAlign:'right' }}>{Number(r[key]) > 0 && key === 'delta' ? '+' : ''}{fmt(r[key])}</td>)}
+              <td style={{ padding:'10px 8px', color:T.text, fontSize:11, fontWeight:900, borderBottom:`1px solid ${T.line}`, textAlign:'left' }}>{label}</td>
+              {visibleSeries.map(r => <td key={`${key}-${r.week}`} style={{ padding:'10px 8px', color:key === 'delta' ? (Number(r.delta) < 0 ? T.red : T.green) : T.text, fontSize:11, fontWeight:900, borderBottom:`1px solid ${T.line}`, textAlign:'right' }}>{Number(r[key]) > 0 && key === 'delta' ? '+' : ''}{fmt(r[key])}</td>)}
             </tr>)}
           </tbody>
         </table>
       </div>
     </section>
 
-    <section style={{ background:'#fff', color:'#0f172a', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+    <section style={{ background:T.panel, color:T.text, border:`1px solid ${T.line}`, borderRadius:14, padding:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
       <h3 style={{ margin:'0 0 12px', fontSize:17 }}>{lang === JP ? '仕入先比較' : 'Supplier comparison'}</h3>
-      <div style={{ border:'1px solid #e5edf5', borderRadius:12, overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:12, overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}>
         <table style={{ width:'100%', minWidth:520, borderCollapse:'collapse', tableLayout:'fixed' }}>
-          <thead><tr>{[lang===JP?'優先':'Priority',lang===JP?'仕入先':'Supplier',lang===JP?'在庫週数':'WOS',lang===JP?'単価':'Cost',lang===JP?'LT':'LT'].map(h=><th key={h} style={{ background:'#f8fafc', padding:'7px 6px', borderBottom:'1px solid #e5edf5', fontSize:11, textAlign:'left' }}>{h}</th>)}</tr></thead>
+          <thead><tr>{[lang===JP?'優先':'Priority',lang===JP?'仕入先':'Supplier',lang===JP?'在庫週数':'WOS',lang===JP?'単価':'Cost',lang===JP?'LT':'LT'].map(h=><th key={h} style={{ background:'rgba(255,255,255,.04)', padding:'7px 6px', borderBottom:'1px solid #e5edf5', fontSize:11, textAlign:'left' }}>{h}</th>)}</tr></thead>
           <tbody>{supplierRows.map((s,i)=><tr key={s.id || i}>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', color:i===0?T.red:'#64748b', fontWeight:900 }}>{i+1}</td>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:900 }}>{s.supplier || s.subset || `Supplier ${i+1}`}</td>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', color:calcWeeks(s) < 2 ? T.red : calcWeeks(s) >= 8 ? T.blue : T.green, fontWeight:900 }}>{calcWeeks(s).toFixed(1)}{lang===JP?'週':'w'}</td>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:800 }}>{currency(Number(s.unit_cost || 0), lang)}</td>
-            <td style={{ padding:'8px 6px', borderBottom:'1px solid #edf2f7', fontWeight:800 }}>{Number(s.lead_time || 0)}{lang===JP?'日':'d'}</td>
+            <td style={{ padding:'8px 6px', borderBottom:`1px solid ${T.line}`, color:i===0?T.red:'#64748b', fontWeight:900 }}>{i+1}</td>
+            <td style={{ padding:'8px 6px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{s.supplier || s.subset || `Supplier ${i+1}`}</td>
+            <td style={{ padding:'8px 6px', borderBottom:`1px solid ${T.line}`, color:calcWeeks(s) < 2 ? T.red : calcWeeks(s) >= 8 ? T.blue : T.green, fontWeight:900 }}>{calcWeeks(s).toFixed(1)}{lang===JP?'週':'w'}</td>
+            <td style={{ padding:'8px 6px', borderBottom:`1px solid ${T.line}`, fontWeight:800 }}>{currency(Number(s.unit_cost || 0), lang)}</td>
+            <td style={{ padding:'8px 6px', borderBottom:`1px solid ${T.line}`, fontWeight:800 }}>{Number(s.lead_time || 0)}{lang===JP?'日':'d'}</td>
           </tr>)}</tbody>
         </table>
       </div>
     </section>
 
-    <section style={{ background:'#fff', color:'#0f172a', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+    <section style={{ background:T.panel, color:T.text, border:`1px solid ${T.line}`, borderRadius:14, padding:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
         <h3 style={{ margin:0, fontSize:17 }}>{lang === JP ? '分析・発注サポート' : 'Analysis & order support'}</h3>
         <span style={{ border:`1px solid ${isShort ? T.red : isOver ? T.blue : T.green}`, color:isShort ? T.red : isOver ? T.blue : T.green, borderRadius:999, padding:'4px 8px', fontSize:11, fontWeight:900 }}>{isShort ? (lang===JP?'欠品リスク':'Shortage risk') : isOver ? (lang===JP?'過剰リスク':'Overstock risk') : (lang===JP?'通常監視':'Normal')}</span>
       </div>
       <div style={{ display:'grid', gap:10, marginTop:12 }}>
-        <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:10 }}>
           <div style={{ fontWeight:900, marginBottom:7 }}>{lang === JP ? '分析サマリー' : 'Analysis summary'}</div>
-          <div style={{ color:'#475569', fontSize:12, lineHeight:1.65 }}>{isShort
+          <div style={{ color:T.muted, fontSize:12, lineHeight:1.65 }}>{isShort
               ? (lang === JP ? '需要に対して在庫が不足する可能性があります。最短リードタイムの仕入先を優先し、必要数量のみを提案します。' : 'Inventory may fall short against demand. Prioritize the shortest lead-time supplier and propose only the required quantity.')
               : isOver
                 ? (lang === JP ? '供給が需要を大きく上回る可能性があります。次回発注の一時停止または数量調整を推奨します。' : 'Supply may exceed demand. Pause the next order or adjust quantity.')
                 : (lang === JP ? '現在の需給は大きな不足・過剰がなく、通常監視で問題ありません。' : 'Current supply and demand are balanced. Continue normal monitoring.')
             }</div>
         </div>
-        <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:10 }}>
           <div style={{ fontWeight:900, marginBottom:8 }}>{lang === JP ? '発注提案' : 'Order proposal'}</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'推奨仕入先':'Supplier'}</div><b>{bestSupplier.supplier || bestSupplier.subset || 'Supplier A'}</b></div>
-            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注数量':'Order qty'}</div><b>{fmt(recommendedQty)} {lang===JP?'個':'units'}</b></div>
-            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'希望納期':'Target ETA'}</div><b>{shortageWeek ? (lang===JP?`${shortageWeek}週目前`:`Before W${shortageWeek}`) : (lang===JP?'次回入荷可能週':'Next available week')}</b></div>
-            <div style={{ background:'#f8fafc', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注種別':'Order type'}</div><b>{isShort ? (lang === JP ? '通常発注' : 'Standard') : (lang === JP ? '数量調整' : 'Quantity adjustment')}</b></div>
+            <div style={{ background:'rgba(255,255,255,.04)', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'推奨仕入先':'Supplier'}</div><b>{bestSupplier.supplier || bestSupplier.subset || 'Supplier A'}</b></div>
+            <div style={{ background:'rgba(255,255,255,.04)', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注数量':'Order qty'}</div><b>{fmt(recommendedQty)} {lang===JP?'個':'units'}</b></div>
+            <div style={{ background:'rgba(255,255,255,.04)', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'希望納期':'Target ETA'}</div><b>{shortageWeek ? (lang===JP?`${shortageWeek}週目前`:`Before W${shortageWeek}`) : (lang===JP?'次回入荷可能週':'Next available week')}</b></div>
+            <div style={{ background:'rgba(255,255,255,.04)', borderRadius:10, padding:10 }}><div style={{ color:'#64748b', fontSize:11, fontWeight:900 }}>{lang===JP?'発注種別':'Order type'}</div><b>{isShort ? (lang === JP ? '通常発注' : 'Standard') : (lang === JP ? '数量調整' : 'Quantity adjustment')}</b></div>
           </div>
         </div>
-        <div style={{ border:'1px solid #e5edf5', borderRadius:12, padding:10 }}>
+        <div style={{ border:`1px solid ${T.line}`, borderRadius:12, padding:10 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:7 }}><b>{lang === JP ? '作成メール' : 'Generated email'}</b><button onClick={copyEmail} style={{ border:'none', background:'transparent', color:T.green, fontSize:11, fontWeight:900 }}>{lang===JP?'コピー':'Copy'}</button></div>
-          <div style={{ color:'#475569', fontSize:11, lineHeight:1.6, background:'#f8fafc', borderRadius:10, padding:10, whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{`Subject: ${subject}\n\n${body}`}</div>
+          <div style={{ color:T.muted, fontSize:11, lineHeight:1.6, background:'rgba(255,255,255,.04)', borderRadius:10, padding:10, whiteSpace:'pre-wrap', overflowWrap:'anywhere' }}>{`Subject: ${subject}\n\n${body}`}</div>
         </div>
       </div>
     </section>
@@ -1269,12 +1269,11 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
     setMobileTab('heatmap')
   }
 
-  return <div style={{ minHeight:'100vh', background:'#f3f7fb', color:'#0f172a', fontFamily:T.font, padding:'0 10px 78px', fontSize:13, overflowX:'hidden' }}>
-    <header style={{ position:'sticky', top:0, zIndex:20, margin:'0 -10px 12px', padding:'12px 14px 10px', background:'linear-gradient(135deg,#03180e,#07170f)', color:'#fff', boxShadow:'0 8px 24px rgba(2,6,23,.18)' }}>
+  return <div style={{ minHeight:'100vh', background:T.bg, color:T.text, fontFamily:T.font, padding:'0 10px 78px', fontSize:13, overflowX:'hidden' }}>
+    <header style={{ position:'sticky', top:0, zIndex:20, margin:'0 -10px 12px', padding:'12px 14px 10px', background:'linear-gradient(180deg, rgba(0,20,38,.98), rgba(3,26,48,.98))', color:T.text, boxShadow:'0 8px 24px rgba(2,6,23,.18)', borderBottom:`1px solid ${T.line}` }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
         <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-          <img src="/stockwise-icon.png" alt="Stockwise" style={{ width:28, height:28, borderRadius:0, objectFit:'cover', boxShadow:'0 6px 16px rgba(0,0,0,.25)' }} />
-          <div style={{ fontSize:18, fontWeight:900 }}>Stockwise</div>
+          <img src="/stockwise-logo.png" alt="Stockwise" style={{ height:28, width:'auto', objectFit:'contain', display:'block' }} />
         </div>
         <div style={{ display:'flex', gap:7, alignItems:'center' }}>
           <button onClick={()=>setLang(lang === JP ? EN : JP)} style={{ border:'1px solid rgba(255,255,255,.25)', background:'rgba(255,255,255,.08)', color:'#fff', borderRadius:999, padding:'7px 10px', fontWeight:900 }}>{lang === JP ? 'EN' : 'JP'}</button>
@@ -1284,9 +1283,9 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
     </header>
 
     {mobileTab === 'dashboard' && <main style={{ display:'grid', gap:10 }}>
-      <section style={{ background:'#fff', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+      <section style={{ background:T.panel, border:`1px solid ${T.line}`, color:T.text, borderRadius:14, padding:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
         <h1 style={{ margin:'0 0 13px', fontSize:19, letterSpacing:'-.03em' }}>{lang === JP ? 'ダッシュボード' : 'Dashboard'}</h1>
-        {!mobileHasProducts && <div style={{ color:'#64748b', fontSize:12, lineHeight:1.6, marginBottom:10 }}>{lang === JP ? '品目データがまだ同期されていません。PC本番URLでCSVをアップロード後、再読み込みしてください。' : 'Item data is not synced yet. Upload the CSV on the desktop production URL, then refresh.'}</div>}
+        {!mobileHasProducts && <div style={{ color:T.muted, fontSize:12, lineHeight:1.6, marginBottom:10 }}>{lang === JP ? '品目データがまだ同期されていません。PC本番URLでCSVをアップロード後、再読み込みしてください。' : 'Item data is not synced yet. Upload the CSV on the desktop production URL, then refresh.'}</div>}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           <MobileSummaryCard title={lang === JP ? '発注必要案件' : 'Items to order'} value={reorderItems.length} note={lang === JP ? '要確認' : 'Review'} tone="red" />
           <MobileSummaryCard title={lang === JP ? '在庫過多' : 'Overstock'} value={overItems.length} note={lang === JP ? '8週以上' : '8w+'} tone="blue" />
@@ -1294,7 +1293,7 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
           <MobileSummaryCard title={lang === JP ? '在庫金額' : 'Stock value'} value={currency(stockValue, lang)} note={lang === JP ? '現在の在庫' : 'Current'} tone="green" />
         </div>
       </section>
-      <section style={{ background:'#fff', borderRadius:16, padding:'14px 15px 6px', boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+      <section style={{ background:T.panel, border:`1px solid ${T.line}`, color:T.text, borderRadius:16, padding:'14px 15px 6px', boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2 }}>
           <h2 style={{ margin:0, fontSize:17 }}>{lang === JP ? '品目一覧（上位5件）' : 'Top items'}</h2>
           <button onClick={()=>setMobileTab('items')} style={{ border:'none', background:'transparent', color:T.green, fontWeight:900 }}>{lang === JP ? 'すべて見る' : 'View all'}</button>
@@ -1306,7 +1305,7 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
     {mobileTab === 'heatmap' && <MobileSupplierHeatmap sku={mobileSelected || allProducts?.[0]} items={sourceItems} incrementals={incrementals} lang={lang} />}
 
     {mobileTab === 'items' && <main style={{ display:'grid', gap:10 }}>
-      <section style={{ background:'#fff', borderRadius:14, padding:12, boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+      <section style={{ background:T.panel, border:`1px solid ${T.line}`, color:T.text, borderRadius:14, padding:12, boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
         <h1 style={{ margin:'0 0 12px', fontSize:19 }}>{lang === JP ? '品目一覧' : 'Items'}</h1>
         <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={lang === JP ? '品目名・品目コードで検索' : 'Search item or SKU'} style={{ width:'100%', border:'1px solid #dbe5ef', borderRadius:12, padding:'12px 13px', fontSize:13, outline:'none', marginBottom:10 }} />
         <div style={{ display:'flex', gap:7, overflowX:'auto', paddingBottom:2 }}>
@@ -1315,11 +1314,11 @@ function MobileStockwiseApp({ lang, setLang, items, productOptions, incrementals
             ['shortage', lang === JP ? '不足' : 'Shortage'],
             ['good', lang === JP ? '適正' : 'Healthy'],
             ['over', lang === JP ? '過剰' : 'Overstock'],
-          ].map(([k,label])=><button key={k} onClick={()=>setFilter(k)} style={{ border:'1px solid #dbe5ef', background:filter === k ? (k === 'shortage' ? T.red : k === 'over' ? T.blue : T.green) : '#fff', color:filter === k ? '#fff' : '#334155', borderRadius:999, padding:'7px 12px', fontWeight:900, whiteSpace:'nowrap' }}>{label}</button>)}
+          ].map(([k,label])=><button key={k} onClick={()=>setFilter(k)} style={{ border:`1px solid ${filter === k ? (k === 'shortage' ? T.red : k === 'over' ? T.blue : T.green) : T.line}`, background:filter === k ? (k === 'shortage' ? T.red : k === 'over' ? T.blue : T.green) : 'rgba(255,255,255,.03)', color:filter === k ? '#fff' : T.text, borderRadius:999, padding:'7px 12px', fontWeight:900, whiteSpace:'nowrap' }}>{label}</button>)}
         </div>
-        <div style={{ color:'#94a3b8', fontSize:11, fontWeight:800, marginTop:10 }}>{lang === JP ? `登録数：${filteredProducts.length}品目` : `${filteredProducts.length} items`}</div>
+        <div style={{ color:T.muted, fontSize:11, fontWeight:800, marginTop:10 }}>{lang === JP ? `登録数：${filteredProducts.length}品目` : `${filteredProducts.length} items`}</div>
       </section>
-      <section style={{ background:'#fff', borderRadius:16, padding:'2px 15px 6px', boxShadow:'0 8px 24px rgba(15,23,42,.08)' }}>
+      <section style={{ background:T.panel, border:`1px solid ${T.line}`, borderRadius:16, padding:'2px 15px 6px', boxShadow:'inset 0 1px 0 rgba(255,255,255,.03)' }}>
         {filteredProducts.map(s => <MobileItemCard key={s.id || `${s.name}-${s.supplier}`} sku={s} lang={lang} incrementals={incrementals} onOpen={()=>openItem(s)} />)}
       </section>
     </main>}
@@ -1960,17 +1959,17 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
 
   const inputStyle = { width:'100%', boxSizing:'border-box', border:'1px solid #d7e3ee', borderRadius:10, padding:'10px 12px', fontSize:14, fontFamily:T.font, outline:'none' }
   const fieldWrap = { display:'grid', gap:5 }
-  const textLabel = { fontSize:12, fontWeight:900, color:'#334155' }
+  const textLabel = { fontSize:12, fontWeight:900, color:T.text }
 
   return <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:90, background:'rgba(0,0,0,.64)', display:'grid', placeItems:'center', padding:18 }}>
     <form onSubmit={submitRequest} onClick={e=>e.stopPropagation()} style={{ width:'min(560px, calc(100vw - 36px))', maxHeight:'calc(100vh - 36px)', overflowY:'auto', background:'#fff', color:'#0f172a', borderRadius:18, padding:20, boxShadow:'0 28px 90px rgba(0,0,0,.38)', fontFamily:T.font }}>
       <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'flex-start', marginBottom:12 }}>
         <div>
           <h2 style={{ margin:'0 0 6px', fontSize:22, letterSpacing:'-.03em' }}>{label.title}</h2>
-          <p style={{ margin:0, color:'#475569', fontSize:13, lineHeight:1.6 }}>{label.desc}</p>
+          <p style={{ margin:0, color:T.muted, fontSize:13, lineHeight:1.6 }}>{label.desc}</p>
           <div style={{ marginTop:10, color:T.blue, fontSize:12, fontWeight:900 }}>{label.planned}</div>
         </div>
-        <button type="button" onClick={onClose} style={{ border:'1px solid #e5edf5', background:'#f8fafc', borderRadius:10, width:36, height:36, cursor:'pointer', fontSize:18 }}>×</button>
+        <button type="button" onClick={onClose} style={{ border:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)', borderRadius:10, width:36, height:36, cursor:'pointer', fontSize:18 }}>×</button>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:12 }}>
@@ -1981,14 +1980,14 @@ function EarlyAccessModal({ lang, user, requestedItemCount='', onClose }) {
         <label style={fieldWrap}><span style={textLabel}>{label.preferredLanguage}</span><select style={inputStyle} value={form.preferred_language} onChange={e=>setField('preferred_language', e.target.value)}><option value="ja">日本語</option><option value="en">English</option></select></label>
       </div>
 
-      <div style={{ border:'1px solid #e5edf5', borderRadius:14, padding:12, marginTop:14, background:'#f8fafc' }}>
+      <div style={{ border:`1px solid ${T.line}`, borderRadius:14, padding:12, marginTop:14, background:'rgba(255,255,255,.04)' }}>
         <div style={{ fontSize:13, fontWeight:900, color:'#0f172a', marginBottom:10 }}>{label.managementGroup}</div>
         <label style={fieldWrap}><span style={textLabel}>{label.process}</span><textarea style={{ ...inputStyle, minHeight:74, resize:'vertical' }} value={form.current_process} onChange={e=>setField('current_process', e.target.value)} placeholder={lang===JP?'例：Excelで在庫数と発注予定を管理':'Example: We manage stock and order plans in Excel'} /></label>
         <label style={{ ...fieldWrap, marginTop:12 }}><span style={textLabel}>{label.pain}</span><textarea style={{ ...inputStyle, minHeight:88, resize:'vertical' }} value={form.pain_point} onChange={e=>setField('pain_point', e.target.value)} placeholder={lang===JP?'例：欠品と在庫過多の判断、仕入先への確認メール作成に時間がかかる':'Example: It takes time to judge shortages/overstock and draft supplier emails'} /></label>
       </div>
 
       <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16, flexWrap:'wrap' }}>
-        <button type="button" onClick={onClose} style={{ border:'1px solid #d7e3ee', background:'#fff', color:'#334155', borderRadius:10, padding:'10px 14px', fontWeight:900, cursor:'pointer' }}>{lang===JP?'閉じる':'Close'}</button>
+        <button type="button" onClick={onClose} style={{ border:'1px solid #d7e3ee', background:'#fff', color:T.text, borderRadius:10, padding:'10px 14px', fontWeight:900, cursor:'pointer' }}>{lang===JP?'閉じる':'Close'}</button>
         <button type="submit" disabled={sending} style={{ border:'none', background:T.green, color:'#fff', borderRadius:10, padding:'10px 16px', fontWeight:900, cursor:sending?'wait':'pointer', opacity:sending?.7:1 }}>{sending ? (lang===JP?'送信中...':'Sending...') : label.submit}</button>
       </div>
     </form>
