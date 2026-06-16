@@ -1626,7 +1626,7 @@ function ForecastAnalysisPanel({ items, forecastRows, actualRows, lang }) {
       <h3 style={{ margin:'0 0 6px', fontSize:19 }}>{copy(lang, 'forecastAnalysis')}</h3>
       <p style={{ margin:0, color:T.muted, lineHeight:1.6 }}>{lang === JP ? '登録データから需要と実際消費のズレを確認し、次アクションを整理します。' : 'Checks demand and actual consumption balance, then summarizes next actions.'}</p>
     </div>
-    <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}><table style={{ width:'100%', minWidth:920, borderCollapse:'collapse' }}>
+    <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}><table style={{ width:'100%', minWidth:920, borderCollapse:'collapse' }}>
       <thead><tr>{[lang === JP ? '品目' : 'Item', lang === JP ? '顧客' : 'Customer', 'Forecast', lang === JP ? '実績消費' : 'Actual', lang === JP ? '差異' : 'Variance', lang === JP ? '差異率' : 'Variance %', lang === JP ? '次アクション' : 'Next Action'].map(h => <th key={h} style={{ textAlign:'left', padding:'7px 6px', background:'rgba(255,255,255,.04)', borderBottom:`1px solid ${T.line}` }}>{h}</th>)}</tr></thead>
       <tbody>{rows.map((r,i)=>{ const color = r.diffRate > .2 ? T.red : r.diffRate < -.2 ? T.blue : T.green; return <tr key={`${r.item}-${i}`}>
         <td style={{ padding:'7px 6px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{r.item}</td>
@@ -1711,7 +1711,7 @@ function OverseasSalesAiPanel({ items, selectedSku, incrementals, forecastRows, 
         title={lang === JP ? '4. 仕入先別の優先確認' : '4. Supplier-level priority check'}
         desc={lang === JP ? '選択中の品目について、価格・リードタイム・在庫週数から確認順を整理します。' : 'Prioritizes suppliers by price, lead time, and weeks of stock for the selected item.'}
       >
-        <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}><table style={{ width:'100%', borderCollapse:'collapse', minWidth:620 }}>
+        <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch', maxWidth:'100%' }}><table style={{ width:'100%', borderCollapse:'collapse', minWidth:620 }}>
           <thead><tr>{[lang===JP?'確認順':'Priority', copy(lang,'supplier'), lang===JP?'在庫週数':'Weeks', lang===JP?'LT':'LT', lang===JP?'単価':'Unit Cost', lang===JP?'次アクション':'Next Action'].map(h=><th key={h} style={{ textAlign:'left', padding:'10px 12px', borderBottom:`1px solid ${T.line}`, background:'rgba(255,255,255,.04)' }}>{h}</th>)}</tr></thead>
           <tbody>{supplierRows.map((r,i)=><tr key={`${r.supplier}-${i}`}><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}`, fontWeight:900 }}>{i+1}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.supplier}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}`, color:statusMeta[r.status].color, fontWeight:900 }}>{fmtWeeks(r.weeks)}{copy(lang,'week')}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{Number(r.sku.lead_time||0)}d</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.sku.unit_cost ? (lang===JP ? `¥${fmt(Number(r.sku.unit_cost)*150)}` : `$${fmt(r.sku.unit_cost)}`) : '—'}</td><td style={{ padding:'10px 12px', borderBottom:`1px solid ${T.line}` }}>{r.action}</td></tr>)}</tbody>
         </table></div>
@@ -2077,6 +2077,7 @@ export default function App() {
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
 // logo header image and access label removal fix
+// logo background matched and duplicate style key cleanup fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2103,6 +2104,7 @@ export default function App() {
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
 // logo header image and access label removal fix
+// logo background matched and duplicate style key cleanup fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2128,6 +2130,7 @@ export default function App() {
 // fix default export so early access modal not initial page
 // build fix single default export early access modal
 // logo header image and access label removal fix
+// logo background matched and duplicate style key cleanup fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2551,7 +2554,7 @@ export default function App() {
   return <div style={{ minHeight:'100vh', background:`radial-gradient(circle at 50% -10%, #093255 0%, ${T.bg} 45%, #000915 100%)`, color:T.text, fontFamily:T.font }}>
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-logo.png" alt="Stockwise" style={{ height:48, width:'auto', maxWidth:260, objectFit:'contain', display:'block' }} /></div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-logo.png" alt="Stockwise" style={{ height:46, width:'auto', maxWidth:250, objectFit:'contain', display:'block' }} /></div>
         <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
