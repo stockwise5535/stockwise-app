@@ -2078,6 +2078,7 @@ export default function App() {
 // build fix single default export early access modal
 // logo header image and access label removal fix
 // logo background matched and duplicate style key cleanup fix
+// transparent logo no background rectangle fix
 // Supabase upsert no 409 SKU sync fix
 // paid SKU limit 1999 starts from 3 SKUs fix
 // paid SKU limit 1999 starts from 2 SKUs fix
@@ -2105,6 +2106,7 @@ export default function App() {
 // build fix single default export early access modal
 // logo header image and access label removal fix
 // logo background matched and duplicate style key cleanup fix
+// transparent logo no background rectangle fix
 // paid SKU limit 1999 starts from 1 SKU fix
 // paid SKU limit 1999 starts from 2 SKUs fix
 // paywall by second superset not supplier row fix
@@ -2131,6 +2133,7 @@ export default function App() {
 // build fix single default export early access modal
 // logo header image and access label removal fix
 // logo background matched and duplicate style key cleanup fix
+// transparent logo no background rectangle fix
   // Cross-device item sync: PC updates are saved to Supabase; phones refresh from Supabase.
   useEffect(() => {
     if (!user) return
@@ -2554,7 +2557,7 @@ export default function App() {
   return <div style={{ minHeight:'100vh', background:`radial-gradient(circle at 50% -10%, #093255 0%, ${T.bg} 45%, #000915 100%)`, color:T.text, fontFamily:T.font }}>
     <div style={{ maxWidth:1220, margin:'0 auto', padding:'18px 22px 34px' }}>
       <header style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-logo.png" alt="Stockwise" style={{ height:46, width:'auto', maxWidth:250, objectFit:'contain', display:'block' }} /></div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}><img src="/stockwise-logo.png" alt="Stockwise" style={{ height:44, width:'auto', maxWidth:240, objectFit:'contain', display:'block' }} /></div>
         <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
