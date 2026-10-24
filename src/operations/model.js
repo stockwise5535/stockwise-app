@@ -4,6 +4,7 @@ export const STATUSES = ['Open', 'Investigating', 'Waiting Supplier', 'Waiting C
 export const SEVERITIES = ['Critical', 'High', 'Medium', 'Low']
 const DAY = 86400000
 const shift = (now, days) => new Date(new Date(now).getTime() + days * DAY).toISOString()
+export const isAtRiskPO = p => p.status !== 'Closed' && (new Date(p.expectedDate) > new Date(p.promisedDate) || ['Critical','High'].includes(p.risk))
 export const isActive = e => !['Resolved', 'Snoozed'].includes(e.status)
 export function prioritize(rows) {
   return [...rows].sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || (a.daysToImpact ?? Infinity) - (b.daysToImpact ?? Infinity) || a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id))
@@ -70,7 +71,7 @@ export function summarize(rows, data) {
   const active = rows.filter(isActive)
   return {
     openActions:data.actions.filter(a => a.status !== 'Resolved').length,
-    atRiskPOs:new Set(active.filter(e => ['Late PO','Supplier Delay','Late Inbound'].includes(e.type) && e.poId).map(e => e.poId)).size,
+    atRiskPOs:new Set(data.pos.filter(isAtRiskPO).map(p => p.id)).size,
     stockoutRisks:active.filter(e => e.type === 'Stockout Risk').length,
     supplierUpdates:data.pos.filter(p => (new Date(data.asOf) - new Date(p.lastUpdate)) / DAY <= 1).length,
     decisionsNeeded:active.filter(e => e.type === 'Customer Decision Required').length,
