@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { filterExceptions, isActive, prioritize, SEVERITIES, STATUSES, summarize, TYPES, updateException } from './model.js'
 import { migrateSnapshot, VIEWS } from './workflow.js'
 import WorkflowScreens, { ExceptionActions } from './WorkflowScreens.jsx'
+import AnalyticsConsent from '../growth/AnalyticsConsent.jsx'
+import { capture } from '../growth/analytics.js'
 import './operations.css'
 
 const STORAGE = 'nexops_synthetic_operations_v1'
@@ -16,7 +18,8 @@ function readDemo() {
   } catch { /* Corrupt/unavailable storage never prevents demo rendering. */ }
   return migrateSnapshot()
 }
-export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy }) {
+export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy, onEvent }) {
+  const emit=onEvent || capture
   const [localLang, setLocalLang] = useState('ja')
   const lang = outerLang || localLang
   const l = (en, ja) => lang === 'ja' ? ja : en
@@ -37,6 +40,12 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
   useEffect(() => {
     try { localStorage.setItem(STORAGE, JSON.stringify(snapshot)); setStorageError(false) } catch { setStorageError(true) }
   }, [snapshot])
+  useEffect(() => {
+    if(page==='today')void emit('today_viewed',{data_mode:'synthetic',workspace_type:'demo',screen:'today'})
+    if(page==='suppliers')void emit('supplier_monitoring_viewed',{data_mode:'synthetic',workspace_type:'demo',screen:'suppliers'})
+  },[page,emit])
+  useEffect(() => {if(selectedId){void emit('exception_opened',{data_mode:'synthetic',workspace_type:'demo'});void emit('recommended_action_viewed',{data_mode:'synthetic',workspace_type:'demo'})}},[selectedId,emit])
+  useEffect(()=>{void emit('demo_workspace_opened',{workspace_type:'demo',data_mode:'synthetic'})},[emit])
   const setFilter = (key, value) => setFilters(prev => ({ ...prev, [key]:value }))
   function mutate(operation) { setSnapshot(operation(snapshot)) }
   function go(nextPage) {
@@ -83,6 +92,7 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
       {!queue.length && <div className="ops-empty"><h3>{l('No matching exceptions','該当する例外はありません')}</h3><p>{l('Adjust filters or open the inbox to include resolved and snoozed items.', '絞り込みを変更するか、例外受信箱で解決済み・保留を含めて確認してください。')}</p></div>}
     </div>}
     <footer className="ops-footer"><p>{l('Phase 2 · Exceptions → Actions → Customer decisions → Supplier follow-up → Weekly reporting. All records are synthetic and browser-local.', '第2段階：例外 → アクション → 顧客判断 → 仕入先フォロー → 週次レポート。架空データのみをブラウザ内で管理します。')}</p><p>{l('Demo notes and rule explanations are in English.','架空データの説明文・検知理由は英語です。')} · NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED</p></footer>
+    {!onEvent && <AnalyticsConsent/>}
     {selected && <ExceptionDetail key={selected.id} row={selected} snapshot={snapshot} mutate={mutate} openAction={id => { setSelectedId(null); setFocusedActionId(id); go('actions') }} save={save} close={() => setSelectedId(null)} l={l} label={label} date={date}/>}
   </section>
 }

@@ -94,6 +94,13 @@ test('lifecycle queues only eligible cohort drafts, respects opt-in and never re
  await asUser(d);await db.exec("select public.nexops_set_preferences(false,'en')")
  assert.equal(await scalar("select status from public.nexops_communication_state where kind='activation_reminder'"),'cancelled')
 })
+test('weekly internal reporting queries execute against the same structured records', async () => {
+ await db.exec('reset role')
+ const reports=await db.exec(await readFile(new URL('../weekly_growth_report.sql',import.meta.url),'utf8'))
+ assert.ok(reports.length>=2)
+ assert.equal(reports.at(-1).rows.length,5)
+ assert.equal(reports.at(-1).rows[0].step,'Registered')
+})
 test('activation event is server-generated once and operational demo rows never entered database', async () => {
  await db.exec('reset role')
  assert.equal(await scalar("select count(*)::int from public.nexops_events where user_id=$1 and event_name='activation_completed'",[A]),1)

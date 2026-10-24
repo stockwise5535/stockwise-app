@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext.jsx'
 import { supabase } from './supabase.js'
 import { detectLang } from './i18n.js'
 import LoginPage from './components/LoginPage.jsx'
+import { capture } from './growth/analytics.js'
 import OperationsWorkspace from './operations/OperationsWorkspace.jsx'
 
 const T = {
@@ -1180,6 +1181,7 @@ export default function App() {
   }
   function uploadForecastCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
+    void capture('csv_upload_started',{workspace_type:'legacy',data_mode:'customer',locale:lang})
     readCsvText(file, text => {
       const table = parseCSV(String(text)); const headers = table[0] || []; const h = headers.map(normalizedHeader)
       const idx = names => names.map(n=>h.findIndex(x=>x===n)).find(i=>i>=0)
@@ -1190,6 +1192,7 @@ export default function App() {
   }
   function uploadActualCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
+    void capture('csv_upload_started',{workspace_type:'legacy',data_mode:'customer',locale:lang})
     readCsvText(file, text => {
       const table = parseCSV(String(text)); const headers = table[0] || []; const h = headers.map(normalizedHeader)
       const idx = names => names.map(n=>h.findIndex(x=>x===n)).find(i=>i>=0)
@@ -1201,6 +1204,7 @@ export default function App() {
 
   function uploadSkuCSV(e) {
     const file = e.target.files?.[0]; if (!file) return
+    void capture('csv_upload_started',{workspace_type:'legacy',data_mode:'customer',locale:lang})
     readCsvText(file, async text => {
       const table = parseCSV(String(text))
       const headers = table[0] || []
@@ -1251,6 +1255,7 @@ export default function App() {
       localStorage.setItem(`stockwise_items_${user.id}`, JSON.stringify(saved))
       localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(filteredInbound))
       setUploadedItems(saved)
+      void capture('csv_upload_completed',{workspace_type:'legacy',data_mode:'customer',locale:lang})
       setIncrementals(filteredInbound)
       const nextItems = includeInboundOnlySuppliers(mergeByItemSupplier([], saved), filteredInbound)
       setSkus(nextItems)
@@ -1267,6 +1272,7 @@ export default function App() {
 
   function uploadCsv(e) {
     const file = e.target.files?.[0]; if (!file) return
+    void capture('csv_upload_started',{workspace_type:'legacy',data_mode:'customer',locale:lang})
     readCsvText(file, text => {
       const table = parseCSV(String(text))
       const headers = table[0] || []
@@ -1298,6 +1304,7 @@ export default function App() {
       })
       localStorage.setItem(`stockwise_inbound_${user.id}`, JSON.stringify(parsed))
       setIncrementals(parsed)
+      void capture('csv_upload_completed',{workspace_type:'legacy',data_mode:'customer',locale:lang})
       const applyInboundMeta = s => {
         const hit = parsed.find(r => inboundMatchesSku(r, s) && sameSupplier(r.supplier, s.supplier || s.subset || ''))
         return hit ? { ...s, supplier_info: hit.supplier_info, factory: hit.factory } : s

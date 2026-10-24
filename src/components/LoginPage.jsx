@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useAuth } from '../AuthContext.jsx'
 import { t } from '../i18n.js'
+import { capture } from '../growth/analytics.js'
 
-export default function LoginPage({ lang = 'en', setLang }) {
-  const { signIn, signUp } = useAuth()
-  const [mode,    setMode]    = useState('login')
+export default function LoginPage({ lang = 'en', setLang, initialMode = 'login', campaign = false }) {
+  const { signIn, signUp, configurationError, error:authError } = useAuth()
+  const [mode,    setMode]    = useState(initialMode)
   const [email,   setEmail]   = useState('')
   const [pw,      setPw]      = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,9 +16,11 @@ export default function LoginPage({ lang = 'en', setLang }) {
   async function submit(e) {
     e.preventDefault(); setError(null); setMsg(null); setLoading(true)
     try {
+      if (mode === 'signup') void capture('signup_started',{locale:lang})
       const { error } = mode === 'login' ? await signIn(email, pw) : await signUp(email, pw)
       if (error) throw error
-      if (mode === 'signup') { setMsg(L('login_confirm')); setMode('login') }
+      if (mode === 'signup') { void capture('signup_completed',{locale:lang}); setMsg(L('login_confirm')); setMode('login') }
+      if (mode === 'login') void capture('login_completed',{locale:lang})
     } catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
@@ -38,6 +41,8 @@ export default function LoginPage({ lang = 'en', setLang }) {
           <span style={{ fontWeight:700, fontSize:18, color:'#0d1b2a', letterSpacing:'0.03em' }}>StockWise</span>
         </div>
         <div style={{ fontSize:12, color:'#6b7d93', marginBottom:28, paddingLeft:38 }}>{L('login_tagline')}</div>
+        {campaign && <p style={{marginBottom:16,color:'#0d1b2a'}}>Free for 30 days. No credit card. <a href="/demo/operations">View the demo immediately</a>; confirm your email to save your workspace.</p>}
+        {(configurationError || authError) && <p role="alert" style={{color:'#9a2b20',marginBottom:16}}>{configurationError || authError}</p>}
         {error && <div style={{ background:'#fdf3f2', border:'1px solid #f5c6c3', borderLeft:'3px solid #c0392b', borderRadius:3, padding:'9px 12px', fontSize:12, color:'#c0392b', marginBottom:14 }}>{error}</div>}
         {msg   && <div style={{ background:'#f0faf4', border:'1px solid #b8e8cc', borderLeft:'3px solid #1a6e3c', borderRadius:3, padding:'9px 12px', fontSize:12, color:'#1a6e3c', marginBottom:14 }}>{msg}</div>}
         <form onSubmit={submit}>
@@ -45,10 +50,11 @@ export default function LoginPage({ lang = 'en', setLang }) {
           <input style={I} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={L('login_ph_email')} required autoFocus />
           <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#394f66', marginBottom:4 }}>{L('login_password')}</label>
           <input style={I} type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder={L('login_ph_pass')} required minLength={8} />
-          <button type="submit" disabled={loading} style={{ width:'100%', padding:11, borderRadius:3, border:'none', background:'#0d1b2a', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', opacity:loading?0.6:1, fontFamily:F }}>
+          <button type="submit" disabled={loading || Boolean(configurationError)} style={{ width:'100%', padding:11, borderRadius:3, border:'none', background:'#0d1b2a', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', opacity:loading?0.6:1, fontFamily:F }}>
             {loading ? L('login_processing') : mode === 'login' ? L('login_submit_in') : L('login_submit_up')}
           </button>
         </form>
+        {campaign && <p style={{fontSize:12,marginTop:12}}>By registering, you agree to the <a href="/terms">Terms</a> and acknowledge the <a href="/privacy">Privacy notice</a>. Marketing emails are optional in account preferences.</p>}
         <div style={{ textAlign:'center', marginTop:16, fontSize:12, color:'#6b7d93' }}>
           {mode === 'login'
             ? <>{L('login_no_account')} <span style={{ color:'#1a4fa0', cursor:'pointer', fontWeight:700 }} onClick={() => { setMode('signup'); setError(null) }}>{L('login_free_reg')}</span></>

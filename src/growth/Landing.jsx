@@ -1,0 +1,19 @@
+import { useEffect } from 'react'
+import { capture } from './analytics.js'
+import { content, siteBase } from './landingContent.js'
+import AnalyticsConsent from './AnalyticsConsent.jsx'
+import './growth.css'
+export default function Landing(){
+ const path=location.pathname.replace(/\/$/,'')
+ const locale=path==='/ja'?'ja':'en', c=content[locale]
+ const legal=path==='/privacy' || path==='/terms'
+ useEffect(()=>{
+  document.documentElement.lang=locale
+  document.title=legal ? `${path==='/privacy'?'Privacy notice':'Terms'} | Nexops` : c.title
+  let meta=document.querySelector('meta[name="description"]');if(!meta){meta=document.createElement('meta');meta.name='description';document.head.append(meta)}meta.content=c.description
+  const base=siteBase(import.meta.env.VITE_PUBLIC_SITE_URL)
+  if(base && !legal){let link=document.querySelector('link[rel="canonical"]');if(!link){link=document.createElement('link');link.rel='canonical';document.head.append(link)}link.href=base+'/'+locale}
+  if(!legal)void capture('homepage_view',{locale,screen:'landing'})
+ },[locale,legal,c])
+ return <main className="growth growth-landing"><header><a href="/en" className="growth-brand">NEXOPS</a><a href={locale==='en'?'/ja':'/en'}>{locale==='en'?'日本語':'English'}</a></header>{legal ? <section className="growth-card"><h1>{path==='/privacy'?'Privacy notice':'Terms of use'} — draft for review</h1>{path==='/privacy' ? <><p>Account details, workspace membership, product activation and submitted consultation information are used to provide the service and respond to requests. Operational sample data is synthetic and browser-local.</p><p>Optional PostHog analytics are disabled until you allow them. Contact details, uploaded files, passwords and invitation tokens are not sent in analytics. Marketing reminders require opt-in in account preferences. Consultation submission requests a response and does not subscribe you to marketing.</p><p>Request account/data deletion from Account in your workspace. Deletion is manually processed; shared workspace ownership may need transfer before deletion. A privacy contact, retention periods, subprocessors and jurisdiction-specific policy must be approved before campaign launch.</p></> : <><p>The campaign offers free access for 30 days without a credit card. Billing is not enabled and access does not automatically trigger payment.</p><p>Sample risks and recommendations demonstrate workflows, not real business results. Nexops does not automatically place orders, change suppliers or commit customer spending.</p><p>Final service terms, governing law, liability, contact and acceptable-use policy require owner/legal review before campaign launch. This draft is not a claim of legal compliance.</p></>}<a href="/growth">Account and preferences</a></section> : <><section className="growth-hero"><p className="growth-eyebrow">{c.locale}</p><h1>{c.hero}</h1><p>{c.intro}</p><strong>{c.free}</strong><div className="growth-ctas"><a href="/signup" onClick={()=>void capture('signup_started',{locale})}>{c.start}</a><a href="/demo/operations">{c.demo}</a><a href="/growth?view=consultation" onClick={()=>void capture('consultation_clicked',{locale})}>{c.consult}</a></div></section>{c.sections.map(([heading,body])=><section className="growth-card" key={heading}><h2>{heading}</h2><p>{body}</p></section>)}<section className="growth-card"><h2>{locale==='en'?'How it works':'使い方'}</h2><p>{c.how}</p><p>{locale==='en'?'Signup uses email and password. If email confirmation is enabled, the public demo is available while you confirm your email. A private demo workspace is created on your first confirmed sign-in.':'メールとパスワードで登録。確認メールの手続き中も公開デモを利用でき、確認後のログインで専用デモワークスペースが作成されます。'}</p></section></>}<footer><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/en">English</a> · <a href="/ja">日本語</a></footer><AnalyticsConsent/></main>
+}

@@ -114,3 +114,9 @@ SSN-2026-001,イヤホン,A社 イヤホンA,Supplier-A,500,500,2026-05-01,2026-
 | 要注意 | 残日数 < 14日 |
 | 過剰在庫 | 残日数 > 45日 |
 | WOS (週) | 予測在庫 ÷ (日使用量 × 7) → 整数表示 |
+
+## APAC growth / backend foundation
+
+The completed operational demo remains at `/demo/operations`; its Phase 2 workflows are unchanged apart from optional analytics hooks. New English/Japanese campaign pages are `/en` and `/ja`. `/signup` and `/growth` reuse existing Supabase Auth and provide a separate persistent workspace/activation/consultation foundation. Real Supabase project configuration and reviewed migrations are required; no production database or integration is configured automatically.
+
+See `docs/APAC_GROWTH_SYSTEM_REPORT.md`, `docs/GROWTH_INTEGRATIONS.md`, `docs/GROWTH_ANALYTICS_EVENTS.md` and `docs/SEO_SETUP.md`. Do not migrate the synthetic browser snapshot into customer tables. No deployment or automatic email sending is included.

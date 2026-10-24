@@ -203,8 +203,8 @@ begin
  for k in select jsonb_object_keys(p_properties) loop
   if k not in ('locale','market','workspace_type','data_mode','screen','referral_source') or jsonb_typeof(p_properties->k)<>'string' or length(p_properties->>k)>80 then raise exception 'Unsafe event property'; end if;
  end loop;
- if p_event_name='csv_upload_completed' and not exists(select 1 from public.nexops_workspaces where id=p_workspace_id and workspace_type='customer') then raise exception 'CSV activation requires a customer workspace'; end if;
- insert into public.nexops_events(event_id,user_id,workspace_id,event_name,properties) values(p_event_id,u,p_workspace_id,p_event_name,p_properties) on conflict do nothing;
+ if p_event_name='csv_upload_completed' and (not exists(select 1 from public.nexops_workspaces where id=p_workspace_id and workspace_type='customer') or not exists(select 1 from public.nexops_data_imports where workspace_id=p_workspace_id and validation_status='valid')) then raise exception 'CSV activation requires a validated import in a customer workspace'; end if;
+ insert into public.nexops_events(event_id,user_id,workspace_id,event_name,properties) values(p_event_id,u,p_workspace_id,p_event_name,p_properties || (select jsonb_build_object('workspace_type',workspace_type,'data_mode',case when workspace_type='demo' then 'synthetic' else 'customer' end) from public.nexops_workspaces where id=p_workspace_id)) on conflict do nothing;
  get diagnostics n=row_count; if n=0 then return; end if;
  if p_event_name='login_completed' and exists(select 1 from public.nexops_events where user_id=u and occurred_at<date_trunc('day',now() at time zone 'UTC') at time zone 'UTC') then
   insert into public.nexops_events(event_id,user_id,workspace_id,event_name) select gen_random_uuid(),u,p_workspace_id,'user_returned' where not exists(select 1 from public.nexops_events where user_id=u and event_name='user_returned' and occurred_at>=date_trunc('day',now() at time zone 'UTC') at time zone 'UTC');
