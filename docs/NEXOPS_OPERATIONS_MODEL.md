@@ -1,30 +1,34 @@
-# Operations interfaces and next-phase boundaries
+# Operations interfaces — Phase 2
 
-This is the first review checkpoint: audit, TODAY and Exception Inbox. The operational store is **synthetic only**. It never adapts legacy `items` because those may contain real user records mixed with historical demo fallbacks. Wiring live inventory requires explicit provenance and authenticated, authorized workspace queries.
+All records are synthetic. The authoritative UI snapshot is `{version:2, data, rows, reports}` under the existing `nexops_synthetic_operations_v1` browser key. Migration retains valid Phase 1 exception edits/history and seeded action/decision IDs. The existing inventory/forecast browser keys are never read or written by this module.
 
-## Current records
-- Workspace/customer: `{id, name}`. IDs are attached to each demo SKU, PO, action, decision and exception. Filtering is display functionality, not authorization.
-- SKU: `{id, customerId, name, supplier, stock, dailyDemand, safetyStock, leadTime, updatedAt}`. Units in this demo engine are explicitly daily consumption.
-- PO/supplier update: `{id, customerId, skuId, supplier, promisedDate, expectedDate, confirmedQty, availableQty, lastUpdate, delayReason, followUpStatus, risk}`.
-- Exception: stable `{id, customerId, customer, severity, type, skuId, poId, supplier, issue, reason, impact, nextAction, daysToImpact, underlying, dataTimestamp, updatedAt, owner, dueDate, status, source, history[]}`.
-- Activity event: `{at, actor, text}`. Browser-only demo annotations; mutable by the browser owner, not an authoritative audit trail. The original evidence and data timestamp remain unchanged on review edits.
-- Seeded action: `{id, customerId, skuId, supplier, description, owner, dueDate, status, approvalRequired}`. Used only for demo counts and overdue detection; no Action Tracker UI or write service yet.
-- Seeded decision: `{id, customerId, skuId, supplier, actionId, status, recommendation, reason, supportingData, expectedImpact, approver}`. Pending-decision example only; no customer approval is collected or executed.
+## Shared entities and links
+- `data.customers`: fictional `{id,name}` records. Customer filters are UI scope, never authorization.
+- `data.skus`: `{id,customerId,name,supplier,stock,dailyDemand,safetyStock,leadTime,updatedAt}`. Explicit daily demand units.
+- `data.pos`: `{id,customerId,skuId,supplier,status,promisedDate,expectedDate,confirmedQty,availableQty,lastUpdate,delayReason,followUpStatus,risk,history[]}`. Monitoring derives nonnegative delay days; current fixture POs are Open. Each supplier card counts open POs within the same customer and supplier.
+- `rows`: existing exceptions `{id,customerId,customer,severity,type,skuId,poId,supplier,issue,reason,impact,nextAction,daysToImpact,underlying,dataTimestamp,updatedAt,owner,dueDate,status,source,history[]}`.
+- `data.actions`: `{id,customerId,exceptionIds[],type,skuId,poId,supplier,description,owner,createdAt,dueDate,priority,status,approvalRequired,updatedAt,resolution,history[]}`. Exception/action relation is owned by action.exceptionIds only, supporting many-to-many links without storing a second reverse list.
+- `data.decisions`: `{id,actionId,customerId,skuId,supplier,recommendation,reason,supportingData,expectedImpact,status,modifiedAction,approver,approvalTimestamp,createdAt,updatedAt,history[]}`. The latest proposal in append order governs the action; older proposals remain visible and read-only. Action.customerDecision is derived, not duplicated.
+- `reports`: comparison baselines `{id,customerId,at,endDate,records:{exceptions[],actions[],decisions[],suppliers[]}}`. These are historical field snapshots, not competing live state. A baseline from another customer scope cannot be used in the comparison.
 
-## Rules and status semantics
-Rules derive stock coverage from stock / dailyDemand, compare coverage to lead time, flag stock below safety threshold and above 56 days, compare promised/expected PO dates, flag supplier silence beyond seven days, overdue actions and pending decisions. Stable exception IDs include customer, record and type. A resolved inbound example is explicitly seeded; it is excluded from open counts. All 13 requested exception categories and eight statuses are available to filters/interfaces. Late Inbound detection, Lead-Time Deviation, Demand Spike and Forecast Deviation require source data and are not implemented as live monitoring rules.
+Every child edit calls a pure operation with the current shared snapshot. Form inputs and report selection are local drafts, not operational stores. No source record is updated during report generation.
 
-Cards reflect selected customer; remaining filters apply to queue. At-risk PO count deduplicates PO IDs; supplier updates counts PO update records within 24 hours of the dataset reference timestamp. TODAY excludes resolved/snoozed; inbox includes them. Due-date filtering includes the full UTC date. Negative days to impact indicates the threshold is already past. Resolved/snoozed are manual demo annotations; automatic reopening/snooze expiry is not implemented. Dataset reference time is retained on reload, deliberately not a live service clock.
+## Mutation and history rules
+Creation, linking and action review append action/exception activity. Decision reviews append `{at,actor,text,from,to,originalRecommendation,reason,changes,finalAction}`. Requesting a revised proposal preserves the old proposal and creates a new Pending record. Approve/Modify authorize only a demo option; they return the action to Open and execute nothing. Reject places it on hold; Defer waits for customer review. Required approval cannot be removed; progress/resolution requires the latest Approved/Modified decision. Resolved actions must reopen before revising the decision. Resolution needs text and is shown alongside decision history.
 
-## Persistence
-Only `nexops_synthetic_operations_v1` is written. No legacy key is modified. Snapshot version/source and basic IDs/status/history shape are checked; malformed storage falls back to a fresh fixture. Storage denial yields a visible warning. The demo can be reset by deleting that single key in browser tools. This does not log a user into Supabase and must never be used for confidential information.
+Supplier updates append before/after facts, update lastUpdate and reconcile only that PO's Late PO / Supplier Delay / Supplier No Response evidence and status. Unrelated exception records and reviews remain intact. No inventory or legacy forecast recalculation is performed. Action/decision changes reconcile their corresponding overdue/decision exceptions without rebuilding inventory exceptions. Manual exception statuses cannot override the action approval checks or TODAY's authoritative pending-decision count.
 
-## Mandatory production foundation — not implemented
-NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED.
+## Reports and time
+Weekly reports show current backlog plus new/resolved activity in the inclusive selected UTC week. They are explicitly not historical inventory reconstructions. Upcoming deadlines cover the seven days after the week end; overdue actions are separately listed. Change comparisons include fields and history counts so same-timestamp edits are still detected. No baseline is fabricated; user-saved snapshots provide actual comparison data. Reports are customer-scoped, printable using browser CSS, and never use AI for operational numbers.
 
-Before real use, add workspaces, workspace_memberships, operator_assignments, suppliers, purchase_orders, import_batches, exceptions, actions, customer_decisions and immutable decision/activity events. Every business record must have a non-null workspace_id with composite foreign keys preventing cross-workspace relationships. Enforce memberships on every server query and write via RLS and server-side authorization. Roles planned: Nexops Admin, assigned Nexops Operator, Customer Admin, Customer Viewer, Customer Approver, future Supplier User. Suppliers must only see explicitly authorized records. Frontend customer selection must never grant access.
+Synthetic fixture `data.asOf` remains its source timestamp. New edits have their own timestamps. Reload does not rerun a live monitoring clock. Automatic snooze expiry, timed scans and inventory reconciliation are not implemented.
 
-Future import_batches should retain workspace, source filename, import timestamp, data period, validation status and validation errors. A Data Health service should report missing/duplicate SKU, supplier/lead-time gaps, invalid dates, negatives, forecast gaps, stale data and unmapped suppliers before any operational risk calculation. Existing legacy CSV handling is unchanged in this checkpoint.
+## Persistence and safety limits
+Browser-local persistence is not durable shared storage, an immutable audit trail or authenticated approval. Typed demo approver names do not verify customer identity. A browser owner can alter every record. Source/shape checks and fallback protect ordinary demo loading; they are not a security boundary. Keep confidential data out. The public demo path lazily avoids importing the legacy Supabase client and makes no external requests in tested flows.
 
-## Agent boundary
-Planned interfaces are pure proposals: Data Health validates; Monitoring detects; Operations recommends actions; Supplier Follow-Up drafts; Weekly Reporting summarizes structured facts. The deterministic `detectExceptions(data)` function is the initial monitoring boundary, not an autonomous agent. Outputs require human review. No component sends supplier instructions, changes POs/suppliers, commits spending or grants customer approval. Future action transitions and customer decisions need server-recorded actor, original recommendation, changes, final action, timestamp, resolution and outcome. AI must never supply operational counts.
+NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED. No production tenancy has been implemented. Before real use, separately design workspace memberships/assignments, composite workspace foreign keys, RLS/server authorization, verified approvers, transactional transitions, concurrency and server events. Future roles may include Nexops Admin/Operator, Customer Admin/Viewer/Approver and Supplier User, but they are not granted by this prototype.
+
+## Deferred interfaces and agents
+Future import batches should retain customer/source filename/import date/data period/validation status/errors. Data Health should validate required/duplicate SKU, supplier/lead-time gaps, dates, negatives, forecast gaps, freshness and mappings before monitoring real data. Existing legacy CSV behavior remains unchanged.
+
+Future Data Health, Monitoring, Operations, Supplier Follow-Up and Weekly Reporting agents may validate/detect/recommend/draft only. Phase 2 adds deterministic workflows, not autonomous agents. No email, ERP, supplier login, commercial execution, price commitments or deployment is included.
