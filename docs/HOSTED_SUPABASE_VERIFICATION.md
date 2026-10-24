@@ -26,7 +26,7 @@ Stop if the remote history/schema and local files disagree, or the dry run inclu
 Local files are candidates, **not confirmed missing hosted migrations**:
 - 202610240001_growth_foundation.sql — workspace/activation/lead/RLS foundation.
 - 202610240002_growth_lifecycle.sql — customer-data boundary and lifecycle draft preparation.
-- Any subsequently added outbound-safety migration is likewise subject to hosted history/catalog review before application.
+- 202610240003_outbound_safety.sql — later conditional Gmail policy/queue/sender safety foundation, also unapplied/unverified remotely.
 
 Both original files use explicit transactions and additive objects; no DROP/TRUNCATE/DELETE or modification of the legacy tables/policies was found. Foundation backfills only account profiles from Auth users and adds a separate signup trigger. It does not copy operational demo contents. Remote application history, existing trigger compatibility and exact function/grant definitions remain **unknown** until catalog access is available. The inventory intentionally omits trigger arguments/function bodies and arbitrary settings that could contain credentials.
 
@@ -38,7 +38,7 @@ Provide **two distinct confirmed development test accounts**, with credentials s
 - Create conspicuously labeled development-only consultation fixtures. Confirm retry idempotency, qualification association and persistence after reload. Do not export these fixtures to CRM or run lifecycle send jobs.
 - Generate a viewer invitation with the existing RPC (not Auth inviteUserByEmail); redeem in B, confirm the intended membership only, reject owner escalation/expired/reused tokens and deny viewer access to lead PII.
 - Use B's ordinary JWT to query A's **unshared** organization/workspace/activation/leads and attempt linked RPC writes. Expect empty authorized reads/permission errors as appropriate, no cross-organization data. Never test with a service-role bypass token as the user.
-- Check policies/grants/functions from the read-only catalog against the local migration definitions; all 20 foundation tables must retain RLS. New outbound tables, if applied later, need the same review.
+- Check policies/grants/functions from the read-only catalog against the local migration definitions; all 20 foundation tables and six new outbound tables, when applied, must retain RLS. The read-only catalog inventory now lists all 26 expected tables.
 - Verify no synthetic DEMO-SKU/action/exception/browser snapshot was persisted, and that operational data paths reject demo workspaces. Inspect counts/type/provenance without dumping customer records. Do not delete existing records for test cleanup; retain labeled fixtures for review unless cleanup is separately authorized.
 
 ### Signup without external email

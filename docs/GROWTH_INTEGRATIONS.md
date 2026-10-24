@@ -15,6 +15,8 @@ Customer operational tables are reserved and client writes are denied. Customer-
 Create the project in the chosen region. Set public `VITE_POSTHOG_KEY` and HTTPS `VITE_POSTHOG_HOST` (the code defaults to https://us.i.posthog.com). Allow the actual configured ingest hostname if network policy requires it. No personal API key is needed in the browser. Optional analytics remain off until consent. Configure funnels using GROWTH_ANALYTICS_EVENTS.md, validate actual ingestion in staging, and document retention/privacy settings. No live project is connected.
 
 ## Gmail / lifecycle preparation
+
+**Current extension:** the later conditional Gmail authorization adds a separate gated send worker and Outbound Review Queue. The original draft adapter remains intact. See OUTBOUND_SAFETY.md for the mandatory template, reviewer, OAuth/scope, self-addressed test, consent, rate and delivery-ledger gates. No live sender or schedule is enabled; the preparation-only description below records the original integration baseline.
 The code provides server-only email templates and a **draft-only** Gmail adapter. Nothing sends emails, runs a scheduled job or stores OAuth tokens client-side.
 
 1. In an owner-controlled Google Cloud project, enable Gmail API, configure OAuth consent and an approved HTTPS redirect URI for a future server OAuth endpoint.

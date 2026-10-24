@@ -141,3 +141,8 @@ Chromium defaults to `/usr/bin/chromium`; override NEXOPS_CHROMIUM if needed. To
 
 ## CHECKPOINT COMMITS
 Phase 1 commits remain intact. Phase 2 includes a shared-workflow/domain checkpoint, followed by UI/browser integration and final documentation/test evidence checkpoints. All are local on the requested branch. No production-readiness claim is made.
+
+## Hosted verification and gated outbound extension
+Hosted development integration was attempted but public Supabase settings/admin access are still missing; no network requests or migrations were made against a hosted project. See HOSTED_SUPABASE_VERIFICATION.md and the current APAC report for exact prerequisites and unrun checks.
+
+The later conditional Gmail authorization adds a separate, disabled-by-default outbound safety/review layer at `/growth?view=communications`, reusing existing lifecycle copy and draft state. It does not replace Phase 2, migrate synthetic operations, enable billing or deploy anything. OUTBOUND_SAFETY.md documents the new unapplied migration, approval/consent/rate/idempotency gates and required sender self-test. Actual Gmail and hosted database verification remain outstanding; no emails were sent.
