@@ -37,6 +37,7 @@ try {
   assert.equal(await dialog.locator('.ops-history li').count(), 2)
   await page.keyboard.press('Escape')
   assert.equal(await page.getByRole('dialog').count(), 0)
+  assert.ok(await page.evaluate(() => document.activeElement.classList.contains('ops-row-link')), 'closing detail restores queue focus')
   await page.reload()
   await page.getByRole('heading', { name:'TODAY', exact:true }).waitFor()
   assert.ok((await page.locator('tbody').textContent()).includes('UI Test Operator'))
