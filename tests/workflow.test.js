@@ -137,3 +137,21 @@ test('weekly activity uses inclusive UTC boundaries while backlog is explicitly 
   assert.equal(weeklyReport(s,{endDate:'2026-09-01'}).newRisks.length,0)
   assert.throws(() => weeklyReport(s,{endDate:'2026-02-30'}),/Invalid date/)
 })
+
+test('TODAY decision counts use authoritative decision records, not manual exception annotations', () => {
+  const s = fresh()
+  const rows = s.rows.map(r => r.type === 'Customer Decision Required' ? {...r,status:'Resolved'} : r)
+  assert.equal(summarize(rows,s.data).decisionsNeeded,1)
+  const d = s.data.decisions[0]
+  const next = recordDecision(s,d.id,choice('Approve'),later)
+  assert.equal(summarize(next.rows,next.data).decisionsNeeded,0)
+})
+
+test('baseline comparisons capture owner changes even with the same timestamp', () => {
+  let s = fresh()
+  s = saveReport(s,{endDate:'2026-10-24'},now)
+  const a = s.data.actions[0]
+  s = saveAction(s,a.id,{...edit(a),owner:'Another demo owner'},now)
+  const report = weeklyReport(s,{endDate:'2026-10-24',baselineId:s.reports[0].id})
+  assert.equal(report.changes.actions.changed,1)
+})

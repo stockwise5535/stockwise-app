@@ -39,7 +39,7 @@ try {
   assert.equal(await page.getByRole('dialog').count(), 0)
   assert.ok(await page.evaluate(() => document.activeElement.classList.contains('ops-row-link')), 'closing detail restores queue focus')
   await page.reload()
-  await page.getByRole('heading', { name:'TODAY', exact:true }).waitFor()
+  await page.getByRole('heading', { name:'例外受信箱', exact:true }).waitFor()
   assert.ok((await page.locator('tbody').textContent()).includes('UI Test Operator'))
   await page.setViewportSize({ width:390, height:844 })
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'horizontal scroll must stay inside table')

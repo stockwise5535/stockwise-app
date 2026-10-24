@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { demoExceptions, filterExceptions, isActive, makeDemo, prioritize, SEVERITIES, STATUSES, summarize, TYPES, updateException } from './model.js'
+import { filterExceptions, isActive, prioritize, SEVERITIES, STATUSES, summarize, TYPES, updateException } from './model.js'
+import { migrateSnapshot, VIEWS } from './workflow.js'
+import WorkflowScreens, { ExceptionActions } from './WorkflowScreens.jsx'
 import './operations.css'
 
 const STORAGE = 'nexops_synthetic_operations_v1'
@@ -10,14 +12,9 @@ const JP = {
 function readDemo() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE))
-    // Only accept records belonging to this explicit synthetic dataset.
-    if (parsed?.version === 1 && parsed.data?.source === 'synthetic' && Array.isArray(parsed.rows)) {
-      const fresh = demoExceptions(parsed.data)
-      if (fresh.length === parsed.rows.length && fresh.every(row => parsed.rows.some(r => r.id === row.id && r.customerId === row.customerId && STATUSES.includes(r.status) && Array.isArray(r.history)))) return parsed
-    }
+    if ([1,2].includes(parsed?.version) && parsed.data?.source === 'synthetic' && Array.isArray(parsed.rows) && Array.isArray(parsed.data.actions) && Array.isArray(parsed.data.decisions)) return migrateSnapshot(parsed)
   } catch { /* Corrupt/unavailable storage never prevents demo rendering. */ }
-  const data = makeDemo()
-  return { version:1, data, rows:demoExceptions(data) }
+  return migrateSnapshot()
 }
 export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy }) {
   const [localLang, setLocalLang] = useState('ja')
@@ -26,12 +23,13 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
   const label = text => lang === 'ja' ? JP[text] || text : text
   const [snapshot, setSnapshot] = useState(readDemo)
   const [storageError, setStorageError] = useState(false)
-  const [page, setPage] = useState(initialPage)
+  const [page, setPage] = useState(VIEWS.includes(initialPage) ? initialPage : 'today')
+  const [focusedActionId,setFocusedActionId] = useState(null)
   const [filters, setFilters] = useState({})
   const [selectedId, setSelectedId] = useState(null)
   const { data, rows } = snapshot
   const filtered = useMemo(() => prioritize(filterExceptions(rows, filters)), [rows, filters])
-  const customerData = { ...data, actions:data.actions.filter(a => !filters.customerId || a.customerId === filters.customerId), pos:data.pos.filter(p => !filters.customerId || p.customerId === filters.customerId) }
+  const customerData = { ...data, decisions:data.decisions.filter(d => !filters.customerId || d.customerId === filters.customerId), actions:data.actions.filter(a => !filters.customerId || a.customerId === filters.customerId), pos:data.pos.filter(p => !filters.customerId || p.customerId === filters.customerId) }
   const metrics = summarize(rows.filter(r => !filters.customerId || r.customerId === filters.customerId), customerData)
   const selected = rows.find(r => r.id === selectedId)
   const queue = page === 'today' ? filtered.filter(isActive) : filtered
@@ -40,6 +38,17 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
     try { localStorage.setItem(STORAGE, JSON.stringify(snapshot)); setStorageError(false) } catch { setStorageError(true) }
   }, [snapshot])
   const setFilter = (key, value) => setFilters(prev => ({ ...prev, [key]:value }))
+  function mutate(operation) { setSnapshot(operation(snapshot)) }
+  function go(nextPage) {
+    setPage(nextPage)
+    if (!onLegacy) window.history.pushState({},'',`${window.location.pathname}?view=${nextPage}`)
+  }
+  useEffect(() => {
+    const change = () => { const next = new URLSearchParams(window.location.search).get('view'); setPage(VIEWS.includes(next) ? next : 'today') }
+    window.addEventListener('popstate',change)
+    return () => window.removeEventListener('popstate',change)
+  }, [])
+  const names = { today:'TODAY', exceptions:l('Exception Inbox','例外受信箱'), actions:l('Action Tracker','アクショントラッカー'), decisions:l('Customer Decisions','顧客判断'), history:l('Decision History','判断履歴'), suppliers:l('Supplier Monitoring','仕入先モニタリング'), report:l('Weekly Operations Report','週次運用レポート') }
   function save(row) { setSnapshot(prev => ({ ...prev, rows:prev.rows.map(r => r.id === row.id ? row : r) })) }
   return <section className="nexops" aria-label="Nexops managed operations">
     <header className="ops-header">
@@ -48,12 +57,13 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
     </header>
     <aside className="ops-notice">{l('Demonstration workspace · 2 fictional customers / 24 SKUs / 4 suppliers. No live customer data. Updates stay in this browser; no supplier messages or commercial actions are sent.', 'デモ専用ワークスペース：架空の2社・24 SKU・4仕入先。実顧客データは含みません。変更はこのブラウザにのみ保存され、外部への送信や発注は行いません。')}</aside>
     {storageError && <p role="alert">{l('Browser storage is unavailable. Changes will be lost on reload.', 'ブラウザ保存を利用できません。再読み込みすると変更が失われます。')}</p>}
-    <nav className="ops-tabs" aria-label={l('Operations pages','運用ページ')}><button aria-current={page === 'today' ? 'page' : undefined} onClick={() => setPage('today')}>TODAY <span>/ {l('Monitoring Hub','モニタリング')}</span></button><button aria-current={page === 'exceptions' ? 'page' : undefined} onClick={() => setPage('exceptions')}>{l('Exception Inbox','例外受信箱')} <span>{rows.filter(isActive).length}</span></button></nav>
-    <div className="ops-heading"><div><p className="ops-eyebrow">{l('OPERATIONS WORKSPACE', '運用ワークスペース')}</p><h1>{page === 'today' ? 'TODAY' : l('Exception Inbox','例外受信箱')}</h1><p>{page === 'today' ? l('Know what needs attention. Decide what happens next.', '対応が必要な項目を把握し、次の一手を決める。') : l('One queue for supply risks, follow-ups and customer decisions.', '供給リスク・フォローアップ・顧客判断をひとつのキューに。')}</p></div><div className="ops-asof">{l('Demo data timestamp','デモデータの基準日時')}<br/><strong>{date(data.asOf)}</strong></div></div>
+    <nav className="ops-tabs" aria-label={l('Operations pages','運用ページ')}>{VIEWS.map(view => <button key={view} aria-current={page === view ? 'page' : undefined} onClick={() => go(view)}>{names[view]}{view === 'exceptions' && <span>{rows.filter(isActive).length}</span>}</button>)}</nav>
+    <div className="ops-heading"><div><p className="ops-eyebrow">{l('OPERATIONS WORKSPACE', '運用ワークスペース')}</p><h1>{names[page]}</h1><p>{page === 'today' ? l('Know what needs attention. Decide what happens next.', '対応が必要な項目を把握し、次の一手を決める。') : l('One queue for supply risks, follow-ups and customer decisions.', '供給リスク・フォローアップ・顧客判断をひとつのキューに。')}</p></div><div className="ops-asof">{l('Demo data timestamp','デモデータの基準日時')}<br/><strong>{date(data.asOf)}</strong></div></div>
     {page === 'today' && <div className="ops-metrics">{[
       ['openActions','Open Actions','未完了アクション'], ['atRiskPOs','At-Risk POs','リスクのあるPO'], ['stockoutRisks','Stockout Risks','欠品リスク'], ['supplierUpdates','Supplier Updates','24時間内の仕入先更新'], ['decisionsNeeded','Decisions Needed','判断待ち'], ['lateInbound','Late Inbound','入荷遅延'], ['criticalExceptions','Critical Exceptions','緊急例外'],
     ].map(([key,en,ja]) => <article key={key} className={key === 'criticalExceptions' ? 'ops-metric critical' : 'ops-metric'}><p>{l(en,ja)}</p><strong>{metrics[key]}</strong><small>{l('Synthetic · selected customer scope','架空データ・選択顧客の範囲')}</small></article>)}</div>}
-    <div className="ops-queue">
+    {!['today','exceptions'].includes(page) && <><div className="ops-scope"><label>{l('Customer','顧客')}<select aria-label={l('Customer','顧客')} value={filters.customerId || ''} onChange={e => setFilter('customerId',e.target.value)}><option value="">{l('All','すべて')}</option>{data.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div><WorkflowScreens key={page + (filters.customerId || '')} page={page} snapshot={snapshot} mutate={mutate} customerId={filters.customerId || ''} focusedActionId={focusedActionId} openException={setSelectedId} l={l} date={date}/></>}
+    {['today','exceptions'].includes(page) && <div className="ops-queue">
       <div className="ops-queue-heading"><h2>{page === 'today' ? l('Prioritized operational queue','優先対応キュー') : l('All exceptions','すべての例外')}</h2><span role="status">{queue.length} {l('items','件')}</span></div>
       <div className="ops-filters">
         {[
@@ -71,12 +81,12 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
         <td>{row.customer}</td><td><span className={`ops-severity ${row.severity.toLowerCase()}`}>{label(row.severity)}</span></td><td><button className="ops-row-link" onClick={() => setSelectedId(row.id)}>{label(row.type)}</button></td><td>{row.skuId}{row.poId && <small>{row.poId}</small>}</td><td>{row.supplier}</td><td>{row.issue}</td><td>{row.daysToImpact ?? '—'}</td><td>{row.impact}</td><td>{date(row.updatedAt)}</td><td>{row.owner}</td><td>{row.nextAction}</td><td>{label(row.status)}</td>
       </tr>)}</tbody></table></div>
       {!queue.length && <div className="ops-empty"><h3>{l('No matching exceptions','該当する例外はありません')}</h3><p>{l('Adjust filters or open the inbox to include resolved and snoozed items.', '絞り込みを変更するか、例外受信箱で解決済み・保留を含めて確認してください。')}</p></div>}
-    </div>
-    <footer className="ops-footer"><p>{l('Phase 1 · Monitoring → Exception review. Action Tracker, customer approvals and weekly reports are planned for the next review cycle.', '第1段階：モニタリング → 例外確認。Action Tracker・顧客承認・週次レポートは次のレビュー後に実装予定です。')}</p><p>{l('Demo notes and rule explanations are in English.','架空データの説明文・検知理由は英語です。')} · NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED</p></footer>
-    {selected && <ExceptionDetail key={selected.id} row={selected} save={save} close={() => setSelectedId(null)} l={l} label={label} date={date}/>}
+    </div>}
+    <footer className="ops-footer"><p>{l('Phase 2 · Exceptions → Actions → Customer decisions → Supplier follow-up → Weekly reporting. All records are synthetic and browser-local.', '第2段階：例外 → アクション → 顧客判断 → 仕入先フォロー → 週次レポート。架空データのみをブラウザ内で管理します。')}</p><p>{l('Demo notes and rule explanations are in English.','架空データの説明文・検知理由は英語です。')} · NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED</p></footer>
+    {selected && <ExceptionDetail key={selected.id} row={selected} snapshot={snapshot} mutate={mutate} openAction={id => { setSelectedId(null); setFocusedActionId(id); go('actions') }} save={save} close={() => setSelectedId(null)} l={l} label={label} date={date}/>}
   </section>
 }
-function ExceptionDetail({ row, save, close, l, label, date }) {
+function ExceptionDetail({ row, snapshot, mutate, openAction, save, close, l, label, date }) {
   const ref = useRef(null)
   const [status, setStatus] = useState(row.status)
   const [owner, setOwner] = useState(row.owner)
@@ -99,6 +109,7 @@ function ExceptionDetail({ row, save, close, l, label, date }) {
     <details><summary>{l('Underlying demo data','根拠となる架空データ')}</summary><pre>{JSON.stringify(row.underlying,null,2)}</pre></details>
     <p className="ops-hint">{l('Synthetic SKUs have no matching real inventory record. Existing analytics remain available from the application navigation.', '架空SKUに対応する実在庫レコードはありません。既存の分析機能はアプリのナビゲーションから利用できます。')}</p>
     <form onSubmit={submit}><h3>{l('Review & assign','確認・担当割当')}</h3><label>{l('Owner','担当者')}<input aria-label={l('Owner','担当者')} required maxLength={80} value={owner} onChange={e => setOwner(e.target.value)}/></label><label>{l('Due date (UTC)','期限（UTC）')}<input aria-label={l('Due date (UTC)','期限（UTC）')} type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)}/></label><label>{l('Status','状態')}<select aria-label={l('Status','状態')} value={status} onChange={e => setStatus(e.target.value)}>{STATUSES.map(s => <option key={s} value={s}>{label(s)}</option>)}</select></label><p className="ops-hint">{l('Status changes are demo annotations, not customer approvals or executed actions.', '状態変更はデモ用の記録です。顧客承認や実行済みの処理を意味しません。')}</p><button className="ops-primary" type="submit">{l('Save review','確認内容を保存')}</button><p role="status">{message}</p></form>
+    <ExceptionActions row={row} snapshot={snapshot} mutate={mutate} openAction={openAction} l={l}/>
     <h3>{l('Activity history','活動履歴')}</h3><ol className="ops-history">{row.history.map((event,i) => <li key={i}><time>{date(event.at)}</time><strong>{event.actor}</strong><p>{event.text}</p></li>)}</ol>
   </dialog>
 }

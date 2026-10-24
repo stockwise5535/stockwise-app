@@ -4,6 +4,7 @@ export const STATUSES = ['Open', 'Investigating', 'Waiting Supplier', 'Waiting C
 export const SEVERITIES = ['Critical', 'High', 'Medium', 'Low']
 const DAY = 86400000
 const shift = (now, days) => new Date(new Date(now).getTime() + days * DAY).toISOString()
+export const isPendingDecision = d => ['Pending','Deferred'].includes(d.status)
 export const isAtRiskPO = p => p.status !== 'Closed' && (new Date(p.expectedDate) > new Date(p.promisedDate) || ['Critical','High'].includes(p.risk))
 export const isActive = e => !['Resolved', 'Snoozed'].includes(e.status)
 export function prioritize(rows) {
@@ -74,7 +75,7 @@ export function summarize(rows, data) {
     atRiskPOs:new Set(data.pos.filter(isAtRiskPO).map(p => p.id)).size,
     stockoutRisks:active.filter(e => e.type === 'Stockout Risk').length,
     supplierUpdates:data.pos.filter(p => (new Date(data.asOf) - new Date(p.lastUpdate)) / DAY <= 1).length,
-    decisionsNeeded:active.filter(e => e.type === 'Customer Decision Required').length,
+    decisionsNeeded:data.decisions.filter(d => isPendingDecision(d) && data.decisions.filter(other => other.actionId === d.actionId).at(-1)?.id === d.id).length,
     lateInbound:active.filter(e => e.type === 'Late Inbound').length,
     criticalExceptions:active.filter(e => e.severity === 'Critical').length,
   }

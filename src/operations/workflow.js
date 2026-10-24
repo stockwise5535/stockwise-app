@@ -1,8 +1,8 @@
-import { detectExceptions, demoExceptions, isActive, isAtRiskPO, makeDemo, SEVERITIES, STATUSES } from './model.js'
+import { detectExceptions, demoExceptions, isActive, isAtRiskPO, isPendingDecision, makeDemo, SEVERITIES, STATUSES } from './model.js'
 
 export const VIEWS = ['today', 'exceptions', 'actions', 'decisions', 'history', 'suppliers', 'report']
 export const DECISIONS = ['Approve', 'Modify', 'Reject', 'Defer']
-export const pendingDecision = d => ['Pending', 'Deferred'].includes(d.status)
+export const pendingDecision = isPendingDecision
 export const latestDecision = (s, actionId) => s.data.decisions.filter(d => d.actionId === actionId).at(-1)
 const event = (at, actor, text, extra = {}) => ({ at, actor, text, ...extra })
 const requireText = (value, field, max = 2000) => {
@@ -162,7 +162,7 @@ export function weeklyReport(s,{ customerId = '',endDate = new Date().toISOStrin
   const actions = s.data.actions.filter(a => !customerId || a.customerId === customerId)
   const decisions = s.data.decisions.filter(d => (!customerId || d.customerId === customerId) && latestDecision(s,d.actionId)?.id === d.id && pendingDecision(d))
   const pos = supplierRows(s,customerId)
-  const current = { exceptions:rows.map(r => ({ id:r.id,status:r.status,updatedAt:r.updatedAt })),actions:actions.map(a => ({ id:a.id,status:a.status,updatedAt:a.updatedAt })),decisions:s.data.decisions.filter(d => !customerId || d.customerId === customerId).map(d => ({ id:d.id,status:d.status,updatedAt:d.updatedAt })),suppliers:pos.map(p => ({ id:p.id,lastUpdate:p.lastUpdate })) }
+  const current = { exceptions:rows.map(r => ({ id:r.id,status:r.status,owner:r.owner,dueDate:r.dueDate,severity:r.severity,issue:r.issue,updatedAt:r.updatedAt,historyCount:r.history.length })),actions:actions.map(a => ({ id:a.id,status:a.status,owner:a.owner,dueDate:a.dueDate,priority:a.priority,approvalRequired:a.approvalRequired,resolution:a.resolution,updatedAt:a.updatedAt,historyCount:a.history.length })),decisions:s.data.decisions.filter(d => !customerId || d.customerId === customerId).map(d => ({ id:d.id,status:d.status,modifiedAction:d.modifiedAction,approver:d.approver,approvalTimestamp:d.approvalTimestamp,updatedAt:d.updatedAt,historyCount:d.history.length })),suppliers:pos.map(p => ({ id:p.id,promisedDate:p.promisedDate,expectedDate:p.expectedDate,confirmedQty:p.confirmedQty,delayReason:p.delayReason,followUpStatus:p.followUpStatus,risk:p.risk,lastUpdate:p.lastUpdate })) }
   const previous = s.reports.find(r => r.id === baselineId && r.customerId === customerId)
   const changes = previous ? Object.fromEntries(Object.entries(current).map(([key,list]) => {
     const before = new Map(previous.records[key].map(r => [r.id,JSON.stringify(r)]))
