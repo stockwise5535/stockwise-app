@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext.jsx'
 import { supabase } from './supabase.js'
 import { detectLang } from './i18n.js'
 import LoginPage from './components/LoginPage.jsx'
+import OperationsWorkspace from './operations/OperationsWorkspace.jsx'
 
 const T = {
   font: 'Arial,Helvetica,sans-serif',
@@ -1063,7 +1064,7 @@ function AiPlanTab({ items, selectedSku, incrementals, lang, onBack }) {
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [lang, setLang] = useState(() => detectLang())
-  const [tab, setTab] = useState('dashboard')
+  const [tab, setTab] = useState('today')
   const [reorderView, setReorderView] = useState('status')
   const [skus, setSkus] = useState([])
   const [incrementals, setIncrementals] = useState([])
@@ -1338,10 +1339,13 @@ export default function App() {
         <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}><Btn small kind="blue" onClick={()=>setShowIntelligenceSupporter(true)}>💬 {copy(lang, 'opsAI')}</Btn><Btn small onClick={()=>setLang(l=>l===JP?EN:JP)}>EN / JP</Btn><Btn small onClick={signOut}>{copy(lang, 'logout')}</Btn></div>
       </header>
 
-      <nav style={{ display:'flex', gap:10, marginBottom:16 }}>
+      <nav style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+        <Btn kind={tab==='today'?'blue':'ghost'} onClick={()=>setTab('today')}>TODAY / {lang === JP ? '運用デモ' : 'Operations demo'}</Btn>
         <Btn kind={tab==='dashboard'?'blue':'ghost'} onClick={()=>setTab('dashboard')}>{copy(lang, 'dashboard')}</Btn>
         <Btn kind={tab==='heatmap'?'blue':'ghost'} onClick={()=>setTab('heatmap')}>{copy(lang, 'heatmap')}</Btn>
       </nav>
+
+      {tab === 'today' && <OperationsWorkspace lang={lang} onLegacy={() => setTab('dashboard')} />}
 
       {tab === 'dashboard' && <>
         {actionItems.length > 0 && <div style={{ display:'flex', alignItems:'center', gap:12, border:`1px solid ${T.red}`, background:'linear-gradient(90deg,rgba(255,70,93,.20),rgba(7,43,76,.90))', color:'#ffd7dd', borderRadius:10, padding:'12px 16px', marginBottom:14 }}>
