@@ -1,6 +1,13 @@
-# Nexops Managed Service — Phase 2 build report
+# Nexops Managed Service — Phase 2 and APAC backend foundation
 
-## CURRENT STATE
+## CURRENT APAC EXTENSION
+The completed Phase 2 product is retained. The next-phase backend/growth work adds Supabase organization/workspace/activation/lead migrations, reusable signup integration, consent-gated analytics, consultation/qualification, invitations, lifecycle draft preparation and English/Japanese landing/SEO routes. No synthetic operational data is migrated. New customer operational tables remain client-write-denied; the existing Phase 2 demo still runs from its local snapshot.
+
+See [APAC_GROWTH_SYSTEM_REPORT.md](APAC_GROWTH_SYSTEM_REPORT.md) for current implementation, exact routes, validation, environment requirements and manual connections. Supabase/PostHog/Gmail/Calendar/CRM are **not** connected to live accounts. Local SQL/RLS and simulated connected browser tests are distinguished from hosted verification. No deployment or external email sending occurred.
+
+**NOT PRODUCTION READY — RLS / MULTI-TENANT SECURITY INCOMPLETE**: new-table policies are locally tested, while full hosted/legacy operational tenancy and server commercial transitions remain outstanding. The sections below retain the Phase 2 delivery record and its historical scope.
+
+## PHASE 2 DELIVERY STATE
 Work continues on `codex/managed-service-mvp` from Phase 1 commit `7e5989b`, which is based on the requested production-reference commit `1657045`. The worktree was clean before Phase 2. All Phase 1 work and legacy application functionality have been retained. No reset, push, deployment, production configuration changes, or external service integrations were performed.
 
 Phase 2 scope: Action Tracker, Customer Decisions, Decision History, Weekly Operations Report, and Buyer-side Supplier Monitoring. This remains an explicitly synthetic, browser-local prototype; no production multi-tenancy has been added.
