@@ -46,6 +46,13 @@ export function createGrowthService(client) {
     acceptInvite:token=>rpc('nexops_accept_invite',{p_token:token}),
     preferences:(marketing,locale)=>rpc('nexops_set_preferences',{p_marketing_opt_in:marketing,p_locale:locale}),
     deletion:()=>rpc('nexops_request_deletion'),
+    outbound:id=>result(client.from('nexops_outbound_messages').select('*').eq('workspace_id',id).order('created_at',{ascending:false})),
+    outboundHistory:()=>result(client.from('nexops_outbound_history').select('*').order('created_at')),
+    emailTemplates:()=>result(client.from('nexops_email_templates').select('*').order('template_id')),
+    reviewOutbound:(id,action,subject,body,reason)=>rpc('nexops_review_outbound',{p_id:id,p_action:action,p_subject:subject,p_body:body,p_reason:reason}),
+    confirmMailTest:id=>rpc('nexops_confirm_mail_test',{p_id:id}),
+    enableMail:enabled=>rpc('nexops_enable_mail',{p_enabled:enabled}),
+    approveEmailTemplate:t=>rpc('nexops_approve_email_template',{p_id:t.template_id,p_version:t.version,p_hash:t.content_hash}),
     metrics:()=>rpc('nexops_growth_metrics'),
   }
 }

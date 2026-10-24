@@ -1,7 +1,7 @@
 // SERVER ONLY: never import OAuth credentials into a browser bundle.
 import { qualifiedExport } from '../src/growth/service.js'
 export const EMAIL_KINDS=['welcome','activation_reminder','csv_reminder','consultation_reminder','pilot_followup']
-const copy={
+export const LIFECYCLE_COPY={
  welcome:['Welcome to Nexops','Your free 30-day access is ready. Open your demo workspace and review one supply risk. No credit card is required.'],
  activation_reminder:['See your first supply risk','Open TODAY, select an exception and review the recommended next action in your sample workspace.'],
  csv_reminder:['Ready to explore your own data?','Your demo is a starting point. Review the available import options and speak with Nexops before connecting customer data.'],
@@ -13,7 +13,7 @@ export function lifecycleDraft(kind,user,siteUrl){
  if(kind!=='welcome' && !user.marketingOptIn)throw new Error('Communication consent required')
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email))throw new Error('Valid registered recipient required')
  const base=new URL(siteUrl);if(base.protocol!=='https:' || base.username || base.password)throw new Error('Configured HTTPS public URL required')
- const [subject,body]=copy[kind]
+ const [subject,body]=LIFECYCLE_COPY[kind]
  return {to:user.email,subject,text:`${body}\n\nOpen Nexops: ${new URL('/growth',base)}\nCommunication preferences: ${new URL('/growth?view=account',base)}\n`,kind}
 }
 export function gmailDraftPayload(draft){

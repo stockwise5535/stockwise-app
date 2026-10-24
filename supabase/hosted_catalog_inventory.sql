@@ -8,7 +8,7 @@ with expected(name) as (values
  ('nexops_workspaces'),('nexops_workspace_memberships'),('nexops_activation'),('nexops_events'),
  ('nexops_consultation_leads'),('nexops_lead_qualification'),('nexops_audit'),('nexops_invitations'),
  ('nexops_communication_state'),('nexops_growth_admins'),('nexops_deletion_requests'),
- ('nexops_data_imports'),('nexops_exceptions'),('nexops_actions'),('nexops_action_exceptions'),('nexops_decisions'),('nexops_agent_runs'))
+ ('nexops_data_imports'),('nexops_exceptions'),('nexops_actions'),('nexops_action_exceptions'),('nexops_decisions'),('nexops_agent_runs'),('nexops_email_templates'),('nexops_outbound_reviewers'),('nexops_email_suppressions'),('nexops_mail_runtime'),('nexops_outbound_messages'),('nexops_outbound_history'))
 select e.name,c.oid is not null as present,c.relrowsecurity as rls_enabled
 from expected e left join pg_namespace n on n.nspname='public'
 left join pg_class c on c.relnamespace=n.oid and c.relname=e.name and c.relkind in ('r','p') order by e.name;
