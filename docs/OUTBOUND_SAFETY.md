@@ -136,3 +136,6 @@ The public Supabase variables are now injected and proxy-aware read-only Auth co
 
 ## Development credential retry — 2026-10-24
 Hosted test A/B login, refresh, restored-session identity and logout now pass. Database credentials are present but the direct endpoint is IPv6-only and unreachable (ENETUNREACH); foundation REST resources return PGRST205. Hosted RLS/migrations/operational persistence remain unverified. Replace the secure SUPABASE_DB_URL with the actual development dashboard Session pooler URI to resume catalog inspection. No Gmail/Supabase email endpoint or sender enablement was used; all prior mode/template/test-recipient launch blockers remain in effect.
+
+## Session-pooler connection status — 2026-10-24
+IPv4 pooler configuration is now active and matches the development reference, but database startup remains blocked (direct TCP refused; proxy tunnel terminates during PostgreSQL startup). Catalog/history/migrations/RLS remain unverified. A/B HTTPS Auth tests still pass; application resource probes remain PGRST205. No emails, unrestricted sending, schema changes or sender enablement occurred. The latest APAC report lists supported administrative access alternatives; Gmail/mode/template safety blockers remain unchanged.

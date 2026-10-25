@@ -264,3 +264,26 @@ In the **development Supabase dashboard → Connect**, select the **Session pool
 Alternative: owner SQL Editor can run `supabase/hosted_catalog_inventory.sql` read-only and supply sanitized metadata, or securely configure management CLI access; neither alternative was used here. Once catalog/history access works, inspect existing objects and only then determine/apply missing additive migrations 001–003 to the confirmed development project. Never reset, overwrite unrelated schema, infer absent migrations from PGRST205, or disable RLS for tests. Existing test-user bindings work and do not need replacing.
 
 No application implementation changes were made. Harnesses/dependencies stayed under /tmp and credentials were neither written to files nor included in reports. These hosted observations supersede the previous missing-test-account/admin-credential status; the remaining DB blocker is network reachability, not absent SUPABASE_DB_URL.
+
+## HOSTED SESSION-POOLER RETRY — 2026-10-24
+
+The updated SUPABASE_DB_URL is injected. Target checks, performed without displaying values, confirm a Session pooler hostname, port 5432, a pooler username associated with NEXOPS_DEV_PROJECT_REF, and matching development API identity. DNS now returns three IPv4 addresses and no IPv6 addresses. This resolves the previous IPv6-only endpoint issue; it does not establish a working database session or valid database credentials.
+
+### Transport and schema status
+- Direct PostgreSQL client connection: **ECONNREFUSED**; no SQL session established.
+- Configured HTTP proxy CONNECT to the pooler: HTTP 200 tunnel established. A subsequent PostgreSQL SSL/TLS/authentication startup over that tunnel terminated before connection completion. No SQL statements ran. TLS validation was retained; no plaintext database authentication or certificate bypass was attempted. The precise network/provider-side reason is unconfirmed.
+- Catalog inventory and migration-history query: **UNRUN** because database connection never completed. No required migration set can be established yet. No migrations applied; no schema/RLS changes made. Pooler password validity remains unverified.
+- No SUPABASE_ACCESS_TOKEN is configured for a separate HTTPS management route.
+
+### Independent HTTPS retest
+Both confirmed Test User A and B again passed hosted password login, session refresh, session restoration in a new SDK client with server getUser identity verification, and local-scope logout/session clearing. Their IDs were compared in memory and are distinct. No account email, ID, token or password was displayed or written to a harness file.
+
+For both users, profiles/workspaces/consultation-leads probes still return HTTP 404 / PGRST205. These are schema-cache availability failures, not evidence of successful RLS denial. Organization/workspace creation, memberships, activation persistence, consultation persistence, invitation flows and cross-organization read/write denial remain **UNRUN**, pending schema access/verification. Public signup remains unrun to avoid emails. No synthetic operational data was copied or uploaded, and no customer/application records were mutated. Auth test sessions were created/refreshed/logged out only.
+
+### Remaining access options
+Do not repeatedly replace the correctly targeted IPv4 pooler URI without new evidence. Choose one supported administrative path:
+1. Provide a network path that supports PostgreSQL traffic to the dashboard-selected Session pooler on port 5432. The current direct path refuses TCP and the configured proxy does not complete PostgreSQL startup. Preserve TLS verification and validate server-side/network policy with the environment/provider administrator; CONNECT 200 alone is insufficient.
+2. Securely configure **SUPABASE_ACCESS_TOKEN** for an owner-authorized account with access to this development project. Then the Supabase HTTPS management database-query API can be tested for read-only catalog/history access over the already working HTTPS proxy path before any migration is selected. A token's presence alone will not count as access verification. Do not expose it in chat or use a service/anon key as a management token.
+3. Use the development dashboard SQL Editor to run `supabase/hosted_catalog_inventory.sql` read-only and inspect available migration-history metadata. Sanitized metadata must be compared against local candidates before any additive SQL is applied. No blind reapplication, reset, unrelated replacement or RLS weakening is permitted.
+
+Pooler retry/auth harnesses stayed outside the checkout under /tmp. No application implementation was rebuilt. No email, deployment, billing operation, production modification or destructive migration occurred. This section supersedes the earlier instruction to switch from direct IPv6 to the Session pooler: that switch is now confirmed, while actual PostgreSQL connectivity remains blocked.
