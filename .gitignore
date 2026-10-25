@@ -3,3 +3,6 @@ dist
 .env.local
 .env
 .DS_Store
+/logs/morning-summary.txt
+/logs/outbound-v3-ledger.json*
+/logs/outbound-v3.lock/

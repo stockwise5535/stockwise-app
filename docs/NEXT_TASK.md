@@ -179,9 +179,24 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ### Status
 
-- State: READY
+- State: BLOCKED
 - Deployment: NOT REQUESTED
 - Production promotion: FORBIDDEN
 - Billing: FORBIDDEN
 - Schema/RLS changes: FORBIDDEN
 - Approved lifecycle/social automation: TARGET OF THIS TASK
+
+### 2026-10-25 implementation checkpoint
+
+Safe offline preparation implemented and tested; **V3 live/unattended delivery is not
+complete**. See `docs/OUTBOUND_AUTOMATION_V3.md` and the latest report section.
+Current user instruction forbids Gmail send enablement, external mail,
+secret/OAuth changes and schema/RLS changes. No such operation was performed.
+Gmail mode/templates/review/runtime remain unchanged. Buffer and Gmail credentials
+are absent from the current process; CONFIGURATION REQUIRED is not a code failure.
+No live runner or scheduler is installed. All social items remain review-required.
+Further runtime configuration/enablement must stop under the current authorization.
+Remaining implementation includes automatic-email mode/versioned templates and
+source verification, shared durable social claims/reconciliation, public-copy
+approval/versioning and explicit controlled live verification. Do not mark COMPLETE
+or claim 10,000-user delivery readiness from these mock/local tests.

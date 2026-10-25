@@ -739,3 +739,91 @@ Search found no old inline legal-placeholder phrases in customer source/rendered
 Files changed: src/growth/Landing.jsx, new src/growth/LegalDocument.jsx, new src/growth/legalContent.js, src/growth/growth.css, new tests/legal.browser.mjs, tests/growth.browser.mjs, tests/public-growth.browser.mjs, docs/APAC_GROWTH_SYSTEM_REPORT.md and docs/NEXT_TASK.md Status.
 
 **Schema/RLS/RPC/migrations unchanged. No hosted database writes, email, billing activation, Gmail/configuration/template/queue changes, deployment or push.** No legal entity/contact/governing law was guessed, no new personal-data collection/tracker was added and no legal certification is claimed.
+
+
+## OUTBOUND V3 — SAFE OFFLINE PREPARATION; LIVE AUTOMATION BLOCKED — 2026-10-25
+
+**Not COMPLETE.** Current user prohibitions override the task's broader unattended
+delivery target. No Gmail enablement, external mail/social publication, credentials,
+OAuth, schema or RLS changes were performed. NEXT_TASK State is BLOCKED.
+
+Implemented server-only Buffer GraphQL adapter (authenticated organization channel
+discovery, selected X/twitter and Threads identity checks, unpaused queues, bounded
+requests, schedule validation, acceptance receipt, static errors and no retry).
+Official contracts checked: https://developers.buffer.com/examples/get-channels.html,
+https://developers.buffer.com/examples/create-text-post.html and
+https://developers.buffer.com/guides/posts-and-scheduling.html. Only mocked requests
+were executed. Provider acceptance is not final publication evidence.
+
+Added offline-only runner with task-state inspection, two distinct static public
+product-education variants, strict exact-copy classification, at most ten items,
+exclusive directory lock, local fixture claim ledger and atomic morning summary.
+There is no live execution flag, runtime provider injection, child Codex process,
+recursive task generation or scheduler. Social copy is review-required, not
+business-approved for publication. Unknown/arbitrary/confidential copy and extra
+customer payload fields are blocked; other social categories/threads are deferred.
+Fixture claim records reserve logical identity plus network/content hash before
+provider invocation. Accepted, sending and unknown outcomes remain held on rerun.
+A crashed lock requires operator investigation; no automatic lock expiry exists.
+This is single-host local preparation, not a distributed durable production queue.
+
+Email allowlist routing enumerates all eight requested categories but grants no
+send permission. Existing draft_only/test_recipient policy, individual review,
+template hashes, canonical Auth/membership, consent/suppression, delivery-test gate,
+10/hour, 50/day and one-recipient/24-hour SQL quotas remain unchanged. No automatic
+mode was enabled or added. Consultation/invitation retain individual review; weekly
+summary/requested-follow-up sendable templates and source verification remain work.
+Do not claim category enumeration implements their delivery.
+
+Current process configuration check printed names/presence only: BUFFER_API_KEY,
+BUFFER_ORGANIZATION_ID, BUFFER_X_CHANNEL_ID, BUFFER_THREADS_CHANNEL_ID,
+GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL,
+NEXOPS_GMAIL_APPROVED_SENDER and SUPABASE_SERVICE_ROLE_KEY were absent. No .env
+values were loaded or hosted runtime inferred. Gmail freshness and Buffer live
+readiness are unverified / CONFIGURATION REQUIRED. Exact later secure configuration
+and controlled one-test-per-network / sender-owned email verification plans are in
+docs/OUTBOUND_AUTOMATION_V3.md; none was executed.
+
+### Executed verification
+
+- `node --test tests/*.test.js`: **115 passed / 0 failed** (nine new V3 tests).
+  Initial sandbox run failed existing OAuth loopback listener tests; rerun with
+  local-listener permission passed. Provider transports are mocks, not real OAuth.
+- `NEXOPS_PGLITE_PATH=/tmp/nexops-v3-test-deps/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs`:
+  **17 passed / 0 failed**. Initial run could not load PGlite; installed this existing
+  test dependency in /tmp only, then reran. Includes RLS/tenant separation, consent,
+  suppression, quotas, claims and unknown-delivery regressions; no hosted database.
+- `npm run build`: **passed**. SEO generator correctly reports noindex without
+  VITE_PUBLIC_SITE_URL. No deployment or indexing claim.
+- `node scripts/outbound-automation.mjs` while State was READY: **passed**, two offline
+  prepared statuses in logs/morning-summary.txt, zero email/social operations.
+- `git diff --check`: passed. Source/build search found no Buffer API key identifier,
+  new server-module import or fixture secret in src/dist. Logs use fixed statuses;
+  tests verify raw provider errors containing a fake secret never enter logs/ledger.
+  This is not a historical Git/external-log secret audit.
+- No UI changed. Mobile/browser regressions were **not run**; no mobile PASS claimed.
+
+Authorization/RLS/workspace boundaries and customer/internal UI remain unchanged.
+New preparation reads no user/workspace/operational data, so synthetic demo/customer
+separation is preserved by scope. Existing local SQL tests pass; hosted Auth/RLS,
+production concurrency, load/capacity and provider delivery remain unverified. No
+analytics collection or funnel events changed. The framework can reduce future
+operator work, but does not increase proven acquisition/delivery capacity or establish
+30-day APAC 10,000-user readiness. Gmail is still a low-volume pilot transport, not
+the 10,000-user bulk solution. A later separately approved provider/deliverability
+plan, durable shared processing, monitoring and measured funnel/load tests are needed.
+
+Remaining BLOCKER/HIGH: forbidden Gmail activation/live-configuration boundary;
+unimplemented production automatic-email mode/templates and durable shared social
+claims/reconciliation/copy approval; absent live credentials and verification.
+The pre-existing untracked automation/codex-nightly-v2.sh contains --approve-for-me;
+it was not executed, edited or committed and must not be used as the V3 scheduler.
+Previously recorded legal publication placeholders/review remain unresolved by this
+work. No new production vulnerability is claimed from these readiness gaps.
+
+Changed: .gitignore; services/buffer-adapter.js; services/outbound-automation.js;
+scripts/outbound-automation.mjs; tests/outbound-automation.test.js;
+docs/OUTBOUND_AUTOMATION_V3.md; docs/NEXT_TASK.md; this report. Pre-existing untracked
+automation/, logs/ and supabase/.temp/ artifacts are preserved and excluded from commit.
+No deployment/promotion, email, social post, billing/charge, hosted write, schema/RLS,
+OAuth/secret change or push.
