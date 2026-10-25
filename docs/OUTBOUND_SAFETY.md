@@ -148,3 +148,58 @@ The user reports local migration bookkeeping is up to date with no application. 
 
 ## Hosted foundation behavioral verification — 2026-10-24
 A/B hosted foundation checks now pass (124 PASS, 0 FAIL, 2 raw-event-count inspections intentionally blocked). Auth, workspace/membership/activation/lead persistence, qualification, invitation restrictions and tested cross-organization/private-workspace isolation were verified with ordinary user JWTs; all 26 tables denied anonymous SELECT. Event durability passed behaviorally; no raw-event grant was added. Exact live RLS catalog metadata remains user-confirmed local evidence. No email, Gmail connection, mode/template change or sender enablement occurred. This success does not clear the Gmail launch blockers documented above. Labeled development leads/workspaces and invitation memberships were retained and must be excluded from mail/CRM/business reporting. The latest APAC report details authorized org-metadata visibility after explicit invitation acceptance.
+
+## Gmail integration phase — enforced restricted runtime — 2026-10-24
+
+This section supersedes earlier statements that EMAIL_SEND_MODE is unenforced, two transactional templates are absent, or general automatic lifecycle sending can be enabled. **Only draft_only and test_recipient are supported.** No unrestricted/production mode exists. Unset mode defaults to draft_only; unknown/empty modes fail closed. The actual worker, dispatcher and Gmail send adapter enforce restrictions. Both existing server/database enable flags still apply; connection verification/preparation never enables them.
+
+### Actual implementation
+- draft_only: `--message` exits before database/provider calls, even with the old server enable flag set. Direct dispatcher/adapter calls also default to draft_only and cannot deliver. Preparation can create review records but never Gmail drafts/sends automatically.
+- test_recipient: GMAIL_SENDER_EMAIL must equal independently configured NEXOPS_GMAIL_APPROVED_SENDER. Every envelope must address exactly NEXOPS_GMAIL_TEST_RECIPIENT; no alternate recipient argument, Bcc, list or fallback is available. Only welcome, activation_reminder, consultation_confirmation and workspace_invitation are permitted, plus the explicitly requested, reviewed self-addressed sender_test. CSV/consultation reminders, pilot/free-form categories cannot send even with review.
+- Every test message requires a current approved exact registry version/hash, matching rendered content, an individual unchanged-content review, registered/confirmed canonical membership recipient, explicit marketing opt-in (conservatively required for all test messages), no suppression/deletion/duplicate, current safety check, fresh sender identity, the existing atomic claim/quotas and protected audit ledger. Individual review does not allow unapproved or edited templates past the restricted gate.
+- Consultation confirmation must reference a real same-workspace consultation submitted by that recipient. Invitation must reference a current same-workspace invitation, unaccepted or accepted by that recipient. The store verifies those source records on each load. Reminder requires at least 24 hours since trial start and no completed activation; test mode does not fake eligibility or change dates.
+- Two new templates were added to the existing registry only, as **draft, human-review-required** entries. Neither was silently approved. Consultation confirmation acknowledges request receipt, not a booked appointment. Invitation tells the recipient to use the administrator-supplied invitation link; this email never grants a role. No new schema/function/migration was added, no RLS changed, and existing template versions/hashes were preserved. Existing template registration RPC inserts new draft rows only when explicitly run.
+- OAuth refresh is isolated in services/gmail-oauth.js: server-only credentials, required verified scopes, in-memory cache/expiry refresh, redirect refusal, bounded timeout and static errors. Worker output never logs provider response bodies, addresses or credentials. `--verify-oauth` checks token refresh/scopes and exact approved account without needing a backend service key or writing the database. `--verify-connection` additionally records the verified sender and registers registry versions through the existing RPCs; it never enables sending.
+
+### Live status and required secure settings
+No Gmail/client/server-mail settings are currently supplied. Both read-only worker modes were attempted in draft_only and exited 2 with missing-name lists before provider calls. **Live OAuth, refresh, sender identity, self-test, delivery, template approval/queue/audit verification remain UNRUN. Zero real emails sent** for each of the four requested templates and the sender self-test. Existing hosted Supabase behavioral result remains 124 PASS / 0 FAIL / 2 intentionally blocked; it was not rebuilt/rerun for this mail work.
+
+Add only through secure Cloud Environment settings (never chat):
+- GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN: reviewed dedicated-account offline OAuth grant with Gmail API enabled and gmail.send + gmail.metadata scopes. A reviewed server OAuth broker/consent flow must obtain the token; no browser OAuth callback/vault deployment was added.
+- GMAIL_SENDER_EMAIL and **NEXOPS_GMAIL_APPROVED_SENDER**: independently approved dedicated account, exact match; do not infer owner approval solely from the connected profile.
+- **NEXOPS_GMAIL_TEST_RECIPIENT**: explicitly approved Nexops account; this name is now consumed and enforced. It must have a confirmed Supabase user, source-workspace membership and explicit opt-in. Never configure a real customer address.
+- SUPABASE_SERVICE_ROLE_KEY: server-only development backend key for existing queue/claim RPCs. Worker reuses the configured VITE_SUPABASE_URL if SUPABASE_URL is absent; NEXOPS_DEV_PROJECT_REF remains the independent target check. No admin key enters the browser.
+- VITE_PUBLIC_SITE_URL: approved HTTPS origin for template links.
+- **EMAIL_SEND_MODE=draft_only**, **NEXOPS_GMAIL_SEND_ENABLED=false** initially. Leave database sending disabled. Settings are absent now, so the effective runtime mode is already draft_only by default; no Cloud settings were changed by this task.
+
+### Exact staged commands
+```bash
+# Default/draft_only: refresh/scopes and approved profile only; zero DB writes/emails.
+node --use-env-proxy scripts/outbound-worker.mjs --verify-oauth
+# Record sender verification and register templates as drafts, without enabling delivery.
+node --use-env-proxy scripts/outbound-worker.mjs --verify-connection
+# Prepare only the dedicated sender-owned account/workspace self-test queue entry.
+node --use-env-proxy scripts/outbound-worker.mjs --prepare-self-test
+```
+Review/approve the exact sender_test version through the existing administrator UI; the explicitly assigned reviewer must approve its exact queue content. Template approval and reviewer/global-admin assignments are not silently granted by this task. No messages can be sent while draft_only is active, including the self-test. To perform the first actual send, explicitly enter **test_recipient** with NEXOPS_GMAIL_TEST_RECIPIENT equal to the approved sender itself and with the existing server/database test gates enabled. This is the first restricted test stage, not an exception to draft_only. Until its protected provider record is confirmed by the sender-account administrator, the dispatcher and SQL permit no non-self-test message. Run only the reviewed sender message ID; confirm receipt/provider-accepted ledger via the existing UI before proceeding. If the later four-template test recipient differs, explicitly reconfigure that one approved address; no automatic recipient change occurs.
+
+Prepare the four template tests using the existing canonical queue, not a direct Gmail call:
+```bash
+# Can run in draft_only: creates a review entry only. IDs identify development fixtures.
+node --use-env-proxy scripts/outbound-worker.mjs --prepare-template-test welcome <workspace-uuid> <confirmed-test-user-uuid>
+node --use-env-proxy scripts/outbound-worker.mjs --prepare-template-test activation_reminder <workspace-uuid> <confirmed-test-user-uuid>
+node --use-env-proxy scripts/outbound-worker.mjs --prepare-template-test consultation_confirmation <workspace-uuid> <confirmed-test-user-uuid> <consultation-uuid>
+node --use-env-proxy scripts/outbound-worker.mjs --prepare-template-test workspace_invitation <workspace-uuid> <confirmed-test-user-uuid> <invitation-uuid>
+# Only after exact template/content reviews, sender self-test confirmation and restricted gates:
+node --use-env-proxy scripts/outbound-worker.mjs --message <reviewed-message-uuid>
+```
+Preparation resolves the canonical registered address and membership server-side, checks it against the configured approved test recipient, and verifies transactional source records; it cannot choose arbitrary external contacts. IDs/templates are not credential values; keep actual secrets in settings. Preparation never approves, enables or sends. Positive hosted preparation/new-source checks remain unverified until the backend server key is supplied.
+
+**Preserve quotas:** existing SQL limits remain 10/hour, 50/day, one message per recipient per 24 hours, including self-tests. The four emails cannot be sent to one recipient in one session/day; allow at least 24 hours between accepted/unknown claims. If the self-test uses that same recipient, it also consumes a 24-hour slot. No schedule, quota bypass or bulk loop was added. Do not fabricate opt-in, change trial dates, unsuppress users or relax review/rate constraints to complete tests faster.
+
+### Safety, delivery and validation results
+44 targeted Node tests passed (existing growth/outbound/safety + nine runtime tests), along with seven existing PostgreSQL outbound/RLS/claim/history/quota tests; build passed. All requested compensation/refund/damages/liability/contract/price/PO quantity/supplier/expedite commitments, unsupported claims, uncertain AI, unsubscribed/suppressed and duplicate cases remain HUMAN_REVIEW_REQUIRED or BLOCKED, never automatically safe. Runtime tests also verify actual child-worker default/mode denial, transport recipient enforcement, approval/hash/review/opt-in gates, source/24-hour eligibility, OAuth caching/expiry/grant denial, and fixture-secret absence from stdout/stderr.
+
+Fake Gmail timeout, missing provider ID and unconfirmed HTTP response were exercised through the actual adapter into the dispatcher; each persisted delivery_unknown through the store interface and refused a second provider POST. Lost success-audit response also preserves UNKNOWN_DELIVERY semantics. Existing SQL tests verify protected ledger/token/terminal-state behavior. These are simulated provider/local SQL results, not real Gmail delivery or hosted mail-audit evidence. If the final outcome write itself fails, the existing sending claim remains held and is not retried. An operator must reconcile unknown/sending outcomes; neither a deterministic Message-ID nor HTTP success guarantees inbox delivery.
+
+No unrestricted delivery, real-customer send, hosted schema/RLS change, production deployment or billing change occurred. No credential value was exposed. Live setup and approvals remain the only path to the reviewed self-test and subsequently rate-limited four-template tests.

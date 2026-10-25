@@ -1,8 +1,9 @@
 // Server-only. An allowlisted, approved exact template is required for automatic sending.
 import { createHash } from 'node:crypto'
 import { LIFECYCLE_COPY } from './growth-integrations.js'
+import { restrictedMessageAllowed } from './email-send-policy.js'
 export const OUTCOMES=['AUTO_SEND_ALLOWED','HUMAN_REVIEW_REQUIRED','BLOCKED']
-export const TEMPLATE_REGISTRY=Object.freeze(Object.fromEntries(Object.entries({...LIFECYCLE_COPY,sender_test:['Nexops sender connection test','This is the Nexops sender connection test you requested. No customer or supplier action is required.']}).map(([id,[subject,body]])=>[id,Object.freeze({template_id:id,category:id,version:1,subject_template:subject,body_template:body+'\n\nOpen Nexops: {{site_url}}/growth\nCommunication preferences: {{site_url}}/growth?view=account\n',allowed_variables:['site_url'],automatic_send_allowed:!['pilot_followup','sender_test'].includes(id),requires_consent:!['welcome','sender_test'].includes(id),requires_human_review:['pilot_followup','sender_test'].includes(id),approved_date:null,status:'draft'})])))
+export const TEMPLATE_REGISTRY=Object.freeze(Object.fromEntries(Object.entries({...LIFECYCLE_COPY,consultation_confirmation:['Nexops consultation request received','We received your consultation request. This acknowledges receipt only; an appointment and scope have not been confirmed.'],workspace_invitation:['Your Nexops workspace invitation','A Nexops workspace invitation is available for your review. Sign in and use the invitation link supplied by your workspace administrator. This email does not grant access or change your role.'],sender_test:['Nexops sender connection test','This is the Nexops sender connection test you requested. No customer or supplier action is required.']}).map(([id,[subject,body]])=>[id,Object.freeze({template_id:id,category:id,version:1,subject_template:subject,body_template:body+'\n\nOpen Nexops: {{site_url}}/growth\nCommunication preferences: {{site_url}}/growth?view=account\n',allowed_variables:['site_url'],automatic_send_allowed:!['pilot_followup','sender_test','consultation_confirmation','workspace_invitation'].includes(id),requires_consent:!['welcome','sender_test'].includes(id),requires_human_review:['pilot_followup','sender_test','consultation_confirmation','workspace_invitation'].includes(id),approved_date:null,status:'draft'})])))
 const sha=value=>createHash('sha256').update(value).digest('hex')
 export const templateHash=t=>sha(JSON.stringify([t.template_id,t.version,t.category,t.subject_template,t.body_template,t.allowed_variables,t.automatic_send_allowed,t.requires_consent,t.requires_human_review]))
 export const contentHash=m=>sha([m.recipient_email,m.subject,m.body].join('\n'))
@@ -63,12 +64,13 @@ export function buildIdempotentMime(message,sender){
  const subject=Buffer.from(message.subject).toString('base64')
  return Buffer.from(`From: ${sender}\r\nTo: ${message.recipient_email}\r\nSubject: =?UTF-8?B?${subject}?=\r\nMessage-ID: <${sha(message.id)}@${sender.split('@')[1]}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${Buffer.from(message.body).toString('base64')}\r\n`).toString('base64url')
 }
-export function createGmailSendAdapter({getAccessToken,sender,fetch:transport=fetch}){
+export function createGmailSendAdapter({getAccessToken,sender,sendPolicy={mode:'draft_only'},fetch:transport=fetch}){
  async function token(){const value=await getAccessToken();if(!value)throw new Error('Gmail OAuth not connected');return value}
  return {
   async verifyConnection(){const r=await transport('https://gmail.googleapis.com/gmail/v1/users/me/profile',{redirect:'error',headers:{Authorization:`Bearer ${await token()}`},signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error('Gmail profile verification failed');const profile=await r.json();if(profile.emailAddress?.toLowerCase()!==sender.toLowerCase())throw new Error('Connected Gmail account does not match configured sender');return {sender:sender.toLowerCase(),verified:true}},
   async send(message){
    // Called only by dispatchOutbound after atomic database reservation.
+   if(!restrictedMessageAllowed(message,sendPolicy)||sender.toLowerCase()!==sendPolicy.sender)throw Error('Restricted mail policy denied provider send')
    const raw=buildIdempotentMime(message,sender)
    const r=await transport('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',redirect:'error',headers:{Authorization:`Bearer ${await token()}`,'Content-Type':'application/json'},body:JSON.stringify({raw}),signal:AbortSignal.timeout(20000)})
    if(!r.ok)throw new Error('Provider response not confirmed; reconciliation required')
@@ -77,15 +79,23 @@ export function createGmailSendAdapter({getAccessToken,sender,fetch:transport=fe
   },
  }
 }
-export async function dispatchOutbound(id,{store,provider,enabled=false,verifiedVariables}){
+export async function dispatchOutbound(id,{store,provider,enabled=false,verifiedVariables,sendPolicy={mode:'draft_only'}}){
+ if(sendPolicy.mode!=='test_recipient')return {decision:'BLOCKED',reasons:['EMAIL_SEND_MODE prohibits delivery'],risk_flags:['draft_only_or_invalid_mode']}
  if(!enabled)return {decision:'BLOCKED',reasons:['Live sending is disabled'],risk_flags:['sending_disabled']}
  const state=await store.load(id)
  if(!state)return {decision:'BLOCKED',reasons:['Message unavailable'],risk_flags:[]}
  const {message}=state
  if(!['pending_review','queued'].includes(message.status))return {decision:'BLOCKED',reasons:['Message is held, completed or already claimed'],risk_flags:['not_dispatchable']}
  let gate=evaluateOutbound(message,{...state,verifiedVariables})
+ const t=TEMPLATE_REGISTRY[message.template_id],a=state.templateApproval
+ let exact=false;try{const expected=renderApprovedShape(message.template_id,verifiedVariables);exact=expected.subject===message.subject&&expected.body===message.body}catch{}
+ const approved=!!(t&&a?.status==='approved'&&a.approved_date&&a.content_hash===templateHash(t)&&a.version===t.version&&message.template_version===t.version)
+ if(!restrictedMessageAllowed(message,sendPolicy)||!approved||!exact||state.recipient?.marketingOptIn!==true||(message.template_id==='consultation_confirmation'&&!state.consultationVerified)||(message.template_id==='workspace_invitation'&&!state.invitationVerified)||(message.template_id==='activation_reminder'&&!state.activationReminderEligible))gate={decision:'BLOCKED',risk_flags:['restricted_test_policy_denied'],reasons:['Test recipient, exact approved template, explicit opt-in and approved sender required']}
+
+ if(!state.automaticDeliveryVerified&&message.template_id!=='sender_test')gate={decision:'BLOCKED',risk_flags:['sender_delivery_test_required'],reasons:['Reviewed sender self-test must be confirmed first']}
  if(gate.decision==='AUTO_SEND_ALLOWED' && !state.automaticDeliveryVerified)gate={decision:'HUMAN_REVIEW_REQUIRED',risk_flags:['sender_delivery_test_required'],reasons:['A reviewed self-addressed sender test must be confirmed before automatic delivery']} 
  const reviewed=state.reviewedHash===contentHash(message)
+ if(gate.decision==='AUTO_SEND_ALLOWED'&&!reviewed)gate={decision:'HUMAN_REVIEW_REQUIRED',risk_flags:['test_message_review_required'],reasons:['Restricted tests require individual exact-content review']}
  await store.recordGate(id,gate,contentHash(message))
  if(gate.decision==='BLOCKED' || (gate.decision==='HUMAN_REVIEW_REQUIRED' && !reviewed))return gate
  // Provider identity is read-only tested; SQL also requires fresh, server-recorded verification.
@@ -96,6 +106,7 @@ export async function dispatchOutbound(id,{store,provider,enabled=false,verified
  let acceptedProviderId=null
  // No retry after this point. Gmail has no documented transactional idempotency guarantee.
  try{
+  if(!restrictedMessageAllowed(message,sendPolicy))throw Error('Restricted policy changed')
   const sent=await provider.send(message)
   acceptedProviderId=sent.providerId
   await store.complete(id,claim.claimToken,'sent',sent.providerId)

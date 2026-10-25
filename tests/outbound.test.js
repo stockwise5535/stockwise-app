@@ -1,10 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {TEMPLATE_REGISTRY,templateHash,contentHash,idempotencyKey,renderApprovedShape,evaluateOutbound,dispatchOutbound,createGmailSendAdapter,buildIdempotentMime,prepareLifecycleOutbound} from '../services/outbound-safety.js'
+const sendPolicy={mode:'test_recipient',sender:'nexops@example.test',testRecipient:'registered@example.test'}
 const variables={site_url:{value:'https://nexops.example.test',verified:true}}
 function fixture(kind='welcome'){
  const t=TEMPLATE_REGISTRY[kind],rendered=renderApprovedShape(kind,variables)
- return {automaticDeliveryVerified:true,message:{id:'test-message',recipient_email:'registered@example.test',template_id:kind,template_version:1,category:kind,status:'pending_review',...rendered},recipient:{registered:true,emailVerified:true,email:'registered@example.test',marketingOptIn:true,trialEnd:'2099-01-01T00:00:00Z'},templateApproval:{status:'approved',approved_date:'2026-10-24T00:00:00Z',version:1,content_hash:templateHash(t)},verifiedVariables:variables}
+ const state={automaticDeliveryVerified:true,message:{id:'test-message',recipient_email:'registered@example.test',template_id:kind,template_version:1,category:kind,status:'pending_review',...rendered},recipient:{registered:true,emailVerified:true,email:'registered@example.test',marketingOptIn:true,trialEnd:'2099-01-01T00:00:00Z'},templateApproval:{status:'approved',approved_date:'2026-10-24T00:00:00Z',version:1,content_hash:templateHash(t)},verifiedVariables:variables,sendPolicy};state.reviewedHash=contentHash(state.message);return state
 }
 test('only exact approved template and verified variables can be automatically allowed',()=>{
  const s=fixture();assert.equal(evaluateOutbound(s.message,s).decision,'AUTO_SEND_ALLOWED')
@@ -46,32 +47,32 @@ function worker(s,{claim=true,fail=false}={}){
 }
 test('disabled runtime performs no provider calls; missing review and denied claims never send',async()=>{
  const s=fixture(),w=worker(s)
- assert.equal((await dispatchOutbound(s.message.id,{...w,enabled:false,verifiedVariables:variables})).decision,'BLOCKED');assert.deepEqual(w.calls,[])
- const untested=worker({...s,automaticDeliveryVerified:false});assert.equal((await dispatchOutbound(s.message.id,{...untested,enabled:true,verifiedVariables:variables})).decision,'HUMAN_REVIEW_REQUIRED');assert.ok(!untested.calls.includes('send'))
+ assert.equal((await dispatchOutbound(s.message.id,{...w,enabled:false,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.deepEqual(w.calls,[])
+ const untested=worker({...s,automaticDeliveryVerified:false});assert.equal((await dispatchOutbound(s.message.id,{...untested,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.ok(!untested.calls.includes('send'))
  const edited={...s,message:{...s.message,body:'Uncertain content'}};const review=worker(edited)
- assert.equal((await dispatchOutbound(edited.message.id,{...review,enabled:true,verifiedVariables:variables})).decision,'HUMAN_REVIEW_REQUIRED');assert.ok(!review.calls.includes('send'))
- const limited=worker(s,{claim:false});assert.equal((await dispatchOutbound(s.message.id,{...limited,enabled:true,verifiedVariables:variables})).decision,'BLOCKED');assert.ok(!limited.calls.includes('send'))
+ assert.equal((await dispatchOutbound(edited.message.id,{...review,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.ok(!review.calls.includes('send'))
+ const limited=worker(s,{claim:false});assert.equal((await dispatchOutbound(s.message.id,{...limited,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.ok(!limited.calls.includes('send'))
 })
-test('approved human snapshot still cannot bypass explicit block, and later edits invalidate approval',async()=>{
+test('human review cannot bypass restricted exact-template or explicit-content blocks',async()=>{
  const s=fixture();s.message.body='We accept liability.';s.reviewedHash=contentHash(s.message)
- const w=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...w,enabled:true,verifiedVariables:variables})).delivery,'sent')
+ const w=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...w,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED')
  s.message.body='Pay or else we expose your information.';s.reviewedHash=contentHash(s.message)
- const blocked=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...blocked,enabled:true,verifiedVariables:variables})).decision,'BLOCKED');assert.ok(!blocked.calls.includes('send'))
- s.message.body='Edited since the review.';const stale=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...stale,enabled:true,verifiedVariables:variables})).decision,'HUMAN_REVIEW_REQUIRED');assert.ok(!stale.calls.includes('send'))
+ const blocked=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...blocked,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.ok(!blocked.calls.includes('send'))
+ s.message.body='Edited since the review.';const stale=worker(s);assert.equal((await dispatchOutbound(s.message.id,{...stale,enabled:true,verifiedVariables:variables,sendPolicy})).decision,'BLOCKED');assert.ok(!stale.calls.includes('send'))
 })
 test('timeout or crash state is never automatically retried',async()=>{
  const s=fixture(),w=worker(s,{fail:true})
- const result=await dispatchOutbound(s.message.id,{...w,enabled:true,verifiedVariables:variables});assert.equal(result.delivery,'delivery_unknown');assert.equal(w.calls.filter(c=>c==='send').length,1);assert.ok(w.calls.includes('delivery_unknown'))
+ const result=await dispatchOutbound(s.message.id,{...w,enabled:true,verifiedVariables:variables,sendPolicy});assert.equal(result.delivery,'delivery_unknown');assert.equal(w.calls.filter(c=>c==='send').length,1);assert.ok(w.calls.includes('delivery_unknown'))
  for(const status of ['delivery_unknown','sending','sent','draft','cancelled','rejected','blocked']){
-  const held=worker({...s,message:{...s.message,status}});await dispatchOutbound(s.message.id,{...held,enabled:true,verifiedVariables:variables});assert.ok(!held.calls.includes('send'))
+  const held=worker({...s,message:{...s.message,status}});await dispatchOutbound(s.message.id,{...held,enabled:true,verifiedVariables:variables,sendPolicy});assert.ok(!held.calls.includes('send'))
  }
 })
 test('Gmail adapter verifies exact account and sends only through a supplied test transport',async()=>{
- const calls=[],adapter=createGmailSendAdapter({sender:'nexops@example.test',getAccessToken:async()=>'local-fixture-token',fetch:async(url,options)=>{calls.push({url,method:options.method || 'GET'});return {ok:true,json:async()=>url.endsWith('/profile')?{emailAddress:'nexops@example.test'}:{id:'local-provider-id'}}}})
+ const calls=[],adapter=createGmailSendAdapter({sender:'nexops@example.test',getAccessToken:async()=>'local-fixture-token',sendPolicy,fetch:async(url,options)=>{calls.push({url,method:options.method || 'GET'});return {ok:true,json:async()=>url.endsWith('/profile')?{emailAddress:'nexops@example.test'}:{id:'local-provider-id'}}}})
  assert.equal((await adapter.verifyConnection()).verified,true)
  assert.equal((await adapter.send(fixture().message)).providerId,'local-provider-id')
  assert.equal(calls[1].method,'POST');assert.ok(calls[1].url.endsWith('/messages/send'))
- const mismatch=createGmailSendAdapter({sender:'other@example.test',getAccessToken:async()=>'local-fixture-token',fetch:async()=>({ok:true,json:async()=>({emailAddress:'nexops@example.test'})})})
+ const mismatch=createGmailSendAdapter({sender:'other@example.test',getAccessToken:async()=>'local-fixture-token',sendPolicy,fetch:async()=>({ok:true,json:async()=>({emailAddress:'nexops@example.test'})})})
  await assert.rejects(mismatch.verifyConnection(),/does not match/)
 })
 
