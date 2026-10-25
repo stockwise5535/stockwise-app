@@ -134,6 +134,9 @@ Support the ability to grow through:
 - consultation CTA
 - campaign attribution
 - source tracking
+- approved automated lifecycle email
+- automated X publishing through Buffer
+- automated Threads publishing through Buffer
 
 ### Activation
 
@@ -172,22 +175,64 @@ Rules:
 - Adding a third-party analytics provider requires explicit approval.
 - Do not fabricate metrics or claim instrumentation that is not implemented.
 
-## 9. Email strategy
+## 9. Email and social publishing strategy
 
 Current Gmail integration is for low-volume pilot/lifecycle communication.
 
-Current safety model includes:
-- draft-only default
-- server send flag disabled by default
-- database runtime disabled by default
-- reviewed sender test
-- consent/suppression checks
-- duplicate prevention
-- rate limits
-- delivery reconciliation
-- human review for sensitive content
+The approved V3 operating target is to allow **unattended real sending** for a narrow allowlist of low-risk lifecycle messages after configuration and controlled live verification.
+
+Eligible automated email categories:
+- Welcome
+- Activation reminder
+- CSV reminder
+- Consultation confirmation
+- Consultation reminder
+- User-requested follow-up
+- Weekly summary
+- Workspace invitation
+
+Automated email must still enforce:
+- consent and communication preferences where applicable
+- suppression/unsubscribe state
+- duplicate prevention and idempotency
+- recipient and sender rate limits
+- provider delivery reconciliation
+- unknown-delivery no-auto-retry behavior
+- approved template/version checks
+- audit logging
+
+The following remain human-review or blocked:
+- legal commitments or legal advice
+- financial commitments
+- contracts or commercial commitments
+- refunds or compensation
+- purchase-order changes
+- supplier changes
+- payment or banking instructions
+- liability admissions
+- sensitive/private customer-specific content
+- unsupported claims
+- ambiguous or low-confidence AI-generated content
 
 Gmail is **not** the long-term bulk delivery system for 10,000 users.
+
+### Social publishing
+
+Buffer is the social publishing hub for V3.
+
+Initial unattended auto-publish channels:
+- X
+- Threads
+
+Rules:
+- Buffer API credentials remain server/local-secret only and never enter browser code or tracked files.
+- Channel IDs are discovered from the authenticated Buffer account and stored as configuration, not guessed.
+- Auto-publish is limited to pre-approved public content categories related to Stockwise/Nexops growth, product education, product updates, supply-chain education, and approved calls to action.
+- Do not auto-publish legal, financial, contractual, confidential, customer-specific, deceptive, or unsupported claims.
+- Maintain per-network formatting rather than blindly duplicating the same copy.
+- Log provider post IDs, channel, scheduled/sent state, content hash, and errors.
+- Prevent duplicate posts through idempotency/content hashing.
+- Never expose Buffer credentials in logs or commits.
 
 At higher scale, evaluate a dedicated transactional/lifecycle provider with:
 - bounce handling
@@ -269,10 +314,12 @@ AI agents may autonomously perform safe development work such as:
 - QA
 - release-readiness checks
 
+They may autonomously send/publish only within the explicitly approved outbound allowlists above once the relevant provider configuration has passed controlled live verification.
+
 They must STOP and request explicit human approval before:
 - Production deployment or promotion
-- real customer/supplier email sending
-- enabling Gmail production sending
+- any email outside the approved low-risk lifecycle allowlist
+- any social content outside the approved public-content allowlist
 - enabling billing or creating real charges
 - refunds/compensation
 - Supabase schema changes
