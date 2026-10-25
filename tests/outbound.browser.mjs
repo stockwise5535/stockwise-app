@@ -18,7 +18,7 @@ try{
  const message={id:'fixture-1',workspace_id:'fixture-workspace',recipient_email:'fixture@example.test',category:'welcome',template_id:'welcome',template_version:1,content_hash:'fixture-hash',subject:'Local queued message',body:'Local fixture body only.',status:'pending_review',gate_outcome:'HUMAN_REVIEW_REQUIRED',risk_flags:['freeform_or_edited_content'],review_reasons:['Review required'],source_event:'local-ui-test',related_action_id:'fixture-action',created_at:'2026-10-24T00:00:00Z',proposed_send_at:'2026-10-25T00:00:00Z'};
  const events=[];window.reviewCalls=[];
  const api={outbound:async()=>[{...message}],outboundHistory:async()=>[...events],emailTemplates:async()=>[],reviewOutbound:async(id,action,subject,body,reason)=>{window.reviewCalls.push({action,subject,body,reason});message.status=({'Reject':'rejected','Cancel':'cancelled','Save as Draft':'draft'})[action] || 'queued';if(action==='Edit and Send'||action==='Save as Draft'){message.subject=subject;message.body=body;message.content_hash='edited-'+window.reviewCalls.length}events.push({id:'event-'+events.length,message_id:id,kind:action,created_at:'2026-10-24',actor_id:'fixture-reviewer',details:{reason}})}};
- createRoot(document.getElementById('fixture-root')).render(React.createElement(Review,{api,workspaceId:'fixture-workspace'}));
+ const root=createRoot(document.getElementById('fixture-root'));window.reviewFixture={root,React,Review,api};root.render(React.createElement(Review,{api,workspaceId:'fixture-workspace',canReview:true}));
  })
  await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).waitFor()
  const row=page.locator('#outbound-fixture-1')
@@ -37,6 +37,11 @@ try{
  assert.equal((await page.evaluate(()=>window.reviewCalls)).length,5)
  await row.getByText(/Review and delivery history/).click();assert.equal(await row.locator('details li').count(),5)
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'/tmp/nexops-outbound-review.png',fullPage:true})
+ await page.evaluate(()=>{const {root,React,Review,api}=window.reviewFixture;root.render(React.createElement(Review,{api,workspaceId:'fixture-workspace',canReview:false,isGrowthAdmin:true}))})
+ await page.getByText('Message decisions require an assigned reviewer for this workspace.',{exact:true}).waitFor()
+ assert.equal(await row.getByRole('button',{name:'Approve and Send',exact:true}).count(),0)
+ assert.ok(await row.getByLabel('Generated body').isDisabled());assert.ok(await row.getByLabel('Review reason').isDisabled())
+ assert.equal((await page.evaluate(()=>window.reviewCalls)).length,5)
  assert.deepEqual(errors,[]);assert.deepEqual(external,[])
  console.log('Outbound review UI passed: required review reason, five actions, edited-content handling, history, source/recipient fields and mobile; no external requests or emails.')
 }finally{await browser.close()}

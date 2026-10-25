@@ -55,6 +55,8 @@ export function createGrowthService(client) {
     confirmMailTest:id=>rpc('nexops_confirm_mail_test',{p_id:id}),
     enableMail:enabled=>rpc('nexops_enable_mail',{p_enabled:enabled}),
     approveEmailTemplate:t=>rpc('nexops_approve_email_template',{p_id:t.template_id,p_version:t.version,p_hash:t.content_hash}),
+    isGrowthAdmin:()=>rpc('nexops_is_growth_admin'),
+    canReviewOutbound:id=>rpc('nexops_can_review_outbound',{w:id}),
     metrics:()=>rpc('nexops_growth_metrics'),
   }
 }

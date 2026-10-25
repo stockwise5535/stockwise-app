@@ -7,7 +7,7 @@ const {chromium}=require(process.env.NEXOPS_PLAYWRIGHT_PATH || 'playwright-core'
 const {PGlite}=require(process.env.NEXOPS_PGLITE_PATH || '@electric-sql/pglite')
 const db=new PGlite(),userId='44444444-4444-4444-8444-444444444444'
 await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,created_at timestamptz not null default now());create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth,public to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;`)
-for(const filename of ['202610240001_growth_foundation.sql','202610240002_growth_lifecycle.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+filename,import.meta.url),'utf8'))
+for(const filename of ['202610240001_growth_foundation.sql','202610240002_growth_lifecycle.sql','202610240003_outbound_safety.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+filename,import.meta.url),'utf8'))
 const browser=await chromium.launch({executablePath:process.env.NEXOPS_CHROMIUM || '/usr/bin/chromium',headless:true,args:['--no-sandbox']})
 const base=process.env.NEXOPS_GROWTH_TEST_URL || 'http://127.0.0.1:5174'
 const apiBase='http://127.0.0.1:54329'
@@ -15,8 +15,8 @@ const user={id:userId,aud:'authenticated',role:'authenticated',email:'local-user
 const tokens=new Map()
 const authToken=()=>{if(!tokens.has(user.id))tokens.set(user.id,[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:user.id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url'),'local-signature'].join('.'));return tokens.get(user.id)}
 const session=()=>({access_token:authToken(),refresh_token:'local-test-refresh',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
-const rpcParams={nexops_bootstrap:[],nexops_track_event:['p_event_name','p_workspace_id','p_properties','p_event_id'],nexops_submit_consultation:['p_workspace_id','p_details','p_request_id'],nexops_create_workspace:['p_name','p_market','p_locale','p_request_id'],nexops_create_invite:['p_workspace_id','p_role'],nexops_accept_invite:['p_token'],nexops_set_preferences:['p_marketing_opt_in','p_locale'],nexops_request_deletion:[],nexops_growth_metrics:[]}
-let queue=Promise.resolve(),bootstrapCalls=0,failBootstrap=false,signupRedirect=null
+const rpcParams={nexops_is_growth_admin:[],nexops_can_review_outbound:['w'],nexops_bootstrap:[],nexops_track_event:['p_event_name','p_workspace_id','p_properties','p_event_id'],nexops_submit_consultation:['p_workspace_id','p_details','p_request_id'],nexops_create_workspace:['p_name','p_market','p_locale','p_request_id'],nexops_create_invite:['p_workspace_id','p_role'],nexops_accept_invite:['p_token'],nexops_set_preferences:['p_marketing_opt_in','p_locale'],nexops_request_deletion:[],nexops_growth_metrics:[]}
+let queue=Promise.resolve(),bootstrapCalls=0,failBootstrap=false,signupRedirect=null,permissionFailure=false,permissionDelay=0,internalDataCalls=0
 async function backend(route){
  const request=route.request(),url=new URL(request.url()),path=url.pathname
  const fulfill=(status,data)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data),headers:{'access-control-allow-origin':'*'}})
@@ -31,6 +31,8 @@ async function backend(route){
   if(request.headers().authorization!==`Bearer ${authToken()}`)return fulfill(401,{message:'Sign-in required'})
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user.id]);await db.exec('set role authenticated')
   if(path==='/rest/v1/rpc/nexops_bootstrap'){bootstrapCalls++;if(failBootstrap)return fulfill(403,{message:'Fixture setup denied',code:'42501'})}
+  if(['/rest/v1/rpc/nexops_is_growth_admin','/rest/v1/rpc/nexops_can_review_outbound'].includes(path)){if(permissionDelay)await new Promise(r=>setTimeout(r,permissionDelay));if(permissionFailure)return fulfill(503,{message:'Fixture permission unavailable'})}
+  if(['/rest/v1/nexops_outbound_messages','/rest/v1/nexops_outbound_history','/rest/v1/nexops_email_templates','/rest/v1/rpc/nexops_growth_metrics'].includes(path))internalDataCalls++
   if(path.startsWith('/rest/v1/rpc/')){
    const name=path.split('/').at(-1),keys=rpcParams[name];if(!keys)throw new Error('Unsupported RPC')
    const body=request.postDataJSON() || {}
@@ -39,7 +41,7 @@ async function backend(route){
    return fulfill(200,result.rows[0].value)
   }
   const table=path.split('/').at(-1)
-  if(!['nexops_workspaces','nexops_profiles','nexops_workspace_memberships','nexops_activation','nexops_consultation_leads','nexops_lead_qualification','nexops_organizations','nexops_organization_memberships'].includes(table))throw new Error('Unsupported table')
+  if(!['nexops_workspaces','nexops_profiles','nexops_workspace_memberships','nexops_activation','nexops_consultation_leads','nexops_lead_qualification','nexops_organizations','nexops_organization_memberships','nexops_outbound_messages','nexops_outbound_history','nexops_email_templates'].includes(table))throw new Error('Unsupported table')
   const values=[],conditions=[]
   for(const key of ['workspace_id','user_id'])if(url.searchParams.has(key)){values.push(url.searchParams.get(key).replace(/^eq\./,''));conditions.push(`${key}=$${values.length}`)}
   const result=await db.query(`select * from public.${table}${conditions.length?' where '+conditions.join(' and '):''}`,values)
@@ -78,7 +80,16 @@ try{
  await page.getByRole('button',{name:'Consultation requests',exact:true}).click();await page.getByRole('heading',{name:'Local APAC Co',exact:true}).waitFor()
  assert.ok((await page.locator('.growth-card').textContent()).includes('Qualified Lead'))
  await page.getByRole('button',{name:'Invite a colleague',exact:true}).click();await page.getByRole('button',{name:'Create viewer invitation link',exact:true}).click();await page.getByLabel('Private invitation link',{exact:true}).waitFor()
- await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).click();await page.getByRole('button',{name:'Load authorized metrics',exact:true}).click();await page.getByRole('alert').filter({hasText:'Growth admin access required'}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),0)
+ assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),0)
+ for(const view of ['dashboard','communications']){
+  await page.goto(base+'/growth?view='+view);await page.getByRole('heading',{name:'Page unavailable for this workspace'}).waitFor()
+  assert.equal(await page.getByRole('heading',{name:'Internal Growth Dashboard',exact:true}).count(),0);assert.equal(await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).count(),0)
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),0);assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),0)
+ }
+ assert.equal(internalDataCalls,0)
+ await page.getByRole('button',{name:'Return to Product',exact:true}).click()
+ await page.setViewportSize({width:1440,height:1000})
  await page.getByRole('button',{name:'Account',exact:true}).click();await page.getByLabel('Company / workspace name').fill('Customer workspace');await page.getByRole('button',{name:'Create empty customer workspace',exact:true}).click()
  await page.waitForFunction(()=>document.querySelector('select[aria-label=Workspace]')?.selectedOptions[0]?.textContent.includes('customer'))
  await page.getByRole('button',{name:'Product',exact:true}).click();await page.getByRole('heading',{name:'Customer workspace foundation',exact:true}).waitFor()
@@ -93,6 +104,34 @@ try{
  const count=async(t)=>Number((await db.query(`select count(*) as n from public.${t}`)).rows[0].n)
  assert.equal(await count('nexops_organizations'),1);assert.equal(await count('nexops_workspaces'),2);assert.equal(await count('nexops_consultation_leads'),1);assert.equal(await count('nexops_exceptions'),0);assert.equal(await count('nexops_actions'),0)
  assert.equal(Number((await db.query("select count(*) n from public.nexops_events where event_name='activation_completed'")).rows[0].n),1)
+ // Local fixture grants only: never modify hosted reviewer/admin assignments.
+ await queue;await db.exec('reset role');const starterId=(await db.query('select id from public.nexops_workspaces where created_by=$1 and is_starter',[userId])).rows[0].id
+ await db.query('insert into public.nexops_growth_admins(user_id)values($1)',[userId])
+ await page.goto(base+'/growth?view=dashboard');await page.getByRole('heading',{name:'Internal Growth Dashboard',exact:true}).waitFor();await page.getByRole('button',{name:'Load authorized metrics',exact:true}).click();await page.getByText('registered users',{exact:true}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),1)
+ // Admin + workspace owner can read the queue, but has no review assignment.
+ await page.goto(base+'/growth?view=communications');await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Approve and Send',exact:true}).count(),0)
+ await queue;await db.exec('reset role');await db.query('delete from public.nexops_growth_admins where user_id=$1',[userId]);await db.query('insert into public.nexops_outbound_reviewers(workspace_id,user_id)values($1,$2)',[starterId,userId])
+ await page.goto(base+'/growth?view=communications');await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),0);assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),1)
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+ const customerId=(await db.query("select id from public.nexops_workspaces where created_by=$1 and workspace_type='customer'",[userId])).rows[0].id
+ permissionDelay=100
+ await page.getByLabel('Workspace',{exact:true}).selectOption(customerId)
+ assert.equal(await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).count(),0)
+ await page.getByRole('heading',{name:'Page unavailable for this workspace'}).waitFor();assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),0)
+ permissionDelay=0
+ // A viewer can keep customer navigation but must not see consultation request records.
+ await queue;await db.exec('reset role');await db.query("update public.nexops_workspace_memberships set role='viewer' where workspace_id=$1 and user_id=$2",[customerId,userId])
+ await page.goto(base+'/growth?view=leads');await page.getByLabel('Workspace',{exact:true}).selectOption(customerId);await page.getByRole('heading',{name:'Page unavailable for this workspace'}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Consultation requests',exact:true}).count(),0)
+ assert.equal(await page.getByRole('heading',{name:'Consultation requests',exact:true}).count(),0)
+ await page.goto(base+'/growth?view=dashboard');await page.getByRole('heading',{name:'Page unavailable for this workspace'}).waitFor()
+ permissionFailure=true
+ await page.goto(base+'/growth?view=communications');await page.getByText('Access could not be verified. You can retry or return to Product.',{exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).count(),0)
+ permissionFailure=false
+ await page.getByRole('button',{name:'Retry access check'}).click();await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).waitFor()
  // Reproduce profile-only confirmed existing user signing in directly at the legacy root.
  await page.close()
  const secondId='55555555-5555-4555-8555-555555555555'
@@ -111,5 +150,5 @@ try{
  assert.equal((await db.query('select role from public.nexops_workspace_memberships where user_id=$1',[secondId])).rows[0].role,'owner')
  await context.close()
  assert.deepEqual(errors,[])
- console.log('Local simulated Auth/PostgREST + real PostgreSQL browser flow passed: pending signup (no bootstrap), confirmation link, visible setup failure, manual retry, complete bootstrap, root fallback, profile-only existing root login repaired through RPC, single organization/starter under StrictMode, existing demo, activation, consultation, qualification, invite, denied admin metrics, separate customer workspace, refresh, logout/login and mobile. No hosted integration claim.')
+ console.log('Local simulated Auth/PostgREST + real PostgreSQL browser flow passed: pending signup (no bootstrap), confirmation link, visible setup failure, manual retry, complete bootstrap, root fallback, profile-only existing root login repaired through RPC, single organization/starter under StrictMode, existing demo, activation, consultation, qualification, invite, customer-only desktop/mobile navigation, blocked internal deep links, admin dashboard, scoped reviewer queue and permission-failure recovery, separate customer workspace, refresh, logout/login and mobile. No hosted integration claim.')
 }finally{await browser.close();await db.close()}
