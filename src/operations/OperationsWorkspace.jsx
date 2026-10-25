@@ -18,7 +18,8 @@ function readDemo() {
   } catch { /* Corrupt/unavailable storage never prevents demo rendering. */ }
   return migrateSnapshot()
 }
-export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy, onEvent }) {
+export function resetSavedDemo(){try{localStorage.removeItem(STORAGE)}catch{/* Demo can still open without storage. */}}
+export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy, onEvent, guided=false, customerFacing=false }) {
   const emit=onEvent || capture
   const [localLang, setLocalLang] = useState('ja')
   const lang = outerLang || localLang
@@ -68,6 +69,7 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
     {storageError && <p role="alert">{l('Browser storage is unavailable. Changes will be lost on reload.', 'ブラウザ保存を利用できません。再読み込みすると変更が失われます。')}</p>}
     <nav className="ops-tabs" aria-label={l('Operations pages','運用ページ')}>{VIEWS.map(view => <button key={view} aria-current={page === view ? 'page' : undefined} onClick={() => go(view)}>{names[view]}{view === 'exceptions' && <span>{rows.filter(isActive).length}</span>}</button>)}</nav>
     <div className="ops-heading"><div><p className="ops-eyebrow">{l('OPERATIONS WORKSPACE', '運用ワークスペース')}</p><h1>{names[page]}</h1><p>{page === 'today' ? l('Know what needs attention. Decide what happens next.', '対応が必要な項目を把握し、次の一手を決める。') : l('One queue for supply risks, follow-ups and customer decisions.', '供給リスク・フォローアップ・顧客判断をひとつのキューに。')}</p></div><div className="ops-asof">{l('Demo data timestamp','デモデータの基準日時')}<br/><strong>{date(data.asOf)}</strong></div></div>
+    {guided && page==='today' && <aside className="ops-first-value"><p>{l('Open the highest-priority exception to see why it matters and the recommended next action.','優先度の高い例外を開き、影響と推奨する次の対応を確認してください。')}</p>{queue.length>0?<button onClick={()=>setSelectedId(queue[0].id)}>{l('Open highest-priority exception','優先度の高い例外を開く')}</button>:<p>{l('No open exceptions match this view. Clear the filters or explore the Exception Inbox.','この表示に該当する未解決の例外はありません。絞り込みを解除するか、例外受信箱をご覧ください。')}</p>}</aside>}
     {page === 'today' && <div className="ops-metrics">{[
       ['openActions','Open Actions','未完了アクション'], ['atRiskPOs','At-Risk POs','リスクのあるPO'], ['stockoutRisks','Stockout Risks','欠品リスク'], ['supplierUpdates','Supplier Updates','24時間内の仕入先更新'], ['decisionsNeeded','Decisions Needed','判断待ち'], ['lateInbound','Late Inbound','入荷遅延'], ['criticalExceptions','Critical Exceptions','緊急例外'],
     ].map(([key,en,ja]) => <article key={key} className={key === 'criticalExceptions' ? 'ops-metric critical' : 'ops-metric'}><p>{l(en,ja)}</p><strong>{metrics[key]}</strong><small>{l('Synthetic · selected customer scope','架空データ・選択顧客の範囲')}</small></article>)}</div>}
@@ -91,7 +93,7 @@ export default function OperationsWorkspace({ initialPage = 'today', lang:outerL
       </tr>)}</tbody></table></div>
       {!queue.length && <div className="ops-empty"><h3>{l('No matching exceptions','該当する例外はありません')}</h3><p>{l('Adjust filters or open the inbox to include resolved and snoozed items.', '絞り込みを変更するか、例外受信箱で解決済み・保留を含めて確認してください。')}</p></div>}
     </div>}
-    <footer className="ops-footer"><p>{l('Phase 2 · Exceptions → Actions → Customer decisions → Supplier follow-up → Weekly reporting. All records are synthetic and browser-local.', '第2段階：例外 → アクション → 顧客判断 → 仕入先フォロー → 週次レポート。架空データのみをブラウザ内で管理します。')}</p><p>{l('Demo notes and rule explanations are in English.','架空データの説明文・検知理由は英語です。')} · NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED</p></footer>
+    <footer className="ops-footer"><p>{customerFacing ? l('Explore risks, next actions and follow-ups using sample data.','サンプルデータでリスク・次の対応・フォローアップを確認できます。') : l('Phase 2 · Exceptions → Actions → Customer decisions → Supplier follow-up → Weekly reporting. All records are synthetic and browser-local.', '第2段階：例外 → アクション → 顧客判断 → 仕入先フォロー → 週次レポート。架空データのみをブラウザ内で管理します。')}</p><p>{customerFacing ? l('Your live inventory, orders and suppliers are not connected to this demo.','このデモには実際の在庫・発注・仕入先のデータは接続されていません。') : <>{l('Demo notes and rule explanations are in English.','架空データの説明文・検知理由は英語です。')} · NOT PRODUCTION READY — MULTI-TENANT RBAC REQUIRED</>}</p></footer>
     {!onEvent && <AnalyticsConsent/>}
     {selected && <ExceptionDetail key={selected.id} row={selected} snapshot={snapshot} mutate={mutate} openAction={id => { setSelectedId(null); setFocusedActionId(id); go('actions') }} save={save} close={() => setSelectedId(null)} l={l} label={label} date={date}/>}
   </section>

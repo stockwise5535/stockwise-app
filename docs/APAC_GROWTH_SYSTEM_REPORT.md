@@ -555,3 +555,31 @@ Updated outbound component browser smoke passes all five reviewer decisions, req
 Changed: src/growth/GrowthApplication.jsx, src/growth/OutboundReview.jsx, src/growth/service.js; new src/growth/internalAccess.js; new tests/internal-access.test.js; updated tests/growth.browser.mjs and tests/outbound.browser.mjs; this report.
 
 **No migration/schema/RLS/RPC change necessary.** Existing permissions already express the distinctions; only UI lookup/navigation/component gating was needed. No hosted reviewer/admin assignment, lifecycle queue row, Gmail sender/configuration/template/send gate, or operational data was modified. No email or deployment occurred.
+
+## CUSTOMER FIRST-VALUE ONBOARDING — 2026-10-25
+
+### Customer experience
+An incomplete, unopened starter demo now begins with a single customer-facing card: “Nexops turns inventory, PO and supplier exceptions into prioritized action.” Its primary CTA is “Start with today's risks,” positioned before the short progress list and visible on the tested 390px mobile first screen. The demo is mounted only when the customer starts it; no long tutorial, new modal sequence, upload or configuration is required.
+
+The CTA opens the existing TODAY demo. A compact guide shows four persisted steps and a native progress indicator (for example, 2 of 4 completed). A shortcut opens the actual highest-priority exception in the current real demo queue, using the existing exception detail dialog and recommended next action. It never selects fabricated operational results or marks any risk resolved. If the queue has no active matching exceptions, it explains how to clear filters or use the Exception Inbox rather than inventing one.
+
+Once the server's existing activated_at is populated, the long guide becomes a lightweight completed message without remounting/interrupting the demo. Refresh/login restores saved timestamps; completed users never get the first-entry CTA forced on them. Get started remains available manually and shows the same starter progress, including while another workspace is selected. Customer workspaces receive no automatic guide/redirect, even when starter-demo progress is incomplete; opening the demo from Get started is an explicit customer choice. Customer empty-state/footer copy now describes data/setup in business terms instead of implementation readiness details.
+
+### Existing model, tracking and recovery
+`firstValue.js` derives the four checks directly from demo_opened_at, today_viewed_at, exception_opened_at and first_value_at; completion uses the existing activated_at. There is no new activation field/model/storage key or inferred completion. The temporary CTA-intent flag is only UI state while the demo opens, not saved progress. Starter progress is held separately from another selected workspace's scope so workspace selection never clears or substitutes it.
+
+The existing OperationsWorkspace emits demo_workspace_opened and today_viewed when it actually mounts; the earlier parent emission on mere workspace selection was removed so the intro does not mark an unopened demo complete. Opening an exception still uses the existing exception_opened/recommended_action_viewed instrumentation and detail content. No new event names, tracking provider, personal data or optional-analytics consent change was introduced. No timer/claim that a human necessarily finishes within a minute is fabricated.
+
+Failed activity saves show “Retry saving progress” and retain the original event ID for explicit retry through the existing track RPC, preserving its idempotency. Checkmarks update only from persisted server reads. Demo render failures have a local recovery boundary with Retry demo and an explicit Reset demo and retry option. The latter clears only the existing synthetic-demo localStorage snapshot after the customer's click, explains loss of browser demo edits, and does not reset account/server progress. It reloads the existing canonical synthetic dataset, not real customer inventory/PO/supplier results. Existing blocking starter-context/session recovery remains unchanged.
+
+### Verification
+- `node --test tests/*.test.js`: **93 passed, zero failed**; three new progress tests cover initial state, persisted replay without mutation, and authoritative completion without inventing missing milestones.
+- Growth browser integration passed with simulated Auth/PostgREST plus actual local PostgreSQL/RLS. It covers initial 0-of-4 intro with no prematurely mounted TODAY, mobile CTA, real TODAY at 2-of-4, mid-flow reload/resume without repeated intro, highest-priority exception/recommended-action display, a forced save failure at 3-of-4, exact event-ID retry, completed state at 4-of-4, manual Get started, malformed saved-demo retry/reset with progress preserved, reload/login persistence, completed customers and incomplete second-user customer-workspace non-interruption. All preceding bootstrap/auth/internal-navigation/consultation/invitation/mobile regressions remain passing.
+- Existing operations browser smoke passed: isolated demo, queue/filter/empty states, assignment/history, local persistence, focus/Escape, mobile and corrupt-storage recovery.
+- Existing Phase 2 workflow browser suite passed: actions/approval decisions/history/resolution, supplier updates, reporting/baselines/print, direct routes, scope and mobile.
+- Production build and `git diff --check` passed. Mobile screenshot `/tmp/nexops-onboarding-mobile.png` was visually inspected. No lint/typecheck scripts are configured. Browser/SQL fixtures are local-only; no fresh real signup, hosted data mutation or email was used for validation.
+
+### Files and unchanged boundaries
+Changed: src/growth/GrowthApplication.jsx, src/growth/growth.css, src/operations/OperationsWorkspace.jsx; new src/growth/FirstValueGuide.jsx, src/growth/DemoRecovery.jsx, src/growth/firstValue.js; updated tests/growth.browser.mjs; new tests/first-value.test.js; this report.
+
+No migration/schema/RLS/bootstrap-RPC change was necessary. Existing activation storage/events, operational calculations and synthetic demo state structures are preserved. Gmail configuration, templates, sending/lifecycle queues, reviewer/admin assignments and third-party analytics configuration were untouched. No production deployment or actual email sending occurred.

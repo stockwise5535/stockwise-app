@@ -9,6 +9,8 @@ import OutboundReview from './OutboundReview.jsx'
 import AnalyticsConsent from './AnalyticsConsent.jsx'
 import StarterContext, {useStarterContext} from './StarterContext.jsx'
 import {useInternalAccess} from './internalAccess.js'
+import FirstValueGuide from './FirstValueGuide.jsx'
+import DemoRecovery from './DemoRecovery.jsx'
 import './growth.css'
 
 export default function GrowthApplication() { return <AuthProvider><GrowthAuth/></AuthProvider> }
@@ -24,6 +26,7 @@ function GrowthWorkspace({user}) {
  const initial=useStarterContext()
  const api=useMemo(()=>createGrowthService(supabase),[])
  const [workspaces,setWorkspaces]=useState(initial.workspaces),[selected,setSelected]=useState(initial.starterId),[profile,setProfile]=useState(initial.profile),[memberships,setMemberships]=useState(initial.memberships)
+ const [starterActivation,setStarterActivation]=useState(initial.activation),[demoStarted,setDemoStarted]=useState(false)
  const [activation,setActivation]=useState(initial.activation),[leads,setLeads]=useState([]),[qualifications,setQualifications]=useState([])
  const [page,setPage]=useState(new URLSearchParams(location.search).get('view') || (location.pathname==='/invite'?'referrals':'product')),[error,setError]=useState(''),[notice,setNotice]=useState('')
  const [metrics,setMetrics]=useState(null),[invite,setInvite]=useState('')
@@ -43,14 +46,15 @@ function GrowthWorkspace({user}) {
    if(id!==selectedRef.current)return
    const revision=++scope.current
    const [a,l,q]=await Promise.all([api.activation(id),api.leads(id),api.qualifications(id)])
-   if(revision===scope.current && id===selectedRef.current){setActivation(a.find(r=>r.user_id===user.id) || null);setLeads(l);setQualifications(q)}
- },[api,user.id])
+   if(revision===scope.current && id===selectedRef.current){setActivation(a.find(r=>r.user_id===user.id) || null);if(id===initial.starterId)setStarterActivation(a.find(r=>r.user_id===user.id) || null);setLeads(l);setQualifications(q)}
+ },[api,user.id,initial.starterId])
  useEffect(()=>{
   setActivation(null);setLeads([]);setQualifications([]);setInvite('');setError('');setNotice('')
   if(selected)void reloadScope(selected).catch(e=>setError(e.message))
   return()=>{scope.current++}
  },[selected,reloadScope])
- const seen=useRef(new Set())
+ const seen=useRef(new Set()),pendingActivity=useRef(new Map())
+ const [progressFailed,setProgressFailed]=useState(false),[retryingProgress,setRetryingProgress]=useState(false)
  useEffect(()=>{if(activation?.activated_at && !seen.current.has('activation:'+selected)){seen.current.add('activation:'+selected);void capture('activation_completed',{workspace_type:workspace?.workspace_type || 'demo'},{distinctId:user.id})}},[activation,selected,workspace,user.id])
  const onEvent=useCallback((event,props={})=>{
    if(!workspace)return
@@ -59,20 +63,30 @@ function GrowthWorkspace({user}) {
    seen.current.add(signature)
    const properties={locale:workspace.locale,market:workspace.market,workspace_type:workspace.workspace_type,data_mode:workspace.workspace_type==='demo'?'synthetic':'customer',...props}
    void capture(event,properties,{distinctId:user.id})
-   void api.track(event,workspace.id,properties).then(()=>reloadScope(workspace.id)).catch(e=>{seen.current.delete(signature);setError(`Activity could not be saved: ${e.message}`)})
+   const entry={event,workspaceId:workspace.id,properties,id:crypto.randomUUID(),failed:false};pendingActivity.current.set(signature,entry)
+   void api.track(event,workspace.id,properties,entry.id).then(()=>{pendingActivity.current.delete(signature);setProgressFailed([...pendingActivity.current.values()].some(r=>r.failed));return reloadScope(workspace.id)}).catch(()=>{entry.failed=true;pendingActivity.current.set(signature,entry);setProgressFailed(true);setError('We couldn’t save your progress. You can retry without starting over.')})
  },[api,workspace,user.id,reloadScope])
- useEffect(()=>{if(workspace){onEvent('login_completed');if(workspace.workspace_type==='demo')onEvent('demo_workspace_opened')}},[workspace,onEvent])
+ useEffect(()=>{if(workspace)onEvent('login_completed')},[workspace,onEvent])
+ async function retryProgress(){
+  if(retryingProgress)return;setRetryingProgress(true)
+  for(const [key,entry]of pendingActivity.current)if(entry.failed){try{await api.track(entry.event,entry.workspaceId,entry.properties,entry.id);pendingActivity.current.delete(key)}catch{/* Retain this event for another explicit retry. */}}
+  try{await reloadScope(selected)}catch{}
+  const failed=[...pendingActivity.current.values()].some(r=>r.failed);setProgressFailed(failed);setError(failed?'We couldn’t save your progress. Please try again.':'');setRetryingProgress(false)
+ }
  async function run(fn){setError('');setNotice('');try{await fn();setNotice('Saved to Supabase.')}catch(e){setError(e.message)}}
  function go(next){setPage(next);history.pushState({},'',`${location.pathname}?view=${next}`)}
  useEffect(()=>{const pop=()=>setPage(new URLSearchParams(location.search).get('view') || (location.pathname==='/invite'?'referrals':'product'));addEventListener('popstate',pop);return()=>removeEventListener('popstate',pop)},[])
+ function startDemo(){setDemoStarted(true);setSelected(initial.starterId);go('product')}
+ const starterSelected=selected===initial.starterId&&workspace?.workspace_type==='demo'
+ const intro=starterSelected&&!starterActivation?.activated_at&&!starterActivation?.demo_opened_at&&!demoStarted
  const calendar=bookingUrl(import.meta.env.VITE_BOOKING_URL)
  return <main className="growth"><header><a href="/en" className="growth-brand">NEXOPS</a><span>Free 30-day access · No credit card</span><button onClick={()=>void signOut()}>Sign out</button></header>
   <nav aria-label="Growth workspace pages">{navigation.map(([id,label])=><button key={id} aria-current={page===id?'page':undefined} onClick={()=>{if(id==='consultation')onEvent('consultation_clicked');go(id)}}>{label}</button>)}<a href="/">Existing StockWise analytics</a></nav>
-  {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+  {error && <p role="alert">{error}</p>}{progressFailed&&<button disabled={retryingProgress} onClick={()=>void retryProgress()}>{retryingProgress?'Saving progress…':'Retry saving progress'}</button>}{notice && <p role="status">{notice}</p>}
   {((restricted&&!allowed)||(page==='leads'&&!canManage)) && <section className="growth-card"><h1>{restricted&&access.loading?'Checking access…':'Page unavailable for this workspace'}</h1><p role={restricted&&access.loading?'status':'alert'}>{restricted&&access.loading?'Verifying access…':restricted&&accessFailed?'Access could not be verified. You can retry or return to Product.':'You do not have access to this page in the selected workspace.'}</p>{restricted&&!access.loading&&<button onClick={access.retry}>Retry access check</button>}<button onClick={()=>go('product')}>Return to Product</button></section>}
-  <><label>Workspace<select aria-label="Workspace" value={selected} onChange={e=>setSelected(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name} ({w.workspace_type})</option>)}</select></label><p className="growth-muted">Role: {role || 'Loading'} · Trial ends: {profile?.trial_end_date?.slice(0,10)} · No payment wall is enabled.</p>
-   {page==='product' && (workspace?.workspace_type==='demo' ? <OperationsWorkspace lang={workspace.locale} onEvent={onEvent} onLegacy={()=>{location.href='/'}}/> : <section className="growth-card"><h1>Customer workspace foundation</h1><p>This workspace has no operational data. The existing synthetic demo is separate and will never be copied here automatically.</p><p>Customer CSV ingestion needs a dedicated validation and import service before these operational screens can use your data.</p><button onClick={()=>setSelected(workspaces.find(w=>w.is_starter)?.id || selected)}>Open my demo workspace</button></section>)}
-   {page==='activation' && <section className="growth-card"><h1>Reach first value</h1><ol>{[['demo_opened_at','Open your demo workspace'],['today_viewed_at','View TODAY'],['exception_opened_at','Open an exception'],['first_value_at','Review a recommended action']].map(([key,text])=><li key={key}>{activation?.[key]?'✓':'○'} {text}</li>)}</ol><p>{activation?.activated_at?'Activation completed.':'Explore TODAY and open an exception to see the recommended next action.'}</p><button onClick={()=>go('product')}>Continue to product</button><p>CSV upload and consultation are optional. No upload is needed to explore the demo.</p></section>}
+  <><label>Workspace<select aria-label="Workspace" value={selected} onChange={e=>setSelected(e.target.value)}>{workspaces.map(w=><option key={w.id} value={w.id}>{w.name} ({w.workspace_type})</option>)}</select></label><p className="growth-muted">Role: {role || 'Loading'} · Trial ends: {profile?.trial_end_date?.slice(0,10)} · No credit card required.</p>
+   {page==='product' && (workspace?.workspace_type==='demo' ? <>{starterSelected&&<FirstValueGuide activation={starterActivation} onStart={startDemo} intro={intro}/>}<DemoRecovery key={selected}>{!intro&&<OperationsWorkspace key={selected} lang={workspace.locale} onEvent={onEvent} customerFacing guided={starterSelected&&!starterActivation?.activated_at} onLegacy={()=>{location.href='/'}}/>}</DemoRecovery></> : <section className="growth-card"><h1>Your customer workspace</h1><p>No inventory, purchase orders or supplier data has been added to this workspace yet. Your demo stays separate.</p><p>You can discuss your data setup with Nexops. No upload is needed to explore the demo.</p><button onClick={()=>setSelected(workspaces.find(w=>w.is_starter)?.id || selected)}>Open my demo workspace</button></section>)}
+   {page==='activation' && <FirstValueGuide activation={starterActivation} onStart={startDemo} overview/>}
    {page==='consultation' && <section className="growth-card"><h1>Book a Consultation</h1><p>Discuss inventory, PO and supplier workload with Nexops. Submitting records a request; it does not confirm a booking.</p>{calendar && <a href={calendar} target="_blank" rel="noreferrer" onClick={()=>onEvent('consultation_clicked')}>Open Google Calendar appointment schedule</a>}{canManage ? <ConsultationForm key={workspace.id} api={api} workspace={workspace} onSaved={async()=>{await reloadScope(selected);onEvent('consultation_submitted');setNotice('Consultation request saved. A booking is not yet confirmed.')}}/> : <p>A workspace owner or operator can submit a consultation request.</p>}</section>}
    {page==='communications' && allowed && <OutboundReview key={selected} api={api} workspaceId={selected} canReview={access.outboundReviewer} isGrowthAdmin={access.growthAdmin}/>}
    {page==='leads' && canManage && <section className="growth-card"><h1>Consultation requests</h1><p>Only this workspace’s permitted requests are shown. Qualification is a transparent heuristic, not a guaranteed sales outcome.</p>{leads.map(lead=><article key={lead.id}><h2>{lead.company}</h2><p>{lead.contact_name} · {lead.email} · {lead.market}</p><p>{lead.main_problem}</p><p>{qualifications.find(q=>q.lead_id===lead.id)?.status || 'Not assessed'} · Score {qualifications.find(q=>q.lead_id===lead.id)?.score ?? '—'}</p></article>)}{!leads.length && <p>No requests to show. Viewers cannot read lead contact data.</p>}{canManage && <button onClick={()=>{const records=qualifiedExport(leads,qualifications);if(!records.length){setNotice('No qualified leads to export.');return}const u=URL.createObjectURL(new Blob([csvExport(records)],{type:'text/csv'}));const a=document.createElement('a');a.href=u;a.download='nexops-qualified-leads.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}}>Export qualified leads for CRM review</button>}</section>}
