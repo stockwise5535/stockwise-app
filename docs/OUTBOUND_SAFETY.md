@@ -142,3 +142,6 @@ IPv4 pooler configuration is now active and matches the development reference, b
 
 ## Management API retry — 2026-10-24
 The management token is now present, but development project metadata and a read-only database probe return HTTP 500. No administrative access/schema verification succeeded; remote operations stopped and a local CLI fallback was documented in HOSTED_SUPABASE_VERIFICATION.md. No migrations, sender enablement or emails occurred. Existing Gmail/mode/template and hosted RLS launch blockers remain unresolved.
+
+## Post-local-CLI API verification — 2026-10-24
+The user reports local migration bookkeeping is up to date with no application. Independent HTTPS foundation checks still fail: all 26 expected table GETs return PGRST205; A/B bootstrap returns PGRST202. Auth tests pass, but persistence/isolation and hosted outbound policies remain unverified. HEAD 204 responses are not treated as schema proof. No email, sender enablement or migration occurred. Compare local project linkage/migration files and actual catalog metadata using the latest HOSTED_SUPABASE_VERIFICATION commands before further changes.

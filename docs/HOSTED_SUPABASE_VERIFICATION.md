@@ -106,3 +106,23 @@ npx --yes supabase db push --linked
 This is a gated later step, not part of the inspection block. If the local CLI also cannot reach the project/database, use the development dashboard SQL Editor for the read-only inventory and resolve administrative connectivity before any application. Do not publish, reset, or use production to work around connectivity failures.
 
 After successful schema application/verification, use the previously documented A/B authenticated API checks, with ordinary user JWTs for isolation, retaining labeled development fixtures only. Public signup remains excluded until no-email delivery is verified; invitation RPCs must not call Auth invite/email endpoints. Local Postgres tests alone do not count as hosted verification. Do not share raw dumps, tokens, DB URIs or test-user credentials; report sanitized pass/fail/catalog metadata only.
+
+## API mismatch despite reported local up-to-date status — 2026-10-24
+User reports successful local linking/history and an up-to-date dry run, with no migration applied. Current runtime GET probes of all 26 expected tables return PGRST205; `nexops_bootstrap` calls for A/B return PGRST202 and no workspace. HEAD 204s and failed OpenAPI discovery are not schema evidence. Auth works, but foundation persistence/isolation cannot proceed. Do not infer a missing migration or claim RLS passes.
+
+On the **same local checkout used for the successful dry run**, with the intended development reference and DB URI securely configured, run:
+```bash
+# Check actual local branch and migration files; these contain no credentials.
+git branch --show-current
+rg --files supabase/migrations
+# Expected candidates: 202610240001_growth_foundation.sql,
+# 202610240002_growth_lifecycle.sql, 202610240003_outbound_safety.sql.
+
+# Compare local link to the intended development reference without displaying either value.
+node --input-type=module -e 'import fs from "node:fs"; const expected=process.env.NEXOPS_DEV_PROJECT_REF; if(!expected)throw Error("Set NEXOPS_DEV_PROJECT_REF securely first"); console.log(JSON.stringify({linked_project_matches_expected:fs.readFileSync("supabase/.temp/project-ref","utf8").trim()===expected}))'
+
+# Read-only actual catalog/RLS/grant/function/trigger inventory:
+psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/hosted_catalog_inventory.sql
+npx --yes supabase migration list --linked
+```
+Use verified TLS as described above. The same inventory file may be run in the confirmed development SQL Editor. Compare presence/RLS flags and actual functions/policies with local SQL, not just migration versions. Return only sanitized catalog metadata and the match boolean, never the connection URI, project credentials, user records or tokens. Stop on a false link match, missing local migration files, partial schema or history drift. Only after diagnosis establishes the exact missing additive changes may a new dry run/application be considered. No migration or RLS weakening is authorized merely to eliminate API errors.

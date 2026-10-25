@@ -294,3 +294,26 @@ SUPABASE_ACCESS_TOKEN has reached the runtime. The API origin matches the explic
 No project metadata/schema/catalog/history could be retrieved, and no migration was selected or applied. Hosted RLS, workflow persistence, invitation flows and cross-organization denial therefore remain **UNRUN**. The preceding real A/B Auth passes remain historical evidence and were not rerun in this attempt. Public signup is excluded under the no-email constraint. No application writes, synthetic operational upload, production data operation, RLS change, email, billing operation or deployment occurred.
 
 Per the user's instruction, remote database operations stopped after bounded non-writing probes. Exact local Supabase CLI/psql inspection, dry-run and gated application commands are now in `docs/HOSTED_SUPABASE_VERIFICATION.md` under “HTTPS Management API retry.” They require the confirmed development reference, secure local token/URI, verified TLS, schema/history comparison and review of missing additive candidates before any db push. Do not blindly apply/repair migrations or treat API 404/500 as migration status. No application/schema source was rebuilt in this task.
+
+## API VERIFICATION AFTER USER-REPORTED LOCAL CLI SUCCESS — 2026-10-24
+
+User-reported local evidence: `supabase link` and `migration list --linked` succeeded; `db push --linked --dry-run` returned “Remote database is up to date”; no migrations were applied. This is recorded as user-provided evidence, not an independently inspected schema/history result. Up-to-date migration bookkeeping alone does not prove actual object definitions, API exposure or that the local checkout/link targets the same project as this runtime.
+
+### Independently observed HTTPS checks
+The configured API still matches NEXOPS_DEV_PROJECT_REF; values/identifiers were withheld. Both confirmed accounts again passed password login, refresh, new-client session restoration with server identity validation, local-scope logout/session removal, and distinct-identity comparison.
+
+All **26 expected Nexops tables**, queried as Test A using authenticated GET requests with `limit=0` (no customer rows fetched), returned **HTTP 404 / PGRST205**. The checks covered the 20 foundation and six outbound tables listed in `supabase/hosted_catalog_inventory.sql`. No table presence, grants or RLS policy was established by these responses. Initial HEAD probes returned 204, but these contradicted real GETs; HEAD responses are inconclusive and are not counted as successful table inspection. Authenticated OpenAPI discovery returned 401; expected RPC exposure cannot be inferred from this failed discovery.
+
+The authorized `nexops_bootstrap` RPC was attempted once for each A/B identity to verify organization/starter-workspace creation. Both returned **HTTP 404 / PGRST202**, with no workspace returned. The API could not resolve the function; no successful foundation mutation occurred. Subsequent workspace GETs also returned PGRST205 for both users. No other mutating application RPC was attempted.
+
+### Result boundaries
+- Organization/workspace creation: attempted, **blocked by unresolved bootstrap RPC**, not passed.
+- Membership, activation and consultation persistence: **UNRUN**, dependent resources unavailable.
+- Invitation behavior: **UNRUN**, source workspace cannot be created/verified.
+- Cross-organization read/write denial: **UNRUN**, not a pass. Resource-not-found responses are not RLS enforcement evidence.
+- Hosted RLS definitions/grants and actual catalog/history: still **unverified** from this runtime.
+- Signup: **UNRUN** to avoid emails. Synthetic operational data was not uploaded or migrated.
+- Migrations: **none applied**. No verified missing additive change has been established. No RLS changes, production data modification, email, billing action or deployment occurred.
+
+### Next diagnosis needed
+Compare the local checkout's migration files and linked project against this runtime's intended development reference, then run the read-only catalog inventory locally or in that development project's SQL Editor. Exact commands are in the latest HOSTED_SUPABASE_VERIFICATION section. Possible explanations include local project/checkout mismatch, schema/cache/exposure differences or migration-history/schema drift; none is proven. Do not reapply migrations, repair history, weaken grants/RLS or reload configuration blindly based on these symptoms. Sanitized catalog flags, migration version/name metadata and project-match booleans are sufficient; no secrets or customer records are needed.
