@@ -19,125 +19,89 @@ Codex should:
 - Commit completed work to `codex/managed-service-mvp`.
 - Report: findings/approach, files changed, tests/build, schema/RLS impact, deployment impact, and commit hash.
 
-## Current task — Pre-production QA and release readiness
+## Current task — Harden legacy checkout trust boundary
 
-Perform a full pre-production readiness pass for the Stockwise/Nexops managed-service application.
+Fix the production blocker identified in release-readiness QA: legacy checkout currently trusts unauthenticated client-supplied account/plan details.
 
 ### Goal
 
-Determine whether the current `codex/managed-service-mvp` branch is safe and coherent enough to promote from Preview toward Production, without actually deploying it.
+Make checkout safe enough for production by ensuring billing identity, account context, plan/product selection, and price-sensitive values are validated server-side or otherwise derived from trusted configuration/session state.
 
-This is a verification-and-hardening task first. Fix only concrete defects discovered during QA.
+Do not enable billing or deploy in this task.
 
-### Scope to verify
+### Requirements
 
-1. **Authentication and starter context**
-   - New signup / confirmed first login.
-   - Existing user login.
-   - Logout and login again.
-   - Starter organization/workspace/membership/activation bootstrap remains idempotent.
-   - Bootstrap failure/retry UX works.
+1. Inspect the complete legacy checkout flow end-to-end:
+   - browser entry point,
+   - any API/serverless handler,
+   - provider request construction,
+   - account/user identifiers,
+   - plan/product identifiers,
+   - quantity/price-sensitive fields,
+   - success/cancel return handling.
 
-2. **Customer onboarding**
-   - Brand-new user sees the concise onboarding prompt.
-   - “Start with today's risks” enters the real demo path.
-   - TODAY → exception → recommended action progression works.
-   - Activation progress persists.
-   - Completed users are not forced through onboarding.
-   - Separate customer workspaces are not redirected back into starter demo onboarding.
+2. Identify every client-supplied value that is currently trusted for billing/account decisions.
 
-3. **Customer/internal UI separation**
-   - Normal customers and workspace owners do not see internal admin tools.
-   - Growth Admin sees Internal Growth Dashboard.
-   - Assigned reviewer sees Outbound Review.
-   - Direct URL access is blocked for unauthorized users.
-   - Switching workspaces immediately re-evaluates internal access.
+3. Harden the trust boundary:
+   - Require an authenticated user/session before creating a checkout session.
+   - Derive the canonical user/account identity from the authenticated session/server-side data, not arbitrary browser parameters.
+   - Allow only explicitly configured server-side plan/product/price mappings.
+   - Reject unknown or tampered plan/product identifiers.
+   - Never trust client-supplied price, currency, account ownership, entitlement, or billing metadata.
+   - Bind any provider metadata to canonical server-side identifiers.
+   - Keep secrets server-only.
 
-4. **Core demo/product UX**
-   - Existing StockWise analytics remains reachable where intended.
-   - Demo operations/TODAY/exception/recommended-action flows render without errors.
-   - Customer workspace empty-state behavior is clear and does not imply customer data exists.
-   - No accidental MIERUKA branding remains in customer-facing UI.
+4. Preserve existing application behavior where safe:
+   - Do not silently activate billing.
+   - If billing is intentionally disabled, keep it disabled and return a clear safe state.
+   - Do not create real charges during tests.
 
-5. **Outbound/email safety — read-only verification only**
-   - Verify current sender-test state remains confirmed.
-   - Verify existing queued Welcome message remains intact.
-   - Verify sending is still disabled:
-     - `EMAIL_SEND_MODE=draft_only`
-     - `NEXOPS_GMAIL_SEND_ENABLED=false`
-     - database mail runtime disabled
-   - Do not send any email.
-   - Do not change templates, queues, consent, assignments, runtime flags, or OAuth state.
+5. Add defensive handling for:
+   - unauthenticated requests,
+   - malformed/tampered plan values,
+   - missing server configuration,
+   - mismatched account/user context,
+   - replay/duplicate checkout creation where relevant.
 
-6. **Security and configuration**
-   - No service-role/Gmail/OAuth secrets are exposed in browser bundles, tracked files, logs, or documentation.
-   - Production build does not leak server-only environment variables.
-   - Public client configuration uses only intended `VITE_` values.
-   - Existing RLS/RPC boundaries remain intact.
-   - No browser path can grant itself Growth Admin or reviewer access.
+6. Security review:
+   - Confirm no billing secret or privileged key is exposed to the browser bundle.
+   - Confirm the browser cannot choose arbitrary product/price IDs that the server accepts.
+   - Confirm ordinary users cannot create checkout for another user's account/workspace.
 
-7. **Routing and release behavior**
-   - Growth routes load directly on refresh.
-   - Preview deep links work for:
-     - `/growth`
-     - `/growth?view=product`
-     - `/growth?view=activation`
-     - authorized internal views
-   - Legacy root application still loads and logout remains reliable.
-   - Check that Vercel routing configuration supports the routes intended for Production.
+7. Tests
+   Add regression coverage for:
+   - valid authenticated checkout request using trusted server-side mapping,
+   - unauthenticated request rejected,
+   - tampered plan/product rejected,
+   - arbitrary client price/currency ignored or rejected,
+   - cross-account/user attempt rejected,
+   - billing-disabled configuration remains safe,
+   - no real provider charge/network side effect in tests.
 
-8. **Responsive/browser QA**
-   - Desktop and mobile flows are usable.
-   - No obvious overflow, unreachable CTA, broken nav, or blocking layout regressions.
-   - Check loading, empty, error and retry states.
+8. Run:
+   - relevant unit/security tests,
+   - browser regression tests for the legacy checkout entry point,
+   - production build.
 
-9. **Branding/copy consistency**
-   - Product branding is consistently Stockwise/StockWise where appropriate.
-   - Nexops managed-service branding is intentional where appropriate.
-   - Remove stale accidental MIERUKA references if any remain in rendered customer UI.
-   - Do not rename internal database objects merely for branding consistency.
-
-### Testing
-
-Run:
-- full relevant unit suite,
-- browser/regression suites,
-- security-sensitive tests,
-- production build.
-
-Add or adjust tests only where coverage is missing for a concrete release risk.
-
-### Deliverable
-
-Create/update a concise release-readiness section in:
-`docs/APAC_GROWTH_SYSTEM_REPORT.md`
-
-It must include:
-- PASS / BLOCKED recommendation for Production promotion,
-- any release blockers,
-- any non-blocking follow-ups,
-- exact tests/build run,
-- confirmation that no email was sent,
-- confirmation that no deployment occurred.
-
-If a concrete defect is found, fix it, test it, and include it in the report.
+9. Documentation
+   Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` release-readiness section:
+   - describe the fixed checkout trust boundary,
+   - state whether this blocker is resolved,
+   - keep Privacy/Terms draft status as a separate remaining blocker if still unresolved.
 
 ### Do not
 
-- Do not deploy or promote to Production.
-- Do not send email.
-- Do not enable mail runtime.
-- Do not change billing.
-- Do not weaken RLS.
-- Do not add new product features unrelated to release readiness.
+- Do not deploy.
+- Do not enable production billing.
+- Do not create real charges.
+- Do not change Gmail settings or send email.
+- Do not change Supabase schema/RLS unless a concrete defect makes it strictly necessary.
+- Do not change legal copy in this task.
+- Do not weaken authentication or authorization.
 
 ## Status
 
-- State: COMPLETE — QA finished; Production promotion BLOCKED
-- Completed: 2026-10-25
-- Results: 93 unit tests + 17 local PostgreSQL tests passed; all browser suites and production build passed.
-- Release blockers: published legal pages remain drafts; legacy checkout trusts unauthenticated client-supplied user/plan details if enabled. Billing was not changed under this task's prohibition.
-- Evidence and remaining production checks: see the latest Pre-production release readiness section in docs/APAC_GROWTH_SYSTEM_REPORT.md.
+- State: READY
 - Deployment: NOT REQUESTED
-- Gmail changes: READ-ONLY VERIFICATION ONLY
+- Billing activation: FORBIDDEN FOR THIS TASK
 - Email sending: FORBIDDEN FOR THIS TASK
