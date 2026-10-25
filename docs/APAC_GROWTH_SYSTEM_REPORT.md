@@ -1,5 +1,7 @@
 # APAC Growth System + real backend foundation
 
+> Latest hosted result (2026-10-24): **124 checks passed, 0 failed, 2 raw-event-count checks blocked by intentional access restrictions.** Hosted Auth, workspace/lead/activation persistence, invitations and tested isolation now pass. See the final “HOSTED FOUNDATION VERIFICATION — SUCCESSFUL API RUN” section; earlier failure sections are historical. No deployment or email sending.
+
 ## WHAT WAS IMPLEMENTED
 Continued from the completed Phase 2 state (`f3fc26a`) on `codex/managed-service-mvp`. Existing work was clean and preserved. No production deployment, hosted database migration, push or external email sending occurred.
 
@@ -317,3 +319,177 @@ The authorized `nexops_bootstrap` RPC was attempted once for each A/B identity t
 
 ### Next diagnosis needed
 Compare the local checkout's migration files and linked project against this runtime's intended development reference, then run the read-only catalog inventory locally or in that development project's SQL Editor. Exact commands are in the latest HOSTED_SUPABASE_VERIFICATION section. Possible explanations include local project/checkout mismatch, schema/cache/exposure differences or migration-history/schema drift; none is proven. Do not reapply migrations, repair history, weaken grants/RLS or reload configuration blindly based on these symptoms. Sanitized catalog flags, migration version/name metadata and project-match booleans are sufficient; no secrets or customer records are needed.
+
+## HOSTED FOUNDATION VERIFICATION — SUCCESSFUL API RUN — 2026-10-24
+
+User-supplied local administrative evidence: the intended development reference is linked; migrations 202610240001, 202610240002 and 202610240003 are applied; all 26 tables exist with RLS enabled; policies/functions and migration history are present. These catalog/history observations remain attributed to the user's local Mac verification. This agent applied **no** migrations. The HTTPS Management API metadata retry still returned HTTP 500, so live catalog definitions were not independently fetched here.
+
+Independent hosted behavioral verification used the real configured development HTTPS API, public anon key, and the two confirmed test-user accounts. API origin matched NEXOPS_DEV_PROJECT_REF before any mutation. Returned user JWTs were checked for the authenticated role and canonical subject; server getUser verified restored identities. No service-role or management token was used in any behavioral/isolation check. No browser API simulation or local database substituted for these hosted results. Credentials, JWTs, user IDs, invitation tokens and project URL/reference values were never printed or written to the report/harness. The run identifier below is only a synthetic fixture label.
+
+**Result: 124 PASS, 0 FAIL, 2 BLOCKED.** The blocked checks are independent raw-event row/count reads for A/B; their denial is expected under the existing permissions. Event durability was additionally verified through observable cross-session idempotency without granting access. All independent requested behavioral scenarios ran despite the administrative-query limitation.
+
+Fixture label: `hosted-verification-c692f33b-e5b8-4e35-8ee6-2ff300782c95`. Four clearly labeled DEVELOPMENT VERIFICATION customer workspaces (private/shared per user), four consultation fixtures with example.test contact email, and two viewer invitations were created/retained. Starter demo metadata/activation was persisted for the test accounts. No customer operational dataset, synthetic Phase 2 SKU/PO/exception/action/decision snapshot, imported CSV or supplier record was uploaded. Test records were not deleted or disguised as real customer leads. No real customer data was read/exported. These fixtures must be excluded from business analytics/CRM and any future mail campaign.
+
+### Requested scenarios and interpretation
+| Requested check | Hosted result |
+| --- | --- |
+| Login, refresh, session restoration, logout | PASS for A/B; fresh SDK clients restored sessions and server identity; restoration tested in memory, not browser restart/localStorage; logout tested local scope/session clearing, not immediate revocation of already-issued access JWTs |
+| Organization bootstrap | PASS for A/B; distinct organizations, ownership and retry idempotency |
+| Demo metadata / customer workspace creation | PASS; bootstrap is demo metadata only; labeled private/shared customer workspace creation and idempotency checked |
+| Organization/workspace membership persistence | PASS; owner roles and accepted viewer/member roles verified through reads; own memberships survived fresh login |
+| Activation persistence | PASS; demo/TODAY/exception/recommendation timestamps, activated_at and stable reread; confirmed again after fresh login |
+| Event persistence | PASS via cross-session durable event-ID deduplication and activation effects; raw event-log row/count inspection remains BLOCKED by intentional SELECT revocation |
+| Consultation persistence | PASS for four labeled fixtures; same request ID returns same lead; reread and fresh-login persistence |
+| Lead qualification | PASS; each fixture scored 90 and Qualified Lead as expected |
+| Invitation create/accept | PASS both directions; viewer-only scope, persisted acceptance, same-recipient retry, invalid/reused-token rejection and owner-role invitation rejection |
+| Cross-organization reads before explicit sharing | PASS both directions: profiles, organizations, organization memberships, workspaces, memberships, activation, leads, qualification |
+| Cross-organization/workspace modifications | PASS: direct organization/workspace edits, membership escalation and foreign track/consult/invite RPCs denied; owner rereads confirmed organization/workspace names unchanged |
+| Cross-workspace after explicit sharing | PASS: granted shared workspace readable; private sibling workspace still hidden; viewer cannot read lead PII/invite tokens, submit leads, invite or self-promote |
+| Unauthenticated access | PASS: SELECT permission denied with 42501 for all 26 tables; bootstrap and invitation acceptance also denied |
+| RLS/grant bypass | No bypass used; ordinary authenticated/anon sessions only. Denials test combined grants/policies/RPC guards; exact live policy definitions remain local-admin evidence, not independently inspected here |
+| Synthetic operational separation | Local browser-only Phase 2 storage remains unchanged; authenticated demo import/action INSERT attempts denied. No operational rows uploaded by the harness. Global/privileged operational row counts and trigger internals remain unverified from these sessions |
+
+**Invitation semantics:** isolation checks ran before sharing. Accepting an invitation intentionally adds organization membership as well as viewer workspace membership. After that explicit grant, the invitee can read the shared organization's metadata under org_member; this was separately verified in both directions. That access is authorized sharing, not an isolation failure. Private sibling workspaces stay hidden. The report does not claim that organization metadata remains hidden from an explicitly invited organization member.
+
+**Event evidence:** for each user, a fresh private verification workspace began with null today/first-value timestamps. A today event with a fresh event ID persisted its timestamp. In an independently authenticated session, reusing that ID with recommended_action_viewed did not set first_value_at; a new ID did. The original timestamp remained unchanged. This verifies persistent deduplication behavior across sessions and event side effects, but not the exact raw stored event JSON/count. Raw SELECT on nexops_events correctly returned 42501. No SELECT grant or policy was added to make an inspection pass.
+
+### Every hosted check
+Expected policy names below refer to the checked-in migration design; live behavior was observed without privileged access. No individual behavioral failure occurred. Blocked entries identify the exact table/access limitation rather than being counted as passes.
+
+| Check | Result | Endpoint/table | Expected policy, where relevant |
+| --- | --- | --- | --- |
+| development_target_and_public_key_guard | PASS | configuration |  |
+| A login | PASS | /auth/v1/token?grant_type=password |  |
+| A refresh | PASS | /auth/v1/token?grant_type=refresh_token |  |
+| A restore session and verify server identity | PASS | /auth/v1/user |  |
+| A organization/demo bootstrap and idempotency | PASS | /rest/v1/rpc/nexops_bootstrap |  |
+| A organization membership persistence | PASS | /rest/v1/nexops_organization_memberships | org_members |
+| A starter workspace membership persistence | PASS | /rest/v1/nexops_workspace_memberships | workspace_members |
+| A private customer workspace creation/persistence/idempotency | PASS | /rest/v1/rpc/nexops_create_workspace |  |
+| A shared customer workspace creation/persistence/idempotency | PASS | /rest/v1/rpc/nexops_create_workspace |  |
+| A demo activation event RPCs and activation persistence | PASS | /rest/v1/rpc/nexops_track_event + nexops_activation | activation_self |
+| A raw event SELECT denied (server-owned event log) | PASS | /rest/v1/nexops_events |  |
+| A independent raw event persistence/count verification | BLOCKED | public.nexops_events |  |
+| A private consultation persistence and idempotency | PASS | /rest/v1/rpc/nexops_submit_consultation + nexops_consultation_leads | lead_member |
+| A private lead qualification | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| A shared consultation persistence and idempotency | PASS | /rest/v1/rpc/nexops_submit_consultation + nexops_consultation_leads | lead_member |
+| A shared lead qualification | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| A demo operational import writes denied | PASS | /rest/v1/nexops_data_imports |  |
+| A demo operational action writes denied | PASS | /rest/v1/nexops_actions |  |
+| B login | PASS | /auth/v1/token?grant_type=password |  |
+| B refresh | PASS | /auth/v1/token?grant_type=refresh_token |  |
+| B restore session and verify server identity | PASS | /auth/v1/user |  |
+| B organization/demo bootstrap and idempotency | PASS | /rest/v1/rpc/nexops_bootstrap |  |
+| B organization membership persistence | PASS | /rest/v1/nexops_organization_memberships | org_members |
+| B starter workspace membership persistence | PASS | /rest/v1/nexops_workspace_memberships | workspace_members |
+| B private customer workspace creation/persistence/idempotency | PASS | /rest/v1/rpc/nexops_create_workspace |  |
+| B shared customer workspace creation/persistence/idempotency | PASS | /rest/v1/rpc/nexops_create_workspace |  |
+| B demo activation event RPCs and activation persistence | PASS | /rest/v1/rpc/nexops_track_event + nexops_activation | activation_self |
+| B raw event SELECT denied (server-owned event log) | PASS | /rest/v1/nexops_events |  |
+| B independent raw event persistence/count verification | BLOCKED | public.nexops_events |  |
+| B private consultation persistence and idempotency | PASS | /rest/v1/rpc/nexops_submit_consultation + nexops_consultation_leads | lead_member |
+| B private lead qualification | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| B shared consultation persistence and idempotency | PASS | /rest/v1/rpc/nexops_submit_consultation + nexops_consultation_leads | lead_member |
+| B shared lead qualification | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| B demo operational import writes denied | PASS | /rest/v1/nexops_data_imports |  |
+| B demo operational action writes denied | PASS | /rest/v1/nexops_actions |  |
+| distinct test identities | PASS | /auth/v1/user |  |
+| distinct starter organizations | PASS | nexops_organizations |  |
+| A cannot access B nexops_profiles read | PASS | /rest/v1/nexops_profiles | profile_self |
+| A cannot access B nexops_organizations read | PASS | /rest/v1/nexops_organizations | org_member |
+| A cannot access B nexops_organization_memberships read | PASS | /rest/v1/nexops_organization_memberships | org_members |
+| A cannot access B nexops_workspaces read | PASS | /rest/v1/nexops_workspaces | workspace_member |
+| A cannot access B nexops_workspace_memberships read | PASS | /rest/v1/nexops_workspace_memberships | workspace_members |
+| A cannot access B nexops_activation read | PASS | /rest/v1/nexops_activation | activation_self |
+| A cannot access B nexops_consultation_leads read | PASS | /rest/v1/nexops_consultation_leads | lead_member |
+| A cannot access B nexops_lead_qualification read | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| A cannot access B nexops_organizations modification | PASS | /rest/v1/nexops_organizations |  |
+| A cannot access B nexops_workspaces modification | PASS | /rest/v1/nexops_workspaces |  |
+| A cannot access B nexops_track_event write | PASS | /rest/v1/rpc/nexops_track_event |  |
+| A cannot access B nexops_submit_consultation write | PASS | /rest/v1/rpc/nexops_submit_consultation |  |
+| A cannot access B nexops_create_invite write | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| A cannot access B membership self-escalation | PASS | /rest/v1/nexops_workspace_memberships |  |
+| B cannot access A nexops_profiles read | PASS | /rest/v1/nexops_profiles | profile_self |
+| B cannot access A nexops_organizations read | PASS | /rest/v1/nexops_organizations | org_member |
+| B cannot access A nexops_organization_memberships read | PASS | /rest/v1/nexops_organization_memberships | org_members |
+| B cannot access A nexops_workspaces read | PASS | /rest/v1/nexops_workspaces | workspace_member |
+| B cannot access A nexops_workspace_memberships read | PASS | /rest/v1/nexops_workspace_memberships | workspace_members |
+| B cannot access A nexops_activation read | PASS | /rest/v1/nexops_activation | activation_self |
+| B cannot access A nexops_consultation_leads read | PASS | /rest/v1/nexops_consultation_leads | lead_member |
+| B cannot access A nexops_lead_qualification read | PASS | /rest/v1/nexops_lead_qualification | qualification_member |
+| B cannot access A nexops_organizations modification | PASS | /rest/v1/nexops_organizations |  |
+| B cannot access A nexops_workspaces modification | PASS | /rest/v1/nexops_workspaces |  |
+| B cannot access A nexops_track_event write | PASS | /rest/v1/rpc/nexops_track_event |  |
+| B cannot access A nexops_submit_consultation write | PASS | /rest/v1/rpc/nexops_submit_consultation |  |
+| B cannot access A nexops_create_invite write | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| B cannot access A membership self-escalation | PASS | /rest/v1/nexops_workspace_memberships |  |
+| anonymous protected nexops_profiles denied | PASS | /rest/v1/nexops_profiles |  |
+| anonymous protected nexops_organizations denied | PASS | /rest/v1/nexops_organizations |  |
+| anonymous protected nexops_organization_memberships denied | PASS | /rest/v1/nexops_organization_memberships |  |
+| anonymous protected nexops_workspaces denied | PASS | /rest/v1/nexops_workspaces |  |
+| anonymous protected nexops_workspace_memberships denied | PASS | /rest/v1/nexops_workspace_memberships |  |
+| anonymous protected nexops_activation denied | PASS | /rest/v1/nexops_activation |  |
+| anonymous protected nexops_events denied | PASS | /rest/v1/nexops_events |  |
+| anonymous protected nexops_consultation_leads denied | PASS | /rest/v1/nexops_consultation_leads |  |
+| anonymous protected nexops_lead_qualification denied | PASS | /rest/v1/nexops_lead_qualification |  |
+| anonymous protected nexops_invitations denied | PASS | /rest/v1/nexops_invitations |  |
+| anonymous bootstrap denied | PASS | /rest/v1/rpc/nexops_bootstrap |  |
+| A invitation creation/persistence | PASS | /rest/v1/rpc/nexops_create_invite + nexops_invitations | invite_manager |
+| A owner-role invitation rejected | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| B anonymous invitation acceptance denied | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| B invitation acceptance/idempotency | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| B accepted membership persistence | PASS | /rest/v1/nexops_workspace_memberships + nexops_organization_memberships |  |
+| A used invitation cannot be accepted by another identity | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| B viewer cannot see invitation token | PASS | /rest/v1/nexops_invitations | invite_manager |
+| B viewer cannot read shared lead PII | PASS | /rest/v1/nexops_consultation_leads | lead_member |
+| B viewer cannot submit shared lead | PASS | /rest/v1/rpc/nexops_submit_consultation |  |
+| B viewer cannot invite | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| B viewer cannot self-promote | PASS | /rest/v1/nexops_workspace_memberships |  |
+| B shared org membership does not expose private workspace | PASS | /rest/v1/nexops_workspaces | workspace_member |
+| B invalid invitation rejected | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| B invitation creation/persistence | PASS | /rest/v1/rpc/nexops_create_invite + nexops_invitations | invite_manager |
+| B owner-role invitation rejected | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| A anonymous invitation acceptance denied | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| A invitation acceptance/idempotency | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| A accepted membership persistence | PASS | /rest/v1/nexops_workspace_memberships + nexops_organization_memberships |  |
+| B used invitation cannot be accepted by another identity | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| A viewer cannot see invitation token | PASS | /rest/v1/nexops_invitations | invite_manager |
+| A viewer cannot read shared lead PII | PASS | /rest/v1/nexops_consultation_leads | lead_member |
+| A viewer cannot submit shared lead | PASS | /rest/v1/rpc/nexops_submit_consultation |  |
+| A viewer cannot invite | PASS | /rest/v1/rpc/nexops_create_invite |  |
+| A viewer cannot self-promote | PASS | /rest/v1/nexops_workspace_memberships |  |
+| A shared org membership does not expose private workspace | PASS | /rest/v1/nexops_workspaces | workspace_member |
+| A invalid invitation rejected | PASS | /rest/v1/rpc/nexops_accept_invite |  |
+| A persisted records after fresh login | PASS | /auth/v1/token + foundation GET |  |
+| B persisted records after fresh login | PASS | /auth/v1/token + foundation GET |  |
+| A logout and session clearing | PASS | /auth/v1/logout?scope=local |  |
+| B logout and session clearing | PASS | /auth/v1/logout?scope=local |  |
+| A event durability across independent sessions via persistent idempotency | PASS | /rest/v1/rpc/nexops_track_event + nexops_activation |  |
+| B event durability across independent sessions via persistent idempotency | PASS | /rest/v1/rpc/nexops_track_event + nexops_activation |  |
+| anonymous protected nexops_audit denied | PASS | /rest/v1/nexops_audit |  |
+| anonymous protected nexops_communication_state denied | PASS | /rest/v1/nexops_communication_state |  |
+| anonymous protected nexops_growth_admins denied | PASS | /rest/v1/nexops_growth_admins |  |
+| anonymous protected nexops_deletion_requests denied | PASS | /rest/v1/nexops_deletion_requests |  |
+| anonymous protected nexops_data_imports denied | PASS | /rest/v1/nexops_data_imports |  |
+| anonymous protected nexops_exceptions denied | PASS | /rest/v1/nexops_exceptions |  |
+| anonymous protected nexops_actions denied | PASS | /rest/v1/nexops_actions |  |
+| anonymous protected nexops_action_exceptions denied | PASS | /rest/v1/nexops_action_exceptions |  |
+| anonymous protected nexops_decisions denied | PASS | /rest/v1/nexops_decisions |  |
+| anonymous protected nexops_agent_runs denied | PASS | /rest/v1/nexops_agent_runs |  |
+| anonymous protected nexops_email_templates denied | PASS | /rest/v1/nexops_email_templates |  |
+| anonymous protected nexops_outbound_reviewers denied | PASS | /rest/v1/nexops_outbound_reviewers |  |
+| anonymous protected nexops_email_suppressions denied | PASS | /rest/v1/nexops_email_suppressions |  |
+| anonymous protected nexops_mail_runtime denied | PASS | /rest/v1/nexops_mail_runtime |  |
+| anonymous protected nexops_outbound_messages denied | PASS | /rest/v1/nexops_outbound_messages |  |
+| anonymous protected nexops_outbound_history denied | PASS | /rest/v1/nexops_outbound_history |  |
+| A explicit invitation organization membership allows organization metadata | PASS | /rest/v1/nexops_organizations | org_member |
+| B explicit invitation organization membership allows organization metadata | PASS | /rest/v1/nexops_organizations | org_member |
+
+### Reproduction, remaining limits and safeguards
+The consolidated explicit opt-in harness is `scripts/verify-hosted-growth.mjs`:
+`node --use-env-proxy scripts/verify-hosted-growth.mjs --run`.
+It requires the existing secure public settings, NEXOPS_DEV_PROJECT_REF and A/B account variables. It creates new labeled fixtures and retains them. Output is sanitized result metadata; the machine-readable result stays at /tmp/nexops-hosted-growth-results.json. The observed run consisted of the primary harness plus independent event-durability, remaining anonymous-table and authorized-org-read follow-ups, now consolidated in that script. The consolidated source was syntax-checked; it was not rerun solely to create duplicate hosted fixtures. Prior invitations leave legitimate org memberships; a later run with the same accounts reports preexisting shared-organization read-denial scenarios as BLOCKED rather than mislabeling permitted access a vulnerability. Use a fresh unshared pair for a clean repeat of those specific checks; do not delete memberships or weaken RLS to reset tests.
+
+Optional independent owner count evidence: run `supabase/hosted_verification_evidence.sql` locally against the same development database using psql and `-v verification_run='hosted-verification-c692f33b-e5b8-4e35-8ee6-2ff300782c95'`. This read-only file returns only event/operational counts for the run's fixtures, not contact/user records. For this run, the tagged event expectation is 12 rows, 2 users, 12 event IDs (demo_workspace_opened=2, exception_opened=2, today_viewed=4, recommended_action_viewed=4). Operational fixture/demo tables should have zero rows. These expectations are **not claimed as hosted count observations**; the optional query has not run on hosted DB. Its syntax/count behavior passed a separate local PostgreSQL fixture check, which is not hosted evidence. Existing arbitrary operational records outside the scope are not inspected or changed.
+
+Public signup was intentionally not invoked under the no-email requirement. Expiry/concurrency/load behavior, browser restart/session-storage behavior, immediate JWT revocation, every possible role/policy combination, legacy StockWise tenant isolation, real customer ingestion, and production readiness are not established by this scoped run. Gmail safety/mode/template/test-recipient launch blockers remain unchanged. No scheduler, CRM export, lifecycle draft producer, email API, billing, production deploy, migration or RLS modification was invoked. No application implementation was rebuilt. Fixture creation and authorized test membership grants were the only persistent application mutations.
