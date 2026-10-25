@@ -8,6 +8,20 @@ This file is the handoff contract between ChatGPT and Codex for the Stockwise/Ne
 
 ## Execution rules
 
+Before starting any task, Codex must read:
+- `docs/PRODUCT_STRATEGY.md`
+- `docs/ROADMAP.md`
+- this `docs/NEXT_TASK.md`
+- the latest relevant section of `docs/APAC_GROWTH_SYSTEM_REPORT.md`
+
+The documents have different roles:
+- `PRODUCT_STRATEGY.md` = long-term product, APAC growth, 10,000-user, safety, and operating goals.
+- `ROADMAP.md` = ordered development priorities and phased path.
+- `NEXT_TASK.md` = the immediate approved task and scope.
+- `APAC_GROWTH_SYSTEM_REPORT.md` = verified current state, evidence, blockers, and test results.
+
+If these documents conflict, STOP and report the conflict rather than guessing. The immediate task must remain consistent with the product strategy and roadmap.
+
 Codex should:
 - Read this file before starting work.
 - Implement only the current task below unless a required dependency is discovered.
