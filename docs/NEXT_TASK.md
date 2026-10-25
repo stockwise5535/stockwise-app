@@ -17,104 +17,123 @@ Codex should:
 - Do not deploy unless the task explicitly says to deploy.
 - Run relevant regression tests and the production build before committing.
 - Commit completed work to `codex/managed-service-mvp`.
-- Report: root cause/approach, files changed, tests/build, schema/RLS impact, deployment impact, and commit hash.
+- Report: findings/approach, files changed, tests/build, schema/RLS impact, deployment impact, and commit hash.
 
-## Current task — First-time customer onboarding
+## Current task — Pre-production QA and release readiness
 
-Improve the first-time Stockwise/Nexops customer onboarding experience.
+Perform a full pre-production readiness pass for the Stockwise/Nexops managed-service application.
 
 ### Goal
 
-A newly authenticated customer should understand the product and reach first value within roughly 30–60 seconds by:
+Determine whether the current `codex/managed-service-mvp` branch is safe and coherent enough to promote from Preview toward Production, without actually deploying it.
 
-1. opening the starter demo workspace,
-2. viewing TODAY,
-3. opening one exception,
-4. reviewing the recommended next action.
+This is a verification-and-hardening task first. Fix only concrete defects discovered during QA.
 
-Use the existing real demo UI and activation model. Do not create a long tutorial or fake product data.
+### Scope to verify
 
-### Existing foundation
+1. **Authentication and starter context**
+   - New signup / confirmed first login.
+   - Existing user login.
+   - Logout and login again.
+   - Starter organization/workspace/membership/activation bootstrap remains idempotent.
+   - Bootstrap failure/retry UX works.
 
-- Starter bootstrap is reliable on confirmed first login.
-- Customer-facing and internal admin/reviewer navigation are separated.
-- Existing activation tracking includes:
-  - `demo_opened_at`
-  - `today_viewed_at`
-  - `exception_opened_at`
-  - `first_value_at`
-  - `activated_at`
-- The Get started page already displays activation progress.
+2. **Customer onboarding**
+   - Brand-new user sees the concise onboarding prompt.
+   - “Start with today's risks” enters the real demo path.
+   - TODAY → exception → recommended action progression works.
+   - Activation progress persists.
+   - Completed users are not forced through onboarding.
+   - Separate customer workspaces are not redirected back into starter demo onboarding.
 
-### Requirements
+3. **Customer/internal UI separation**
+   - Normal customers and workspace owners do not see internal admin tools.
+   - Growth Admin sees Internal Growth Dashboard.
+   - Assigned reviewer sees Outbound Review.
+   - Direct URL access is blocked for unauthorized users.
+   - Switching workspaces immediately re-evaluates internal access.
 
-1. **First authenticated entry**
-   - Detect incomplete starter activation.
-   - Show a concise customer-facing onboarding state.
-   - Explain the product in one short business sentence focused on inventory, PO, and supplier exceptions leading to prioritized action.
-   - Provide one primary CTA, preferably: **Start with today's risks**.
+4. **Core demo/product UX**
+   - Existing StockWise analytics remains reachable where intended.
+   - Demo operations/TODAY/exception/recommended-action flows render without errors.
+   - Customer workspace empty-state behavior is clear and does not imply customer data exists.
+   - No accidental MIERUKA branding remains in customer-facing UI.
 
-2. **Guided first-value path**
-   - Guide the user through the four activation steps above.
-   - Reuse the existing Product/TODAY/exception/recommended-action UI.
-   - Avoid modal tours unless truly necessary.
+5. **Outbound/email safety — read-only verification only**
+   - Verify current sender-test state remains confirmed.
+   - Verify existing queued Welcome message remains intact.
+   - Verify sending is still disabled:
+     - `EMAIL_SEND_MODE=draft_only`
+     - `NEXOPS_GMAIL_SEND_ENABLED=false`
+     - database mail runtime disabled
+   - Do not send any email.
+   - Do not change templates, queues, consent, assignments, runtime flags, or OAuth state.
 
-3. **Progress**
-   - Show simple progress such as `1 of 4 completed`.
-   - Check off steps using existing activation data.
-   - Persist progress across refresh/login through existing stored activation state.
-   - Once activation is complete, stop forcing onboarding and show only a lightweight completed state.
+6. **Security and configuration**
+   - No service-role/Gmail/OAuth secrets are exposed in browser bundles, tracked files, logs, or documentation.
+   - Production build does not leak server-only environment variables.
+   - Public client configuration uses only intended `VITE_` values.
+   - Existing RLS/RPC boundaries remain intact.
+   - No browser path can grant itself Growth Admin or reviewer access.
 
-4. **Existing customers**
-   - Do not force onboarding for users whose activation is already complete.
-   - Do not redirect users working in separate customer workspaces back into demo onboarding.
-   - Keep Get started manually accessible.
+7. **Routing and release behavior**
+   - Growth routes load directly on refresh.
+   - Preview deep links work for:
+     - `/growth`
+     - `/growth?view=product`
+     - `/growth?view=activation`
+     - authorized internal views
+   - Legacy root application still loads and logout remains reliable.
+   - Check that Vercel routing configuration supports the routes intended for Production.
 
-5. **Failure states**
-   - Preserve the existing blocking bootstrap recovery behavior.
-   - If demo data cannot load, provide a clear retry path.
-   - Do not invent operational results.
+8. **Responsive/browser QA**
+   - Desktop and mobile flows are usable.
+   - No obvious overflow, unreachable CTA, broken nav, or blocking layout regressions.
+   - Check loading, empty, error and retry states.
 
-6. **Customer copy**
-   - Keep copy concise and business-focused.
-   - Do not expose implementation terms such as bootstrap, RPC, RLS, activation rows, UUIDs, or internal IDs.
+9. **Branding/copy consistency**
+   - Product branding is consistently Stockwise/StockWise where appropriate.
+   - Nexops managed-service branding is intentional where appropriate.
+   - Remove stale accidental MIERUKA references if any remain in rendered customer UI.
+   - Do not rename internal database objects merely for branding consistency.
 
-7. **Mobile**
-   - Ensure onboarding progress and the primary CTA work on mobile.
+### Testing
 
-8. **Analytics**
-   - Reuse the existing event model only.
-   - Add no third-party tracking and no new personal-data collection.
+Run:
+- full relevant unit suite,
+- browser/regression suites,
+- security-sensitive tests,
+- production build.
 
-9. **Do not change**
-   - Gmail configuration or lifecycle sending.
-   - Growth Admin / outbound-reviewer assignments.
-   - Outbound queue contents.
-   - Billing.
-   - Schema/RLS unless a genuine defect makes it unavoidable.
+Add or adjust tests only where coverage is missing for a concrete release risk.
 
-### Regression coverage
+### Deliverable
 
-Add tests for:
-- brand-new user sees onboarding,
-- primary CTA opens the demo/TODAY path,
-- progress reflects activation state,
-- partial progress survives refresh/login,
-- completed users are not forced through onboarding,
-- customer-workspace users are not redirected into demo onboarding,
-- mobile flow works,
-- demo-load failure offers recovery.
+Create/update a concise release-readiness section in:
+`docs/APAC_GROWTH_SYSTEM_REPORT.md`
 
-### Completion
+It must include:
+- PASS / BLOCKED recommendation for Production promotion,
+- any release blockers,
+- any non-blocking follow-ups,
+- exact tests/build run,
+- confirmation that no email was sent,
+- confirmation that no deployment occurred.
 
-Run relevant unit/browser tests and production build.
+If a concrete defect is found, fix it, test it, and include it in the report.
 
-Do **not** deploy.
+### Do not
 
-Update this file's **Status** section after implementation, then commit all implementation changes.
+- Do not deploy or promote to Production.
+- Do not send email.
+- Do not enable mail runtime.
+- Do not change billing.
+- Do not weaken RLS.
+- Do not add new product features unrelated to release readiness.
 
 ## Status
 
 - State: READY
 - Deployment: NOT REQUESTED
-- Gmail changes: NOT ALLOWED FOR THIS TASK
+- Gmail changes: READ-ONLY VERIFICATION ONLY
+- Email sending: FORBIDDEN FOR THIS TASK
