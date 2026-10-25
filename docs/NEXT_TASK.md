@@ -133,7 +133,11 @@ If a concrete defect is found, fix it, test it, and include it in the report.
 
 ## Status
 
-- State: READY
+- State: COMPLETE — QA finished; Production promotion BLOCKED
+- Completed: 2026-10-25
+- Results: 93 unit tests + 17 local PostgreSQL tests passed; all browser suites and production build passed.
+- Release blockers: published legal pages remain drafts; legacy checkout trusts unauthenticated client-supplied user/plan details if enabled. Billing was not changed under this task's prohibition.
+- Evidence and remaining production checks: see the latest Pre-production release readiness section in docs/APAC_GROWTH_SYSTEM_REPORT.md.
 - Deployment: NOT REQUESTED
 - Gmail changes: READ-ONLY VERIFICATION ONLY
 - Email sending: FORBIDDEN FOR THIS TASK

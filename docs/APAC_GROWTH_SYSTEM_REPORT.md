@@ -583,3 +583,55 @@ Failed activity saves show “Retry saving progress” and retain the original e
 Changed: src/growth/GrowthApplication.jsx, src/growth/growth.css, src/operations/OperationsWorkspace.jsx; new src/growth/FirstValueGuide.jsx, src/growth/DemoRecovery.jsx, src/growth/firstValue.js; updated tests/growth.browser.mjs; new tests/first-value.test.js; this report.
 
 No migration/schema/RLS/bootstrap-RPC change was necessary. Existing activation storage/events, operational calculations and synthetic demo state structures are preserved. Gmail configuration, templates, sending/lifecycle queues, reviewer/admin assignments and third-party analytics configuration were untouched. No production deployment or actual email sending occurred.
+
+## PRE-PRODUCTION RELEASE READINESS — 2026-10-25
+
+**Recommendation: BLOCKED for Production promotion.** The tested customer/demo flows pass. This is a local release-candidate QA result with a narrowly scoped hosted read-only mail check, not approval of an untested production environment.
+
+### Release blockers
+
+1. `/privacy` and `/terms` explicitly remain drafts in `src/growth/Landing.jsx`. Privacy contact, retention/subprocessor details and final service terms require approval before public launch. No legal commitments were invented during QA.
+2. Legacy `api/create-checkout-session.js` accepts `userId`, `userEmail`, `priceId` and `planId` from an unauthenticated request; its subscription metadata is subsequently trusted by `api/stripe-webhook.js`. If Stripe is configured, caller-selected identity/plan metadata is a release risk. Before release, authenticate the caller, derive identity server-side, allowlist prices and derive the plan from the selected server-owned price, or explicitly disable/exclude legacy checkout from the release. **No billing code/configuration or external Stripe operation was changed/run**, as NEXT_TASK.md forbids billing changes. Static review establishes the unsafe handler contract; deployed endpoint availability was not tested.
+
+### Verification results
+
+| Area | Result / evidence |
+| --- | --- |
+| Auth / starter context | PASS locally: pending signup does not bootstrap; confirmation entry, existing/profile-only user sign-in, root fallback, blocked setup/retry, idempotent starter records, refresh and logout/login. Auth/PostgREST simulated; actual PostgreSQL functions/RLS execute. No hosted signup or confirmation email was triggered. |
+| First value | PASS: initial concise 0-of-4 prompt, real TODAY/exception/recommendation, saved progress across reload/login, same-event-ID retry, completed state, manual Get started and separate customer workspace without interruption. |
+| Customer/internal separation | PASS: ordinary owner lacks internal navigation; server-authorized admin/reviewer views work; unauthorized direct URLs do not mount internal components; workspace changes and permission errors deny access until verified. Desktop/mobile covered. |
+| Operations / legacy | PASS: all seven operational views, exception/action/decision/history/report/supplier workflows, empty filters, recovery, local synthetic persistence and responsive layout. Existing StockWise analytics link/root and logout/login remain usable. Customer workspace empty state does not claim operational customer data exists. |
+| Outbound read-only hosted check | PASS: configured URL matches NEXOPS_DEV_PROJECT_REF; sender test `496a2939-9f15-4513-815c-7bd3de9290ae` remains sent with provider ID and recorded delivery confirmation; Welcome `3416b1a4-0929-4ee2-a5c5-dd2d2bf7bf00` remains queued, correct recipient/category/source and equal content/review hashes. |
+| Send gates | PASS: current process EMAIL_SEND_MODE=draft_only; NEXOPS_GMAIL_SEND_ENABLED=false; hosted nexops_mail_runtime.sending_enabled=false. Only two REST GETs were used; no worker, OAuth refresh/verification, registration, approval or runtime RPC was invoked. |
+| Safety / isolation | PASS: 17 local SQL tests plus unit safety matrix cover membership/admin escalation denial, isolation, consent, reviewer/template authorization, suppression, quotas, claim tokens and ambiguous-delivery no-retry behavior. Existing migrations/RPC/RLS unchanged. Hosted cross-tenant tests were not rerun; prior 124/0/2 hosted evidence above remains the hosted baseline. |
+| Credentials / browser build | PASS for inspected scope: exact matching against five available configured secret values plus service-role JWT detection found no exposure across 116 current tracked/build/release-log files at scan time. No secret contents were printed. Browser source imports only public VITE_ configuration; server API/worker modules are not browser entry points. This is not a historical Git/third-party log audit or proof about unconfigured secrets. |
+| Routing | PASS locally against a production build: authenticated regression flow, root fallback and internal deep links; dedicated preview smoke checks 19 direct routes at desktop/mobile sizes, including /growth, product, activation, internal views, invite, signup, localized/legal pages and seven demo views. Vercel localized and SPA rewrites checked statically; no hosted Vercel Preview/Production deployment was exercised. |
+| Branding / responsive | PASS: no MIERUKA references found in customer source/assets or rendered tested routes. Stockwise/StockWise analytics and intentional Nexops managed-service branding retained. Mobile 390px and desktop checks found no page overflow or unreachable primary onboarding CTA. |
+
+### Exact checks run
+
+All commands ran from the repository unless noted; optional test dependencies remained outside the repository.
+
+```sh
+node --test tests/*.test.js
+NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs
+npm run build
+NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176 NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/growth.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/operations.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/workflow.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/outbound.browser.mjs
+NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:4178 NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/growth.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:4178 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/release.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:4179 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/public-growth.browser.mjs
+git diff --check
+```
+
+Results: **93 unit + 17 SQL tests passed, zero failures**; seven browser executions passed (six suites, growth run on both dev and production-preview assets). Production build passed. No configured lint/type-check commands exist. Local fixture builds used `VITE_SUPABASE_URL=http://127.0.0.1:54329 VITE_SUPABASE_ANON_KEY=local-test-public-key VITE_PUBLIC_SITE_URL='' npx vite build --outDir /tmp/nexops-release-preview/dist`, and empty Supabase variables for `/tmp/nexops-release-public/dist`; SEO generation ran in each fixture directory with empty VITE_PUBLIC_SITE_URL. Separate local Vite preview processes served these at 4178/4179. These fixtures do not alter secure Cloud settings or contact hosted Auth. Hosted read-only check and credential scan ran from temporary local scripts; no credentials were written to files or reports.
+
+### Follow-ups / scope
+
+After resolving blockers, verify the intended production project/configuration, approved public origin, Supabase Site URL/confirmation redirect allowlist and deployed Vercel deep links before promotion. Legal approval and a release-specific billing decision are required; do not silently enable checkout. Customer operational ingestion remains unimplemented; operational demo records remain explicitly synthetic/browser-local. Sender OAuth freshness and other approved template delivery tests were deliberately not refreshed/sent in this read-only task. Older chronological Gmail/configuration findings above are historical; the current hosted status is the read-only result in this section.
+
+New coverage: `tests/release.browser.mjs` protects production-preview route/branding/mobile/unauthenticated internal-page behavior, rejects non-local targets and aborts unexpected external requests. No new product features or speculative refactors were added. No defect surfaced in the tested onboarding/navigation/operations paths; billing findings were documented rather than changed outside scope.
+
+**Hosted database writes: 0. Emails sent: 0. No deployment or promotion.** No schema, RLS, RPC definition, billing, Gmail/OAuth state, consent, reviewer/admin assignment, template, lifecycle/message queue or runtime-flag change occurred. Remote task-file commits were merged into the local working branch to preserve both histories; nothing was merged into main, rewritten or pushed.
