@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import {supabase} from '../supabase.js'
+import {beginCheckout} from '../billing/checkout.js'
 
 const JP = 'ja'
 const F = 'Arial,Helvetica,sans-serif'
 
 const copy = (lang, ja, en) => lang === JP ? ja : en
 
-export default function PricingModal({ user, lang='en', onClose }) {
+export default function PricingModal({ lang='en', onClose }) {
   const [loading, setLoading] = useState(null)
   const [error, setError] = useState(null)
 
@@ -15,7 +17,6 @@ export default function PricingModal({ user, lang='en', onClose }) {
       name: 'Stockwise',
       price: '$49.99',
       sub: copy(lang, '2件目の品目から適用', 'Applies from the 2nd Superset'),
-      priceKey: 'VITE_STRIPE_PRICE_BASIC',
       features: [
         copy(lang, '仕入先別の13週在庫ヒートマップ', '13-week supplier inventory heatmap'),
         copy(lang, 'CSV連携による発注候補品目・輸入数量予定の更新', 'CSV-based order candidate and inbound plan updates'),
@@ -27,7 +28,6 @@ export default function PricingModal({ user, lang='en', onClose }) {
       name: 'Stockwise Pro',
       price: '$149',
       sub: copy(lang, '運用連携を拡張', 'Expanded operations integrations'),
-      priceKey: 'VITE_STRIPE_PRICE_PRO',
       features: [
         '3PL',
         copy(lang, '自社輸送', 'Own transportation'),
@@ -42,23 +42,10 @@ export default function PricingModal({ user, lang='en', onClose }) {
     setError(null)
     setLoading(plan.id)
     try {
-      const priceId = import.meta.env[plan.priceKey]
-      if (!priceId) throw new Error(copy(lang, `${plan.priceKey} が未設定です。`, `${plan.priceKey} is missing.`))
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          priceId,
-          planId: plan.id,
-          userId: user?.id,
-          userEmail: user?.email,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || copy(lang, '決済ページを作成できませんでした。', 'Could not create checkout session.'))
-      window.location.href = data.url
+      const url=await beginCheckout({client:supabase,planId:plan.id})
+      window.location.assign(url)
     } catch (e) {
-      setError(e.message)
+      setError(e.name==='TimeoutError'||e.name==='AbortError' ? copy(lang,'決済を確認できませんでした。同じリクエストを再試行してください。','Checkout could not be confirmed. Retry this request.') : e.message)
       setLoading(null)
     }
   }
@@ -74,7 +61,7 @@ export default function PricingModal({ user, lang='en', onClose }) {
           <button onClick={onClose} style={{ background:'rgba(255,255,255,.08)', border:'1px solid #173e64', color:'#f8fbff', borderRadius:8, width:36, height:36, cursor:'pointer', fontSize:20 }}>×</button>
         </div>
 
-        {error && <div style={{ border:'1px solid #ff465d', background:'rgba(255,70,93,.12)', color:'#ff9aaa', borderRadius:10, padding:12, marginBottom:16, fontWeight:700 }}>{error}</div>}
+        {error && <div role="alert" style={{ border:'1px solid #ff465d', background:'rgba(255,70,93,.12)', color:'#ff9aaa', borderRadius:10, padding:12, marginBottom:16, fontWeight:700 }}>{error}</div>}
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:16 }}>
           {plans.map(plan => (
@@ -85,7 +72,7 @@ export default function PricingModal({ user, lang='en', onClose }) {
               <ul style={{ listStyle:'none', padding:0, margin:'18px 0', display:'grid', gap:10 }}>
                 {plan.features.map(f => <li key={f} style={{ display:'flex', gap:8, color:'#e6f1fb', lineHeight:1.45 }}><span style={{ color:'#22c985', fontWeight:900 }}>✓</span><span>{f}</span></li>)}
               </ul>
-              <button onClick={()=>checkout(plan)} disabled={loading===plan.id} style={{ width:'100%', border:'1px solid #3b82f6', background:'rgba(59,130,246,.18)', color:'#8fc2ff', borderRadius:10, padding:'12px 14px', fontWeight:900, fontFamily:F, cursor:'pointer', opacity:loading===plan.id ? .6 : 1 }}>
+              <button onClick={()=>checkout(plan)} disabled={loading!==null} style={{ width:'100%', border:'1px solid #3b82f6', background:'rgba(59,130,246,.18)', color:'#8fc2ff', borderRadius:10, padding:'12px 14px', fontWeight:900, fontFamily:F, cursor:'pointer', opacity:loading===plan.id ? .6 : 1 }}>
                 {loading===plan.id ? copy(lang, '処理中...', 'Processing...') : copy(lang, 'このプランを選択', 'Choose this plan')}
               </button>
             </div>

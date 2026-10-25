@@ -101,7 +101,10 @@ Do not enable billing or deploy in this task.
 
 ## Status
 
-- State: READY
+- State: COMPLETE — checkout trust-boundary blocker resolved in code; billing remains disabled
+- Completed: 2026-10-25
+- Validation: 106 unit/security tests, 17 SQL tests, checkout browser regression, Growth browser regression, production build and diff checks passed.
+- Remaining release blocker: Privacy/Terms drafts unchanged. See the latest checkout hardening section in docs/APAC_GROWTH_SYSTEM_REPORT.md for configuration and pre-activation checks.
 - Deployment: NOT REQUESTED
 - Billing activation: FORBIDDEN FOR THIS TASK
 - Email sending: FORBIDDEN FOR THIS TASK

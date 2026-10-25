@@ -591,7 +591,7 @@ No migration/schema/RLS/bootstrap-RPC change was necessary. Existing activation 
 ### Release blockers
 
 1. `/privacy` and `/terms` explicitly remain drafts in `src/growth/Landing.jsx`. Privacy contact, retention/subprocessor details and final service terms require approval before public launch. No legal commitments were invented during QA.
-2. Legacy `api/create-checkout-session.js` accepts `userId`, `userEmail`, `priceId` and `planId` from an unauthenticated request; its subscription metadata is subsequently trusted by `api/stripe-webhook.js`. If Stripe is configured, caller-selected identity/plan metadata is a release risk. Before release, authenticate the caller, derive identity server-side, allowlist prices and derive the plan from the selected server-owned price, or explicitly disable/exclude legacy checkout from the release. **No billing code/configuration or external Stripe operation was changed/run**, as NEXT_TASK.md forbids billing changes. Static review establishes the unsafe handler contract; deployed endpoint availability was not tested.
+2. **Resolved in the subsequent checkout-hardening task below.** The original legacy endpoint accepted unauthenticated browser identity/price/plan metadata, later trusted by the webhook. The release-readiness QA itself did not change billing; the subsequently authorized fix replaces that contract and keeps billing disabled. No deployed endpoint or real payment was exercised.
 
 ### Verification results
 
@@ -635,3 +635,47 @@ After resolving blockers, verify the intended production project/configuration, 
 New coverage: `tests/release.browser.mjs` protects production-preview route/branding/mobile/unauthenticated internal-page behavior, rejects non-local targets and aborts unexpected external requests. No new product features or speculative refactors were added. No defect surfaced in the tested onboarding/navigation/operations paths; billing findings were documented rather than changed outside scope.
 
 **Hosted database writes: 0. Emails sent: 0. No deployment or promotion.** No schema, RLS, RPC definition, billing, Gmail/OAuth state, consent, reviewer/admin assignment, template, lifecycle/message queue or runtime-flag change occurred. Remote task-file commits were merged into the local working branch to preserve both histories; nothing was merged into main, rewritten or pushed.
+
+## LEGACY CHECKOUT TRUST-BOUNDARY HARDENING — 2026-10-25
+
+**Checkout trust-boundary blocker: RESOLVED in code and mocked regression coverage. Production promotion remains BLOCKED by the unchanged Privacy/Terms drafts. Billing remains disabled; this is not authorization to activate payments.**
+
+### Findings and fixed contract
+
+The legacy `PricingModal.jsx` component previously supplied `userId`, `userEmail`, `priceId` and `planId`; price configuration came from `VITE_STRIPE_PRICE_*`. The API copied those fields into Stripe customer/price/subscription metadata without authentication. Quantity (1) and legacy trial length (14 days) were already server constants; return URLs came from VITE_APP_URL. The signed webhook verified provider authenticity but accepted the resulting untrusted user/plan metadata. Repository inspection found the pricing component is currently **not mounted by any application route**; no new billing entry point was introduced to activate it. Browser regression mounts the existing component only in a local fixture.
+
+- Both checkout and webhook now fail closed with HTTP 503 / BILLING_DISABLED unless the **server-only** `NEXOPS_BILLING_ENABLED` is exactly `true`. Current environment/default-export smoke checks returned BILLING_DISABLED for both endpoints, before any external operation. No environment setting was changed.
+- Checkout accepts exactly `{planId, requestId}` plus an Authorization bearer. Supabase Auth `getUser(token)` verifies the session server-side; canonical confirmed user UUID/email come from that response, never body fields or user metadata. The existing subscriptions lookup uses the same ordinary user bearer with RLS and filters by the canonical user ID. No service-role key is used to authenticate/read checkout accounts.
+- Only basic/pro map to server-owned STRIPE_PRICE_BASIC / STRIPE_PRICE_PRO. Unknown plans and extra price, product, currency, quantity, account, user, workspace, entitlement or metadata fields are rejected. Stripe receives the configured price and fixed quantity 1; currency/amount/product are defined by that Stripe price. Metadata/client reference bind canonical Auth identity and the server-selected plan, with an authenticated_v1 marker. This remains **per-user legacy billing**, not organization/workspace billing; selecting a workspace/account is unsupported and rejected.
+- Return destinations are constructed from validated HTTPS origin-only BILLING_RETURN_ORIGIN, never browser input or request Host. The success/cancel query parameters are informational only: no browser return path grants entitlement. Redirects are restricted to HTTPS checkout.stripe.com on both server and client.
+- Retry keys are hashed from canonical user + request UUID and passed as Stripe idempotency keys. Changed payload reuse yields a safe conflict. The browser retains its per-user/per-plan request UUID for up to 23 hours in sessionStorage (in-memory fallback), including retry/reload; no token is stored there. Both plan buttons lock while a request is pending. Existing active/unresolved subscriptions block another checkout; unreadable billing records fail closed. Stripe calls have bounded timeouts and no automatic SDK retries; Auth/database requests also have bounded timeouts. Provider/configuration exceptions are sanitized, with no credential or raw provider output.
+- Webhooks remain signature-verified against the raw, size-bounded request; a regression also uses the actual Stripe signature verifier. They retrieve current subscription state, require the new server-issued metadata format, derive the plan from the allowlisted provider price, require one recurring item/quantity 1 and a confirmed canonical Auth account, and reject subscription/customer ownership conflicts. Old-format/unmapped events require billing review instead of silently granting a plan. Database persistence errors no longer return successful acknowledgment. Sequential duplicate/delayed fixtures use current provider state rather than stale event payloads.
+
+### Server configuration / activation boundaries
+
+Keep NEXOPS_BILLING_ENABLED unset or `false`. Merely setting Stripe keys/prices cannot enable checkout or webhook writes. No new VITE_ billing variables are required; the browser no longer reads public Stripe price variables or selects Stripe price IDs.
+
+For a separately authorized future activation, required **server** configuration is STRIPE_SECRET_KEY, STRIPE_PRICE_BASIC, STRIPE_PRICE_PRO, BILLING_RETURN_ORIGIN, SUPABASE_URL (existing VITE_SUPABASE_URL fallback), and SUPABASE_ANON_KEY (existing VITE_SUPABASE_ANON_KEY fallback). The webhook additionally requires STRIPE_WEBHOOK_SECRET and existing SUPABASE_SERVICE_ROLE_KEY. Never put secret/service-role values in VITE_ fields. The return origin must be HTTPS without credentials, a path, query or fragment; both configured prices must be distinct valid price IDs. No values were requested in chat or written into source.
+
+Before enabling billing, verify the intended Stripe environment/product/recurring-price mappings, signed webhook delivery, and the legacy subscriptions table's existing columns/unique user key/self-read RLS in an authorized provider test environment. These legacy billing tables are separate from nexops_* and were not created or modified here; inability to read/write them fails safely. Review any historical subscriptions without authenticated_v1 metadata and price-map changes explicitly; no automatic metadata backfill was performed. Request idempotency is scoped to the same user/request and Stripe's retention window, not a permanent global lock across independent requests/tabs; broader concurrent subscription reconciliation requires provider test-mode validation before billing activation. No live billing/provider readiness is claimed by mocked tests.
+
+### Validation and changed files
+
+```sh
+node --test tests/*.test.js
+NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/checkout.browser.mjs
+NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176 NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/growth.browser.mjs
+npm run build
+git diff --check
+```
+
+**106 unit/security tests + 17 SQL tests passed, zero failures.** Thirteen new tests exercise canonical authenticated checkout, expired/unconfirmed/missing auth, malformed/tampered/extra fields and cross-account overrides, missing/disabled configuration, safe origin/price validation, active-account conflicts, user-scoped retry keys, sanitized provider uncertainty, browser request shape and redirect denial, signed webhook mapping/identity, ownership/legacy-format rejection, duplicate/current-state handling and actual signature tamper detection. All Auth/Stripe/database billing operations are injected mocks; unexpected fetches are prohibited. Existing SQL isolation/outbound tests use local PostgreSQL only. No lint/type-check commands are configured.
+
+Checkout browser regression passed: signed-out error without API request, bearer + plan/request-only payload (ignoring a forged user prop), disabled-billing recovery, duplicate-click prevention, stable retry/reload ID, mobile, unsafe redirect denial and a fully intercepted successful Stripe redirect. No provider request leaves the test. Growth browser regression passed including confirmed first entry, setup failure/retry, root fallback, onboarding/persisted progress, internal authorization, workspace switching, consultations, invitations and logout/login.
+
+Production build passed. A scan of 119 current repository/build/test-log files against five configured secret values plus service-role JWT detection found no exposure; no values were printed. Server billing modules are not imported by browser modules. This scan does not claim to audit historical Git blobs or external logs. The unmounted pricing component is separately covered through the local browser fixture.
+
+Files: api/create-checkout-session.js; api/stripe-webhook.js; new services/billing-config.js; src/components/PricingModal.jsx; new src/billing/checkout.js; new tests/checkout.test.js and tests/checkout.browser.mjs; this report and docs/NEXT_TASK.md Status.
+
+**No schema/RLS/RPC/migration change was necessary. No hosted database writes, real provider calls, checkout sessions, charges, emails or deployment occurred.** Billing activation/configuration, Gmail sending/settings/templates/queues/assignments and legal copy were unchanged. Only tests use explicit enabled fixture configuration; the actual runtime remains disabled. Work is committed locally without pushing or merging into main.
