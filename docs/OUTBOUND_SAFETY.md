@@ -94,3 +94,39 @@ The sender-account administrator confirms the received/provider-accepted self-te
 - Hosted RLS/Auth, live OAuth/scopes, actual self-test/delivery, multi-process hosted race/load behavior, bounce/webhook processing, sender-reputation monitoring and legal review remain unverified.
 
 No production deployment, billing integration, synthetic operational data migration or actual email sending occurred.
+
+## External connection verification — 2026-10-24 (latest scope)
+
+This section supersedes the earlier automatic-send enablement instructions for this verification task. **Do not run `--message`, enable the database runtime, set NEXOPS_GMAIL_SEND_ENABLED=true, or begin general sending.** Current task authorizes only a later restricted approved-recipient test after connection and policy checks pass. No production deployment or billing change is authorized.
+
+### Observed external status
+- Hosted Supabase: BLOCKED. Runtime has neither VITE_SUPABASE_URL nor VITE_SUPABASE_ANON_KEY; saved environment draft lists them only as pending. No configured administrative access/selected development reference. Read-only preflight exited 2 with zero network requests. No remote migration status was inferred, and no migration was applied.
+- Gmail OAuth/token refresh: BLOCKED, not attempted against Google. All required server credentials are absent. Connection worker invoked with EMAIL_SEND_MODE=draft_only exited 2 before external requests.
+- Sender identity/approved address: UNVERIFIED. No configured GMAIL_SENDER_EMAIL or independently approved test recipient was available.
+- Test messages sent: **0** for Welcome Email, 24-hour Activation Reminder, Consultation Confirmation and Workspace Invitation. No real provider receipt/delivery/audit record was produced.
+- Template loading, consent/suppression, deduplication, review/audit and RLS: local tests only; hosted verification remains unrun.
+
+### Important mode/template compatibility blockers
+The existing worker **does not read/enforce EMAIL_SEND_MODE**. Setting draft_only alone is not a safety boundary; leave both existing send-enable gates disabled and run only `--verify-connection`. The existing worker has no test_recipient mode or independent approved-recipient allowlist. Therefore changing that variable to test_recipient does **not** authorize or safely restrict `--message`; do not use that command for the requested test phase. No mode implementation was added in this external-verification-only task.
+
+Welcome and activation_reminder exist as draft registry entries; activation timing belongs to the existing lifecycle eligibility logic. Consultation **reminder** is not Consultation **Confirmation**. Consultation Confirmation and Workspace Invitation are not current approved registry templates. Do not substitute similar templates or silently register/approve new copy. Future scoped implementation/review is needed for these two templates and enforced modes before the four-message external test can proceed. Existing one-recipient-per-24-hour cap also prevents all four tests to the same recipient in one day; preserve that cap and schedule separately rather than bypass it. The first-send self-addressed sender-test gate remains in force; an independently approved recipient is not automatically equivalent to the sender.
+
+### Explicit safety and unknown-delivery regression results
+`node --test tests/external-verification.test.js tests/outbound.test.js`: 28/28 passed. All requested compensation, refund, damages, legal liability, contract changes, price changes, PO quantity changes, supplier changes, expedite costs, unsupported claims and uncertain free-form AI examples returned HUMAN_REVIEW_REQUIRED or BLOCKED, never AUTO_SEND_ALLOWED. Unsubscribed, suppressed, category opt-out and duplicate cases were BLOCKED. Optional uncertain AI classification also required review. These are bounded regression examples, not exhaustive legal-language coverage.
+
+Timeout, missing provider-confirmation and lost-success-audit-response simulations return the existing internal status `delivery_unknown` (the semantic **UNKNOWN_DELIVERY** outcome requested), retain the no_automatic_retry flag, and refuse a second send. No enum/schema was renamed. Provider interactions and delivery records in these tests are fixtures, not evidence of Gmail connectivity. Existing adapter tests separately verify account mismatch denial and a simulated send transport.
+
+### Exact configuration still needed
+Configure settings through Cloud Environment secure settings, never paste credentials into chat or VITE-prefixed secrets:
+- Browser: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for the confirmed development project.
+- Worker: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXOPS_DEV_PROJECT_REF.
+- Schema administration: authenticated Supabase CLI via SUPABASE_ACCESS_TOKEN plus project linkage/database password (SUPABASE_DB_PASSWORD), or a secure development database connection (SUPABASE_DB_URL), or owner SQL Editor access. The service key alone does not permit migration DDL. Inspect `supabase/hosted_catalog_inventory.sql` and migration history before selecting missing migrations 001–003; follow `docs/HOSTED_SUPABASE_VERIFICATION.md`.
+- Gmail server: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL. Obtain the dedicated account's offline grant with verified gmail.send and gmail.metadata scopes through a reviewed OAuth flow. Never log tokens. Approve the exact sender independently of the profile response.
+- Message origin: VITE_PUBLIC_SITE_URL, an approved HTTPS origin.
+- Safety intent: EMAIL_SEND_MODE=draft_only; NEXOPS_GMAIL_SEND_ENABLED=false; database runtime disabled. Neither absent mode configuration nor a variable alone establishes enforcement.
+- Test recipient: supply an explicitly owner-approved Nexops address securely. NEXOPS_GMAIL_TEST_RECIPIENT is a proposed configuration name, **not currently consumed/enforced**; its presence alone must never enable sending.
+- Development test users: two separately confirmed accounts with independent organizations, controlled test mail delivery and approved invitation recipient. Auth confirmation/invitation tests must not create unintended mail.
+
+Allow only the selected development project hostname, oauth2.googleapis.com and gmail.googleapis.com in environment egress rules, preserving existing rules. Restart/recreate the Cloud Environment after saving runtime settings so they are actually injected; pending declarations do not configure the running process. Run the read-only preflight and connection worker first. Do not switch modes or send until enforcement, template approvals, reviewer assignment, recipient approval, required self-test gates and hosted RLS are verified.
+
+Local PostgreSQL foundation + outbound suites passed 17/17 during this verification, including cross-organization denial, invitation permissions, review/history, default-deny RLS, fresh consent, suppression, atomic duplicate/rate checks and unknown-delivery holds. Hosted policies and real Gmail audit logging remain UNRUN. No runtime/schema/UI implementation changed in this verification; only tests and reports were added/updated.

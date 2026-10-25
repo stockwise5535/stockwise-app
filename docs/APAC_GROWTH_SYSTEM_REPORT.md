@@ -173,3 +173,30 @@ The user's subsequent policy conditionally authorizes automatic Gmail lifecycle 
 New route: `/growth?view=communications`. New additive candidate migration: `202610240003_outbound_safety.sql` (six new RLS-protected tables). It has **not** been applied to a hosted project. Both sender enable gates default off, and automatic delivery also requires a human-reviewed self-addressed provider test confirmed by the sender account owner. No live connection or delivery is claimed. Gmail credentials, server credentials and the hosted project settings remain missing; preparation/verification commands fail closed before network access.
 
 [OUTBOUND_SAFETY.md](OUTBOUND_SAFETY.md) records the full policy, exact server settings, Google OAuth scopes/setup, template/reviewer assignment, self-test procedure and failure/reconciliation rules. Validation for this extension: nine new service tests, seven PostgreSQL tests, review UI smoke, affected growth-unit tests and build. Provider/send success in tests is simulated. No email was sent; no production deployment, billing connection, original RLS weakening or existing application rebuild occurred. The hosted verification checklist above remains blocked until actual project access is supplied.
+
+## EXTERNAL CONNECTION VERIFICATION — 2026-10-24 (latest task)
+
+Scope: verify existing foundations only; no application/sender/schema rebuild. Branch preserved. Runtime/public/server credential presence and saved cloud configuration were inspected without printing credential values. Only .env.example is present; no actual environment file was used.
+
+| Check | Result |
+| --- | --- |
+| Hosted Supabase connectivity | BLOCKED: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absent; read-only preflight reports zero requests |
+| Remote migration inventory/apply | UNRUN: development admin access/reference absent; no migrations applied and no destructive changes |
+| Hosted RLS / cross-organization denial | UNRUN; cannot infer from local tests or anon policy checks |
+| Hosted signup/login/logout/session refresh | UNRUN |
+| Hosted organizations/workspaces/memberships | UNRUN |
+| Hosted activation/leads/invitations | UNRUN |
+| Operational demo separation | Existing browser-local synthetic architecture preserved; no upload/migration performed; hosted data contents unverified |
+| Gmail OAuth refresh / scopes / sender identity | BLOCKED: server credentials absent; verify worker fails closed before external requests |
+| Approved sender / test recipient | Not configured/verified |
+| Four requested test emails | 0 sent; no real Gmail audit/delivery result |
+| Safety regressions | 28/28 outbound service tests passed, including 19 explicit external-verification examples/scenarios |
+| Unknown delivery | Local timeout/missing-confirmation/lost-audit-response simulations held as delivery_unknown (UNKNOWN_DELIVERY semantics), no automatic second attempt |
+
+The request's EMAIL_SEND_MODE=draft_only / test_recipient settings are **not enforced by the current worker**. Both existing send gates remain disabled; no --message command was run. General sending remains unauthorized. Consultation Confirmation and Workspace Invitation are not existing registry templates; consultation_reminder cannot substitute. A restricted mode/recipient enforcement and separately approved missing templates are launch blockers, not configuration steps that this verification task silently implements. Four same-recipient tests must also respect the existing one-per-24-hour cap and sender self-test gate.
+
+Exact missing configuration and safe setup instructions are in the latest section of `docs/OUTBOUND_SAFETY.md`, with migration/admin details in `docs/HOSTED_SUPABASE_VERIFICATION.md`. Required actual values: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXOPS_DEV_PROJECT_REF, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL, VITE_PUBLIC_SITE_URL; administrative access via CLI/token/password, secure DB URL or owner SQL Editor. Keep EMAIL_SEND_MODE=draft_only and NEXOPS_GMAIL_SEND_ENABLED=false; runtime DB gate disabled. An approved test recipient must be supplied separately; no implemented allowlist variable exists. Environment draft still contains pending public requirements only, no injected requirements or secrets.
+
+Local PostgreSQL validation results are recorded below after execution; these do not count as hosted Auth/RLS verification. No production deployment, unrestricted Gmail, billing change, RLS weakening or unrelated data deletion/overwrite occurred.
+
+Local SQL result: `NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite node --test supabase/tests/foundation.test.mjs supabase/tests/outbound.test.mjs` passed **17/17**. Covers real local PostgreSQL RLS organization/workspace isolation and escalation denial, atomic metadata bootstrap, activation, leads, invitation authorization/expiry, lifecycle consent, outbound default deny, five review decisions/history, immutable approvals, sender/test gates, claims, unknown holds, suppression and quotas. Auth/provider identities remain fixtures; public hosted signup/login/logout/refresh are not validated by this result. No application code changed, so no new build/lint/typecheck was necessary; neither lint nor typecheck script is configured.
