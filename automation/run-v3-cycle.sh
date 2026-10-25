@@ -1,6 +1,10 @@
 #!/bin/zsh
 set -euo pipefail
 
+# launchd has a minimal environment. Keep system/Homebrew/npm-local locations
+# available even before the installer-provided PATH is applied.
+export PATH="${PATH:-}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${HOME}/.local/bin:${HOME}/.npm-global/bin"
+
 REPO="${HOME}/stockwise-v2"
 MODE="${1:-scheduled}"
 LOG_DIR="${REPO}/logs"
@@ -46,16 +50,12 @@ if [ "${LOCAL}" != "${REMOTE}" ]; then
   exit 1
 fi
 
-# Development automation: safe code/test/docs work only. No production deploy.
 if [ "${MODE}" = "morning" ] || [ "${MODE}" = "night" ]; then
   /bin/zsh "${REPO}/automation/codex-v3.sh"
 fi
 
-# Always run the offline V3 preparation/summary path. This cannot publish live.
 node "${REPO}/scripts/outbound-automation.mjs"
 
-# Prepare eligible lifecycle queue entries only. Force live sending OFF even if
-# .env.local later changes. This command does not dispatch messages.
 python3 - <<'PY'
 from pathlib import Path
 import os, subprocess, sys
@@ -72,7 +72,6 @@ if env_file.exists():
         k, v = s.split("=", 1)
         env[k] = v
 
-# Hard safety override for scheduled runs.
 env["EMAIL_SEND_MODE"] = "draft_only"
 env["NEXOPS_GMAIL_SEND_ENABLED"] = "false"
 
