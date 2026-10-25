@@ -29,12 +29,14 @@ export function bookingUrl(value) {
 }
 export function createGrowthService(client) {
   if (!client) throw new Error('Supabase is not configured')
-  const result = async promise => { const {data,error}=await promise; if(error) throw new Error(error.message || 'Backend request failed'); return data }
+  const result = async promise => { const {data,error,status}=await promise; if(error) throw Object.assign(new Error(error.message || 'Backend request failed'),{code:error.code,status:status || error.status || (error.code==='42501'?403:undefined),transient:error.code==='PGRST000'||error.code==='PGRST001'||error.code==='PGRST002'}); return data }
   const rpc=(name,args={})=>result(client.rpc(name,args))
   return {
     bootstrap:()=>rpc('nexops_bootstrap'),
     workspaces:()=>result(client.from('nexops_workspaces').select('*').order('created_at')),
     profile:()=>result(client.from('nexops_profiles').select('*').single()),
+    organizations:()=>result(client.from('nexops_organizations').select('*')),
+    organizationMemberships:()=>result(client.from('nexops_organization_memberships').select('*')),
     memberships:()=>result(client.from('nexops_workspace_memberships').select('*')),
     activation:id=>result(client.from('nexops_activation').select('*').eq('workspace_id',id)),
     leads:id=>result(client.from('nexops_consultation_leads').select('*').eq('workspace_id',id).order('created_at',{ascending:false})),
