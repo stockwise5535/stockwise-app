@@ -1,5 +1,7 @@
 # Gmail automatic sending — gated implementation
 
+> Current local authorization setup: see “One-time LOCAL Mac Desktop OAuth bootstrap” at the end of this document. It uses a Desktop app client and temporary loopback callback; earlier dated setup notes are retained as history. Sending remains disabled.
+
 The user's later Gmail authorization permits automatic lifecycle mail **only after configured/tested OAuth and the specified safeguards**. It does not authorize mass cold email or bypass hosted database checks. Current status: code implemented locally; hosted Supabase and Gmail remain unconnected; no real email has been sent; no scheduler or production deployment has been installed.
 
 ## Pipeline and scope
@@ -203,3 +205,80 @@ Preparation resolves the canonical registered address and membership server-side
 Fake Gmail timeout, missing provider ID and unconfirmed HTTP response were exercised through the actual adapter into the dispatcher; each persisted delivery_unknown through the store interface and refused a second provider POST. Lost success-audit response also preserves UNKNOWN_DELIVERY semantics. Existing SQL tests verify protected ledger/token/terminal-state behavior. These are simulated provider/local SQL results, not real Gmail delivery or hosted mail-audit evidence. If the final outcome write itself fails, the existing sending claim remains held and is not retried. An operator must reconcile unknown/sending outcomes; neither a deterministic Message-ID nor HTTP success guarantees inbox delivery.
 
 No unrestricted delivery, real-customer send, hosted schema/RLS change, production deployment or billing change occurred. No credential value was exposed. Live setup and approvals remain the only path to the reviewed self-test and subsequently rate-limited four-template tests.
+
+## One-time LOCAL Mac Desktop OAuth bootstrap — 2026-10-24
+
+`scripts/gmail-oauth-bootstrap.mjs` now implements the initial authorization-code grant locally. It is separate from the existing backend refresh worker; it does not add a public application/server callback, deploy anything, change Supabase, create Gmail drafts, or send messages. Run it on the **same Mac as your browser**, never in the Cloud Environment or a shared/recorded terminal. It uses Node built-ins only (Node 22+; no npm installation needed for this helper).
+
+### 1. Create the exact Google client
+1. Open the intended project in **Google Auth Platform → Clients → Create client**.
+2. Choose application type **Desktop app**. Give it a recognizable name such as “Nexops local Gmail bootstrap.” Do not choose Web application, service account or Supabase Google login.
+3. Create the client and obtain its **Client ID** and **Client Secret** from the creation dialog/client details. If you download Google's client JSON, treat it as sensitive: keep it outside the checkout and store it securely; the helper does not need or read that file.
+4. Desktop clients do not require an application HTTPS redirect registration. The helper binds **127.0.0.1 only**, asks the OS for a temporary free port, and uses the exact redirect `http://127.0.0.1:<assigned-port>/` in both authorization and token exchange. The actual URI is included in the generated authorization URL. There is no fixed port, public callback URL, GMAIL_REDIRECT_URI setting or deployment step.
+5. Enable **Gmail API** in the same Google project. If the OAuth audience is External and in Testing, add the dedicated Nexops Gmail account as a test user. Workspace administrator policy may also need to allow this app. Do not bypass an administrator restriction.
+
+Requested scopes are **exactly**:
+```text
+https://www.googleapis.com/auth/gmail.send
+https://www.googleapis.com/auth/gmail.metadata
+```
+Metadata is genuinely required by the current worker: `createGmailSendAdapter.verifyConnection()` calls `GET /gmail/v1/users/me/profile` to compare the connected account with the configured/approved sender. Send-only does not authorize that profile read. No gmail.readonly, gmail.modify, gmail.compose, full mail scope, userinfo or OpenID scope is requested. The helper rejects a token response whose reported scopes differ from these two, including broader previous grants. Use a dedicated new Desktop client/grant if broader grants interfere.
+
+### 2. Set temporary client credentials in your Mac terminal
+Use a local checkout containing the helper. The following starts Bash explicitly so hidden-input syntax works even if your Mac normally uses zsh. Run these commands individually; paste values only into the hidden prompts, not into command text or chat:
+```bash
+bash
+cd /path/to/stockwise-app
+set +x
+node --version
+IFS= read -r -s -p 'Desktop OAuth Client ID: ' GMAIL_CLIENT_ID
+printf '\n'
+IFS= read -r -s -p 'Desktop OAuth Client Secret: ' GMAIL_CLIENT_SECRET
+printf '\n'
+export GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET
+export EMAIL_SEND_MODE=draft_only
+export NEXOPS_GMAIL_SEND_ENABLED=false
+node scripts/gmail-oauth-bootstrap.mjs
+```
+The helper does not require Supabase credentials, site URL, sender settings or a previously obtained refresh token. `--help` prints non-sensitive usage. Default browser-opening is deliberately manual: the script prints the Google authorization URL to the terminal. The URL contains the public client identifier, state and PKCE challenge, never the client secret or a token. Do not share that URL. Copy it into your **local Mac browser** while the script remains running.
+
+### 3. Authorize only the Nexops Gmail account
+Select the dedicated Nexops Gmail account in Google's account chooser and inspect the account address before approving. The request uses `access_type=offline`, `prompt=consent select_account`, fresh cryptographic state and S256 PKCE; it does not include previously granted scopes. Consent must include both required scopes. The temporary callback receives a short-lived code, validates state/host/method/path and rejects duplicate/invalid callbacks. The browser page shows only static instructions, not codes or tokens. Its response disables caching/referrers; the listener shuts down after success, denial, cancellation or a five-minute timeout. Ctrl-C cancels. The token exchange has a bounded timeout and no automatic retry.
+
+The helper exchanges the code at Google's token endpoint, keeps access-token material in memory without displaying it, and **prints only the resulting refresh token once to interactive stdout**. Other instructions/status and the authorization URL go to stderr. The token is not assigned to a shell variable automatically, written to a file, copied to the clipboard, committed, or sent to Nexops/Supabase. Output is refused when stdout is not an interactive terminal: do not use `>`, `tee`, pipes, shell command substitution or session recording. The exported function's automated tests use fake tokens/transports; no actual Google credentials were used here.
+
+### 4. Store securely and configure the backend
+Copy the one displayed refresh token directly into your password manager and the **secure Cloud Environment setting named `GMAIL_REFRESH_TOKEN`**. Do not paste it into chat, a literal `export` command, source, .env files in the checkout, tickets, screenshots or git. Store the Desktop client's ID and secret securely in the backend settings as well; refresh tokens are bound to their issuing client. Do not mix credentials from a Web client or a second Desktop client.
+
+Configure these exact server settings:
+
+| Variable | Required value/source |
+| --- | --- |
+| GMAIL_CLIENT_ID | This Desktop client's ID |
+| GMAIL_CLIENT_SECRET | The same Desktop client's secret |
+| GMAIL_REFRESH_TOKEN | The single token returned by this helper |
+| GMAIL_SENDER_EMAIL | The dedicated Nexops Gmail account actually authorized in Google |
+| NEXOPS_GMAIL_APPROVED_SENDER | Independently approved sender address; exact match to GMAIL_SENDER_EMAIL |
+| NEXOPS_GMAIL_TEST_RECIPIENT | Explicitly approved Nexops development test address; never a real customer |
+| EMAIL_SEND_MODE | **draft_only** |
+| NEXOPS_GMAIL_SEND_ENABLED | **false** |
+
+Keep the database mail runtime disabled too. For the later reviewed first self-test, the configured test recipient must equal the sender itself and meet the existing confirmed-account/membership/opt-in requirements; setting that address now does not send anything. Do not transition modes or enable either send gate as part of bootstrap. Existing backend URL/development-reference/service-key/site-origin prerequisites for queue operations remain unchanged; the local helper neither needs nor creates them.
+
+After securely saving the token, clear temporary client credentials in the local Bash session:
+```bash
+unset GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET GMAIL_REFRESH_TOKEN
+exit
+```
+Clear sensitive terminal scrollback and the clipboard after storage using your terminal/password manager's controls. The script cannot erase a displayed secret or a terminal recording. Do not rerun just to redisplay the token; it has no saved copy. Google can expire/revoke refresh tokens. In particular, an External OAuth app left in Testing generally issues Gmail-scope refresh tokens that expire after seven days; this helper cannot make them permanent. Review Google's audience/verification requirements before relying on a long-lived grant; no OAuth publishing or application deployment is performed by this task.
+
+### 5. Verify without sending
+Once settings are saved/injected in the backend, leave draft_only/false in place and run:
+```bash
+node --use-env-proxy scripts/outbound-worker.mjs --verify-oauth
+```
+This performs token refresh, scope checks and read-only Gmail profile verification against the independently approved sender. It sends no email and writes no database records. Only this subsequent check establishes that the grant belongs to the expected sender; successful local bootstrap alone does not assert the account identity. Sender self-test/template tests remain separate, reviewed, rate-limited stages as documented above.
+
+If consent is denied, the listener times out, scopes differ, Google rejects exchange, or no refresh token is returned, the helper exits with a static error and never prints provider response bodies or tokens. Check the Desktop client/account/test-user configuration and rerun a fresh authorization URL; revoke only the dedicated client's account grant if needed before obtaining consent again. Do not revoke unrelated integrations, disable sender checks, widen scopes or enable sending to resolve an OAuth error.
+
+Validation: **13 local bootstrap tests passed (57 total with affected OAuth/runtime/growth safety regressions)**, covering exact scope/loopback/offline/PKCE construction, successful fake exchange, wrong state/host/path/method/duplicate parameters, duplicate callbacks, denial, cancellation/timeout cleanup, missing/broader grants, missing/invalid refresh tokens, sanitized network/provider/JSON failures and refused redirected stdout. These tests use real local HTTP callbacks with fake Google responses. No real OAuth authorization/token was obtained, no email was sent, and no Supabase schema/RLS, send mode, production state or deployment was changed.
