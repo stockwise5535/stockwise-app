@@ -23,5 +23,5 @@ try{
  assert.equal(await staticPage.locator('a[href="/signup"]').textContent(),'Start Free')
  await staticPage.goto(base+'/ja');assert.ok(await staticPage.locator('h1').textContent())
  await nojs.close();assert.deepEqual(errors,[])
- console.log('Public growth routes passed: English/Japanese static SEO content without JS, privacy/terms drafts, graceful unconfigured signup/login, mobile and no runtime errors.')
+ console.log('Public growth routes passed: English/Japanese static SEO content without JS, product-specific Privacy/Terms documents, graceful unconfigured signup/login, mobile and no runtime errors.')
 }finally{await browser.close()}

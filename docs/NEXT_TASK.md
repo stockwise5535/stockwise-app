@@ -213,7 +213,10 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ## Status
 
-- State: READY
+- State: COMPLETE — product-specific Privacy/Terms drafts implemented; publication details and professional review remain human follow-ups
+- Completed: 2026-10-25
+- Validation: 106 unit/security tests, 17 SQL tests, legal/public/Growth/release browser regressions and production build passed.
+- Product-readiness result: obsolete placeholder-copy blocker resolved; public launch still requires the seven publication settings and professional review documented in docs/APAC_GROWTH_SYSTEM_REPORT.md.
 - Deployment: NOT REQUESTED
 - Billing activation: FORBIDDEN FOR THIS TASK
 - Email sending: FORBIDDEN FOR THIS TASK

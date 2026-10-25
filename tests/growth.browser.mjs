@@ -113,7 +113,15 @@ try{
  assert.equal(internalDataCalls,0)
  await page.getByRole('button',{name:'Return to Product',exact:true}).click()
  await page.setViewportSize({width:1440,height:1000})
- await page.getByRole('button',{name:'Account',exact:true}).click();await page.getByLabel('Company / workspace name').fill('Customer workspace');await page.getByRole('button',{name:'Create empty customer workspace',exact:true}).click()
+ // Existing authenticated Account links must reach the actual legal documents without changing auth.
+ await page.getByRole('button',{name:'Account',exact:true}).click()
+ for(const [path,title]of [['/privacy','Privacy Policy'],['/terms','Terms of Service']]){
+  await page.locator('.growth-card').filter({has:page.getByRole('heading',{name:'Account and workspaces',exact:true})}).locator(`a[href="${path}"]`).click()
+  await page.getByRole('heading',{name:title,level:1,exact:true}).waitFor()
+  await page.getByRole('link',{name:'Account and preferences',exact:true}).click()
+  await page.getByRole('heading',{name:'Account and workspaces',exact:true}).waitFor()
+ }
+ await page.getByLabel('Company / workspace name').fill('Customer workspace');await page.getByRole('button',{name:'Create empty customer workspace',exact:true}).click()
  await page.waitForFunction(()=>document.querySelector('select[aria-label=Workspace]')?.selectedOptions[0]?.textContent.includes('customer'))
  await page.getByRole('button',{name:'Product',exact:true}).click();await page.getByRole('heading',{name:'Your customer workspace',exact:true}).waitFor();assert.equal(await page.getByLabel('Getting started with Nexops',{exact:true}).count(),0)
  await page.reload();await page.getByRole('heading',{name:'TODAY',exact:true}).waitFor()

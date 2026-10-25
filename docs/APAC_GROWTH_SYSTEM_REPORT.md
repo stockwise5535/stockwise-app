@@ -590,7 +590,7 @@ No migration/schema/RLS/bootstrap-RPC change was necessary. Existing activation 
 
 ### Release blockers
 
-1. `/privacy` and `/terms` explicitly remain drafts in `src/growth/Landing.jsx`. Privacy contact, retention/subprocessor details and final service terms require approval before public launch. No legal commitments were invented during QA.
+1. **Placeholder-copy implementation resolved by the subsequent Privacy/Terms task below.** Both routes now contain product-specific documents rather than the original short placeholders. Verified operator/contact/publication details and professional legal review remain necessary before public launch; this is not a legal certification or unconditional release approval.
 2. **Resolved in the subsequent checkout-hardening task below.** The original legacy endpoint accepted unauthenticated browser identity/price/plan metadata, later trusted by the webhook. The release-readiness QA itself did not change billing; the subsequently authorized fix replaces that contract and keeps billing disabled. No deployed endpoint or real payment was exercised.
 
 ### Verification results
@@ -679,3 +679,63 @@ Production build passed. A scan of 119 current repository/build/test-log files a
 Files: api/create-checkout-session.js; api/stripe-webhook.js; new services/billing-config.js; src/components/PricingModal.jsx; new src/billing/checkout.js; new tests/checkout.test.js and tests/checkout.browser.mjs; this report and docs/NEXT_TASK.md Status.
 
 **No schema/RLS/RPC/migration change was necessary. No hosted database writes, real provider calls, checkout sessions, charges, emails or deployment occurred.** Billing activation/configuration, Gmail sending/settings/templates/queues/assignments and legal copy were unchanged. Only tests use explicit enabled fixture configuration; the actual runtime remains disabled. Work is committed locally without pushing or merging into main.
+
+## PRODUCT-SPECIFIC PRIVACY POLICY AND TERMS — 2026-10-25
+
+**Product-readiness result: the obsolete legal placeholder-copy blocker is RESOLVED.** `/privacy` and `/terms` now provide substantive, product-specific drafts. **Public Production publication is still pending verified operator details and professional legal review.** This work does not claim attorney approval, legal compliance/certification or an enforceable jurisdiction-specific liability allocation.
+
+### What changed and evidence used
+
+Replaced the short inline “draft for review” blocks with Privacy Policy (11 sections) and Terms of Service (14 sections). Shared public publication settings and structured document content live in src/growth/legalContent.js; src/growth/LegalDocument.jsx renders headings, a keyboard-operable contents list, section anchors, visible pending-publication details and Account/other-document/product links. Legal pages use Stockwise product branding with the Nexops managed-service context, document-specific titles/descriptions, readable line widths, wrapping and mobile/print styles. Existing signup/account/footer links remain usable; Account and preferences returns to the actual account view. No acceptance checkbox or new auth gate was added.
+
+| Product statement | Repository evidence / reflected limits |
+| --- | --- |
+| Account/workspace/profile data and essential progress events | AuthContext.jsx, growth/service.js and the existing foundation/lifecycle migrations. Signed-in progress is distinct from consented optional analytics. Roles scope access; a customer owner is not automatically an internal administrator. |
+| Operational data separation | operations/OperationsWorkspace.jsx stores synthetic demo edits locally; GrowthApplication.jsx creates empty customer workspaces. Legacy App.jsx supports intentional CSV/local planning inputs and inventory persistence to Supabase. Documents distinguish those existing inputs from unimplemented managed-service ingestion/ERP connections. Sign-out does not automatically clear local demo data. |
+| Consultation information and qualification | GrowthApplication.jsx consultation fields and nexops_submit_consultation persist submitted business details and heuristic qualification. Requests/acknowledgments do not confirm bookings, scope, outcomes or engagements. Permitted contact export is described without claiming automatic CRM integration. |
+| Analytics/storage choices | growth/analytics.js, AnalyticsConsent.jsx and cleanProperties: optional PostHog requires consent; limited event context and browser/account identifiers may be linked. Contact/form/file data is excluded from analytics payloads. Withdrawal is prospective and browser-specific, not deletion of essential service events. |
+| Providers and communications | Supabase Auth/database, Vercel architecture, operator-controlled Google/Gmail sender and optional PostHog are described according to current support. A configured Google Calendar link is a separate chosen service. No customer-mailbox synchronization, blanket vendor certification or verified processor/transfer contract is invented. Restricted Gmail tests, consent/suppression/review controls and disabled-default sending are distinguished from a general production mail service. |
+| Deletion/retention | nexops_request_deletion and Account record a request for an administrator; they do not claim immediate account closure, automatic purge, a fixed response SLA or backup erasure. Shared ownership and local copies require follow-up. No automatic retention schedule exists in the current implementation. |
+| Free access and billing | Foundation profile dates run 30 days from registration; the managed-service flow has no card/payment wall or automatic paid conversion. Checkout remains separately gated/disabled; its legacy code is not presented as an active paid offer. No permanent free access or automatic expiry/deletion behavior is promised. |
+| Decision support and safeguards | Existing operations actions/decisions, internal permissions and outbound review gates. Recommendations do not authorize PO/supplier/payment/contract changes, guarantee results or establish a service-level commitment. |
+
+### Exact human-completion fields
+
+No verified public legal settings were found in the current product configuration or corresponding environment-variable names. The following **seven public publication settings** are centralized in legalPublication in src/growth/legalContent.js and visibly marked where relevant. Complete them only with verified facts and approved wording; test Gmail addresses and cloud-region guesses are not legal contacts/jurisdictions.
+
+| Marker | Required human completion |
+| --- | --- |
+| LEGAL_ENTITY_NAME | Actual service operator's legal name |
+| BUSINESS_ADDRESS | Verified operator business/registered contact address |
+| PRIVACY_CONTACT | Verified channel for privacy questions/requests |
+| SERVICE_LEGAL_CONTACT | Verified service/security/legal contact channel |
+| EFFECTIVE_DATE | Approved publication/effective date, not a generated development date |
+| GOVERNING_LAW_AND_FORUM | Applicable governing law and forum selected with professional review |
+| RETENTION_SCHEDULE | Approved retention periods, deletion handling, provider logs/backups and applicable exceptions |
+
+Professional review must also settle any appropriate warranty/liability allocation and international-processing disclosures/arrangements. The drafts deliberately contain no invented monetary cap, indemnity, age-verification process, DPO, regulator registration, residency guarantee, transfer mechanism or certification. The operator's country/jurisdiction is not inferred from Vercel, Supabase or a US cloud processing possibility. These are explicit publication follow-ups, not silent product features or facts claimed complete. **Professional legal review is recommended and remains required by the publication notice before public Production launch.**
+
+### Verification
+
+```sh
+node --test tests/*.test.js
+NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/legal.browser.mjs
+NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176 NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/growth.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:4180 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/legal.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:4180 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/public-growth.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:4180 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/release.browser.mjs
+npm run build
+NEXOPS_TEST_URL=http://127.0.0.1:4181 NEXOPS_PLAYWRIGHT_PATH=/tmp/nexops-browser/node_modules/playwright-core node tests/legal.browser.mjs
+git diff --check
+```
+
+**106 unit/security tests and 17 SQL tests passed, zero failures.** Browser checks passed for direct/refreshed legal routes, signup/footer links, authenticated Account → legal document → Account, document metadata, publication fields, keyboard section navigation, 320px/390px/desktop layout, no new acceptance gate, no internal IDs/debug terms and no external requests on the public legal suite. Existing Growth signup/confirmation/retry/onboarding/internal permissions/consultation/invitation/logout-login regressions passed. Public localized/static/no-JS landing checks, missing-config signup/login and the 19-route production-preview smoke passed. The legal pages themselves remain client-rendered under existing SPA routing; no new no-JS legal rendering claim is made. Privacy/Terms mobile screenshots in /tmp were visually inspected.
+
+Production build passed. Port 5176 used an isolated local public-key fixture; port 4180 served an unconfigured fixture production build (empty VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and VITE_PUBLIC_SITE_URL; outDir /tmp/nexops-legal-public/dist, with SEO generation in that directory). Port 4181 served the final npm production build after the last prose refinement. Test dependencies remain in /tmp; these are local previews, not Vercel deployment verification. No lint/type-check script exists.
+
+Search found no old inline legal-placeholder phrases in customer source/rendered documents. The intentional human-completion fields and publication-review notice remain visible. A scan of 126 current source/build/test-log files against five configured secret values and service-role JWT detection found no exposure; values were not printed. This does not audit historical Git blobs or external logs. Public document checks also reject operational UUIDs and internal environment/RPC/RLS identifiers.
+
+Files changed: src/growth/Landing.jsx, new src/growth/LegalDocument.jsx, new src/growth/legalContent.js, src/growth/growth.css, new tests/legal.browser.mjs, tests/growth.browser.mjs, tests/public-growth.browser.mjs, docs/APAC_GROWTH_SYSTEM_REPORT.md and docs/NEXT_TASK.md Status.
+
+**Schema/RLS/RPC/migrations unchanged. No hosted database writes, email, billing activation, Gmail/configuration/template/queue changes, deployment or push.** No legal entity/contact/governing law was guessed, no new personal-data collection/tracker was added and no legal certification is claimed.
