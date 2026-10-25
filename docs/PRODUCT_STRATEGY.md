@@ -2,9 +2,9 @@
 
 ## 1. North-star goal
 
-Build Stockwise / Nexops into a secure, scalable managed supply-chain operations platform that can grow toward **up to 10,000 users across APAC** while preserving customer trust, operational value, security, and manageable operating cost.
+Build Stockwise / Nexops into a secure, scalable managed supply-chain operations platform with an explicit initial growth objective of reaching **10,000 users across APAC within one month of the growth launch**, while preserving customer trust, operational value, security, and manageable operating cost.
 
-The 10,000-user figure is a **product, growth, architecture, and operations readiness target**, not a guaranteed business forecast.
+The 10,000-user-in-one-month objective is an **aggressive growth target and operating goal**, not a guaranteed forecast. Product, growth, infrastructure, onboarding, analytics, and operations should be designed so that this target can be pursued and measured without weakening safety or data isolation.
 
 The platform should help APAC companies identify supply-chain exceptions, prioritize them, review recommended actions, and move safely from insight to human-approved action.
 
@@ -35,6 +35,23 @@ Project Operations may be added later, but current development should prioritize
 The product is decision support. It must not automatically modify purchase orders, suppliers, payment terms, contracts, refunds, compensation, or other external commitments without explicit human authorization.
 
 ## 4. Growth model
+
+### 30-day APAC growth objective
+
+The initial growth sprint target is **10,000 users in APAC within 30 days**.
+
+This target should shape launch planning, funnel instrumentation, acquisition experiments, onboarding capacity, operational support, and scalability checks.
+
+The team should track daily progress toward this objective and distinguish:
+- visitors,
+- signups,
+- activated users,
+- retained/returning users,
+- consultation requests,
+- qualified managed-service opportunities.
+
+10,000 registered accounts alone is not sufficient evidence of success if activation and retention are weak.
+
 
 The primary growth funnel is:
 
