@@ -133,3 +133,6 @@ Local PostgreSQL foundation + outbound suites passed 17/17 during this verificat
 
 ## Supabase connectivity update — 2026-10-24
 The public Supabase variables are now injected and proxy-aware read-only Auth connectivity succeeds (HTTP 200; confirmation required). Foundation table probes returned 404 and still require catalog/admin investigation. Hosted RLS/Auth/workflow tests remain unrun pending independent development identity/admin access and two confirmed test accounts. No migration or email was sent. Gmail connection/mode/template blockers above remain unchanged; Supabase connectivity does not authorize sending. See the latest hosted-retry section in APAC_GROWTH_SYSTEM_REPORT.md for narrowed missing settings.
+
+## Development credential retry — 2026-10-24
+Hosted test A/B login, refresh, restored-session identity and logout now pass. Database credentials are present but the direct endpoint is IPv6-only and unreachable (ENETUNREACH); foundation REST resources return PGRST205. Hosted RLS/migrations/operational persistence remain unverified. Replace the secure SUPABASE_DB_URL with the actual development dashboard Session pooler URI to resume catalog inspection. No Gmail/Supabase email endpoint or sender enablement was used; all prior mode/template/test-recipient launch blockers remain in effect.

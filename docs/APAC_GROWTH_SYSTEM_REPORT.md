@@ -230,3 +230,37 @@ Do not re-enter the two working public settings. In secure Cloud Environment set
 For authenticated checks securely supply `NEXOPS_TEST_USER_A_EMAIL`, `NEXOPS_TEST_USER_A_PASSWORD`, `NEXOPS_TEST_USER_B_EMAIL`, `NEXOPS_TEST_USER_B_PASSWORD` for two distinct confirmed development accounts. Inspect development Auth hooks/email delivery before public signup tests; do not disable confirmation/RLS. Run `supabase/hosted_catalog_inventory.sql` read-only before selecting among migration candidates 001–003; compare actual schema/history and apply only required additive migrations. Never infer missing migrations solely from the above 404 responses.
 
 When retrying Node hosted requests in this environment use `node --use-env-proxy` (or the equivalent supported environment-proxy configuration); do not disable TLS verification or print raw transport errors that may contain the configured URL. No application source/schema/test changes were needed for this retry.
+
+## HOSTED RETRY WITH DEVELOPMENT DB AND TEST ACCOUNTS — 2026-10-24
+
+### Configuration and target checks
+The runtime now contains the public settings, SUPABASE_DB_URL, NEXOPS_DEV_PROJECT_REF and both test-account email/password bindings. Values, hostnames, account identifiers, tokens and response bodies were not printed. The API hostname matches the independently supplied development reference; the database hostname/username also identifies that reference. No production endpoint was selected. SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD remain absent, but are not required if the supplied database URI becomes reachable.
+
+### Live hosted results
+| Check | Result |
+| --- | --- |
+| Test User A password login | PASS; confirmed email |
+| Test User B password login | PASS; confirmed email |
+| Two distinct authenticated identities | PASS; IDs compared in memory, not logged |
+| Session refresh, both users | PASS |
+| Session restoration into new SDK clients + server getUser identity validation, both users | PASS; tokens held only in memory |
+| Auth signOut with local scope and local session removal, both users | PASS; not a browser restart/storage test or proof that issued JWTs immediately expire |
+| Authenticated profiles/workspaces/consultation-leads probes, both users | HTTP 404 / PGRST205 (resource absent from schema cache); not a policy-denial test |
+| Owner database/catalog inspection | BLOCKED: direct database endpoint has IPv6 only; IPv4 DNS lookup has no record; PostgreSQL client returned ENETUNREACH |
+| Required migration determination | BLOCKED by catalog access; no migration inferred missing from REST cache responses |
+| Migration application | NOT RUN; zero migrations applied |
+| Hosted RLS definitions / grants / function inspection | NOT RUN |
+| Organization/workspace creation, activation and consultation persistence | NOT RUN; schema/catalog prerequisites unresolved |
+| Invitation creation/acceptance/role denial | NOT RUN; requires functioning foundation schema |
+| Cross-organization read/write denial with A/B | NOT RUN; distinct identities verified, but unavailable resources cannot establish isolation |
+| Public signup | NOT RUN; no emails authorized, delivery/hooks remain uninspected |
+| Synthetic demo separation | No browser snapshot/operational demo records uploaded; hosted enforcement still not verified |
+
+The PostgreSQL probe used pg 8.16.3 installed outside the repository with TLS certificate validation enabled and a bounded timeout. DNS diagnostics recorded only address-family counts/error codes. The existing HTTPS proxy supports API checks; it does not make the direct PostgreSQL IPv6 endpoint reachable. No TLS bypass, RLS weakening, signup/resend/recovery/Auth invite endpoint, Gmail send, schema write, application RPC mutation or unrelated data deletion occurred. Login/refresh/logout naturally updated the test accounts' Auth sessions; no existing application customer records were changed.
+
+### Exact remaining setup
+In the **development Supabase dashboard → Connect**, select the **Session pooler** connection string (IPv4-compatible; usually port 5432). Copy the dashboard-provided URI for this exact project, fill in the database password there, and replace **SUPABASE_DB_URL** through secure Cloud Environment settings. Use the dashboard's actual pooler host/user; do not guess a region/hostname, paste values into chat, or put the connection string in a VITE_ variable. Save/apply the setting so it reaches the runtime, then confirm it is saved. Keep certificate validation enabled and permit the exact pooler hostname/port through any applicable network controls. A reachable approved IPv4 direct connection is also acceptable.
+
+Alternative: owner SQL Editor can run `supabase/hosted_catalog_inventory.sql` read-only and supply sanitized metadata, or securely configure management CLI access; neither alternative was used here. Once catalog/history access works, inspect existing objects and only then determine/apply missing additive migrations 001–003 to the confirmed development project. Never reset, overwrite unrelated schema, infer absent migrations from PGRST205, or disable RLS for tests. Existing test-user bindings work and do not need replacing.
+
+No application implementation changes were made. Harnesses/dependencies stayed under /tmp and credentials were neither written to files nor included in reports. These hosted observations supersede the previous missing-test-account/admin-credential status; the remaining DB blocker is network reachability, not absent SUPABASE_DB_URL.
