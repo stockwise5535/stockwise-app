@@ -5,9 +5,20 @@ REPO="$HOME/stockwise-v2"
 LOG_DIR="$REPO/logs"
 STAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
 LOG_FILE="$LOG_DIR/codex-nightly-$STAMP.log"
+LOCK_DIR="$LOG_DIR/codex-v3.lock"
 
 mkdir -p "$LOG_DIR"
 cd "$REPO"
+
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  echo "STOP: Stockwise Codex Automation V3 はすでに実行中です。" | tee -a "$LOG_FILE"
+  exit 0
+fi
+
+cleanup_lock() {
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+}
+trap cleanup_lock EXIT INT TERM
 
 echo "=== Stockwise Codex Automation V3 ===" | tee -a "$LOG_FILE"
 echo "Start: $(date)" | tee -a "$LOG_FILE"
