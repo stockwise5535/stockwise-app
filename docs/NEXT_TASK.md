@@ -179,7 +179,7 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ### Status
 
-- State: BLOCKED
+- State: READY
 - Deployment: NOT REQUESTED
 - Production promotion: FORBIDDEN
 - Billing: FORBIDDEN
@@ -188,15 +188,17 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ### 2026-10-25 implementation checkpoint
 
-Safe offline preparation implemented and tested; **V3 live/unattended delivery is not
+Safe offline preparation is implemented and tested; **V3 live/unattended delivery is not
 complete**. See `docs/OUTBOUND_AUTOMATION_V3.md` and the latest report section.
-Current user instruction forbids Gmail send enablement, external mail,
-secret/OAuth changes and schema/RLS changes. No such operation was performed.
-Gmail mode/templates/review/runtime remain unchanged. Buffer and Gmail credentials
-are absent from the current process; CONFIGURATION REQUIRED is not a code failure.
-No live runner or scheduler is installed. All social items remain review-required.
-Further runtime configuration/enablement must stop under the current authorization.
-Remaining implementation includes automatic-email mode/versioned templates and
-source verification, shared durable social claims/reconciliation, public-copy
-approval/versioning and explicit controlled live verification. Do not mark COMPLETE
-or claim 10,000-user delivery readiness from these mock/local tests.
+The user now explicitly authorizes unattended execution only for the lifecycle-email
+allowlist and the approved public X/Threads social allowlist defined above, once the
+existing safety gates and a bounded live verification succeed. High-risk categories,
+OAuth/secret changes, schema/RLS changes, production deployment, billing, customer-data
+deletion and irreversible production changes remain blocked.
+Buffer and Gmail credentials may be supplied only through secure runtime configuration;
+missing credentials are CONFIGURATION REQUIRED, not a code failure.
+Remaining implementation includes automatic-email mode/versioned templates and source
+verification, durable social claims/reconciliation, public-copy approval/versioning,
+runner overlap protection, and explicit one-message / one-X / one-Threads controlled
+live verification before broad unattended operation. Do not mark COMPLETE or claim
+10,000-user delivery readiness from mock/local tests alone.
