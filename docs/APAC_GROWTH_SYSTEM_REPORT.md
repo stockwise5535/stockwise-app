@@ -200,3 +200,33 @@ Exact missing configuration and safe setup instructions are in the latest sectio
 Local PostgreSQL validation results are recorded below after execution; these do not count as hosted Auth/RLS verification. No production deployment, unrestricted Gmail, billing change, RLS weakening or unrelated data deletion/overwrite occurred.
 
 Local SQL result: `NEXOPS_PGLITE_PATH=/tmp/nexops-db-tests/node_modules/@electric-sql/pglite node --test supabase/tests/foundation.test.mjs supabase/tests/outbound.test.mjs` passed **17/17**. Covers real local PostgreSQL RLS organization/workspace isolation and escalation denial, atomic metadata bootstrap, activation, leads, invitation authorization/expiry, lifecycle consent, outbound default deny, five review decisions/history, immutable approvals, sender/test gates, claims, unknown holds, suppression and quotas. Auth/provider identities remain fixtures; public hosted signup/login/logout/refresh are not validated by this result. No application code changed, so no new build/lint/typecheck was necessary; neither lint nor typecheck script is configured.
+
+## HOSTED RETRY AFTER PUBLIC VARIABLES SAVED — 2026-10-24
+
+The two public settings are now present in the running Cloud Environment. Their values, project reference and HTTP response bodies were withheld from logs/chat. Saved network configuration is unrestricted; no network configuration was changed.
+
+The initial Node fetch failed with ECONNREFUSED because it did not use this environment's configured HTTP proxy. A read-only curl request using the configured proxy returned HTTP 200. Re-running the existing preflight with Node's `--use-env-proxy` completed four read-only requests:
+
+| Hosted check | Observed result |
+| --- | --- |
+| Auth `/auth/v1/settings` | HTTP 200; connectivity/public key accepted |
+| Email confirmation setting | Required; unchanged |
+| Anonymous profiles probe | HTTP 404: missing or not exposed |
+| Anonymous workspaces probe | HTTP 404: missing or not exposed |
+| Anonymous consultation-leads probe | HTTP 404: missing or not exposed |
+| Migration history / exact required migrations | BLOCKED pending catalog/admin access; 404 does not establish unapplied migrations |
+| RLS policy definitions / authenticated isolation | UNRUN; no catalog or user sessions available |
+| Signup/login/logout/session refresh | UNRUN; no confirmed test-account credentials; signup mail/hooks not inspected |
+| Organization/workspace/membership creation | UNRUN; requires confirmed development target and authenticated sessions |
+| Activation/consultation/invitation persistence | UNRUN for the same reason |
+| Cross-organization denial | UNRUN; must use two distinct ordinary authenticated identities, not an admin bypass |
+| Demo/customer separation | No synthetic operational data uploaded; hosted separation remains unverified |
+
+No hosted migration, RPC write, account creation, email, production deployment, billing operation, RLS change or deletion occurred. Existing local passing tests are not substituted for these hosted checks.
+
+### Remaining setup, now narrowed
+Do not re-enter the two working public settings. In secure Cloud Environment settings add independently confirmed development target `NEXOPS_DEV_PROJECT_REF`. For catalog/migrations supply either `SUPABASE_DB_URL` (secure development PostgreSQL connection), or `SUPABASE_ACCESS_TOKEN` plus `SUPABASE_DB_PASSWORD` for official CLI linkage; owner SQL Editor access is an alternative. Public anon credentials cannot perform schema administration. No CLI link/config or stored CLI token exists in this runtime.
+
+For authenticated checks securely supply `NEXOPS_TEST_USER_A_EMAIL`, `NEXOPS_TEST_USER_A_PASSWORD`, `NEXOPS_TEST_USER_B_EMAIL`, `NEXOPS_TEST_USER_B_PASSWORD` for two distinct confirmed development accounts. Inspect development Auth hooks/email delivery before public signup tests; do not disable confirmation/RLS. Run `supabase/hosted_catalog_inventory.sql` read-only before selecting among migration candidates 001–003; compare actual schema/history and apply only required additive migrations. Never infer missing migrations solely from the above 404 responses.
+
+When retrying Node hosted requests in this environment use `node --use-env-proxy` (or the equivalent supported environment-proxy configuration); do not disable TLS verification or print raw transport errors that may contain the configured URL. No application source/schema/test changes were needed for this retry.
