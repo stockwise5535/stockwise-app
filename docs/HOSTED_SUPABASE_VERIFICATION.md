@@ -59,3 +59,50 @@ Replace SUPABASE_DB_URL securely with the exact development project's dashboard 
 
 ## Session-pooler retry — 2026-10-24
 The new pooler URI is active and matches the explicit development target; DNS provides IPv4. Direct PostgreSQL returns ECONNREFUSED. A configured-proxy CONNECT receives 200, but PostgreSQL SSL/TLS/auth startup terminates before a session/query. No catalog/history or migration operation completed; password validity remains unknown. Keep TLS checks intact. Obtain supported PostgreSQL transport, or securely provide owner-authorized SUPABASE_ACCESS_TOKEN to test the HTTPS management database-query route, or use development SQL Editor for the read-only inventory. Do not keep changing the target or infer schema state from API 404s. A/B hosted login, refresh, restored server identity and logout still pass; persistence/invitation/isolation remain unrun. Detailed evidence is in the latest APAC report.
+
+## HTTPS Management API retry — 2026-10-24
+SUPABASE_ACCESS_TOKEN is present; its value was never logged. The configured API origin matches NEXOPS_DEV_PROJECT_REF. The selected project's Management API metadata endpoint returned HTTP 500 on initial request and one corroborating retry. A separately bounded read-only database query (`begin read only; select 1; commit;`, request read_only=true) also returned HTTP 500. Response bodies were withheld. No metadata identity was established by the service response, no catalog/history result was obtained, and no write/migration was attempted. HTTP 500 does not establish invalid credentials or a specific provider/proxy root cause. Stop remote database work pending a working administrative path.
+
+### Exact local CLI fallback
+Run from the existing local checkout of `codex/managed-service-mvp`, preserving uncommitted work. Use a trusted local terminal with Node/npm, official Supabase CLI (via npx below) and PostgreSQL psql available. These commands do not email users. Keep shell tracing off; do not paste credentials into chat. Supply values locally from the development dashboard. Interactive reads avoid recording secret values in shell history:
+
+```bash
+cd /path/to/stockwise-app
+set +x
+read -r -p 'Development project reference: ' NEXOPS_DEV_PROJECT_REF
+export NEXOPS_DEV_PROJECT_REF
+read -r -s -p 'Supabase management access token: ' SUPABASE_ACCESS_TOKEN
+export SUPABASE_ACCESS_TOKEN
+read -r -s -p 'Development Session pooler PostgreSQL URI: ' SUPABASE_DB_URL
+export SUPABASE_DB_URL
+# Use the actual dashboard URI with a correctly URL-encoded password and TLS verification.
+# psql uses libpq TLS settings; provide the trusted CA if needed, never disable verification.
+export PGSSLMODE=verify-full
+
+npx --yes supabase --version
+if [ ! -f supabase/config.toml ]; then npx --yes supabase init; fi
+# Confirm this exact reference is the DEVELOPMENT project in the dashboard first.
+# Link may securely prompt for the database password. Do not put it in a command argument.
+npx --yes supabase link --project-ref "$NEXOPS_DEV_PROJECT_REF"
+
+# Read-only owner catalog/RLS/grant/function/trigger metadata inspection:
+psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/hosted_catalog_inventory.sql
+
+# Inspect CLI history (do not repair or infer absence from missing history):
+npx --yes supabase migration list --linked
+# Only if the inventory confirms the history table exists:
+psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c 'select version,name from supabase_migrations.schema_migrations order by version;'
+
+# Read-only migration planning, no application:
+npx --yes supabase db push --linked --dry-run
+```
+
+Before applying anything, compare actual definitions/history to the three local 202610240001–003 candidates. Stop on existing unrecorded/partial objects, drift, unrelated pending migrations, wrong target, failed connection or TLS errors. Do not use reset, --include-all, blind migration repair, replace existing policies or disable RLS. The dry run alone does not prove a migration is non-destructive; review the SQL and compatibility with existing triggers/tables. In particular, migration 001 backfills metadata profiles for existing Auth users and adds a signup trigger; do not rerun it against existing objects. Preserve existing schemas/data.
+
+Only when that comparison verifies the missing additive set and all pending files are approved for this development project, the application command is:
+```bash
+npx --yes supabase db push --linked
+```
+This is a gated later step, not part of the inspection block. If the local CLI also cannot reach the project/database, use the development dashboard SQL Editor for the read-only inventory and resolve administrative connectivity before any application. Do not publish, reset, or use production to work around connectivity failures.
+
+After successful schema application/verification, use the previously documented A/B authenticated API checks, with ordinary user JWTs for isolation, retaining labeled development fixtures only. Public signup remains excluded until no-email delivery is verified; invitation RPCs must not call Auth invite/email endpoints. Local Postgres tests alone do not count as hosted verification. Do not share raw dumps, tokens, DB URIs or test-user credentials; report sanitized pass/fail/catalog metadata only.

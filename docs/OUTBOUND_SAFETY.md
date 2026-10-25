@@ -139,3 +139,6 @@ Hosted test A/B login, refresh, restored-session identity and logout now pass. D
 
 ## Session-pooler connection status — 2026-10-24
 IPv4 pooler configuration is now active and matches the development reference, but database startup remains blocked (direct TCP refused; proxy tunnel terminates during PostgreSQL startup). Catalog/history/migrations/RLS remain unverified. A/B HTTPS Auth tests still pass; application resource probes remain PGRST205. No emails, unrestricted sending, schema changes or sender enablement occurred. The latest APAC report lists supported administrative access alternatives; Gmail/mode/template safety blockers remain unchanged.
+
+## Management API retry — 2026-10-24
+The management token is now present, but development project metadata and a read-only database probe return HTTP 500. No administrative access/schema verification succeeded; remote operations stopped and a local CLI fallback was documented in HOSTED_SUPABASE_VERIFICATION.md. No migrations, sender enablement or emails occurred. Existing Gmail/mode/template and hosted RLS launch blockers remain unresolved.
