@@ -81,16 +81,28 @@ Success metric focus:
 - Improve failure recovery and support diagnostics.
 - Add safe backup/recovery documentation where appropriate.
 
-## Phase 4 — Email and lifecycle scale
+## Phase 4 — Automated outbound growth
 
-Current Gmail remains low-volume/pilot only.
+Current Gmail remains low-volume/pilot only, but V3 should support unattended real sending for the approved lifecycle allowlist after controlled live verification.
 
-- Validate lifecycle communication usefulness.
-- Keep consent/suppression/reviewer safety model.
-- Evaluate dedicated transactional provider when volume warrants it.
-- Add bounce/complaint/webhook handling before higher-volume sending.
-- Add deliverability monitoring.
-- Never treat Gmail as a bulk 10,000-user campaign system.
+Email:
+- automate approved Welcome, activation, CSV, consultation, requested follow-up, weekly summary and workspace-invite lifecycle messages
+- keep consent/suppression, idempotency, rate-limit, audit and unknown-delivery protections
+- keep high-risk legal/financial/contractual/customer-sensitive messages human-reviewed or blocked
+- evaluate a dedicated transactional provider when volume warrants it
+- add bounce/complaint/webhook handling before higher-volume sending
+- add deliverability monitoring
+- never treat Gmail as a bulk 10,000-user campaign system
+
+Social:
+- use Buffer as the outbound social hub
+- first automate X and Threads
+- store Buffer API keys only in local/server secret configuration
+- discover and validate connected channel IDs
+- maintain separate X and Threads formatting
+- add duplicate prevention, content hashes, provider IDs, scheduling/sent/error logs
+- restrict unattended publishing to approved public Stockwise/Nexops growth and educational content categories
+- keep legal, contractual, confidential, customer-specific and unsupported-claim content blocked from unattended publishing
 
 ## Phase 5 — APAC expansion
 
@@ -162,12 +174,15 @@ Night automation should start with safe tasks only.
 
 Explicit approval required for:
 - Production promotion
-- real external email sending
+- external email outside the approved lifecycle allowlist
+- social publishing outside the approved public-content allowlist
 - billing activation/real charges/refunds
 - schema/RLS changes
 - secrets/OAuth changes
 - destructive customer-data operations
 - irreversible production changes
+
+Approved low-risk lifecycle email and approved X/Threads public-content publishing may run unattended after provider configuration has passed a controlled live verification.
 
 ## Overnight automation target
 
