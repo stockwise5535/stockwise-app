@@ -38,12 +38,63 @@ const approved=address(process.env.NEXOPS_GMAIL_APPROVED_SENDER)
 if(sender!==approved)throw Error('REPORT_SENDER_NOT_APPROVED')
 
 const since=new Date(now-THREE_DAYS_MS).toISOString()
+
+const supabaseUrl=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL
+const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY
+const sbHeaders=serviceKey?{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,Prefer:'count=exact'}:null
+
+async function exactCount(table,filters=[]){
+  if(!supabaseUrl||!sbHeaders)return null
+  const u=new URL(`${supabaseUrl.replace(/\/$/,'')}/rest/v1/${table}`)
+  u.searchParams.set('select','*')
+  for(const [k,v] of filters)u.searchParams.append(k,v)
+  try{
+    const r=await fetch(u,{headers:{...sbHeaders,Range:'0-0'},signal:AbortSignal.timeout(15000)})
+    if(!r.ok)return null
+    const range=r.headers.get('content-range')||''
+    const total=range.split('/')[1]
+    return /^\d+$/.test(total||'')?Number(total):null
+  }catch{return null}
+}
+
+async function uniqueUsers(table,timeColumn,eventFilter){
+  if(!supabaseUrl||!sbHeaders)return null
+  const seen=new Set()
+  for(let start=0;start<20000;start+=1000){
+    const u=new URL(`${supabaseUrl.replace(/\/$/,'')}/rest/v1/${table}`)
+    u.searchParams.set('select','user_id')
+    u.searchParams.set(timeColumn,`gte.${since}`)
+    if(eventFilter)u.searchParams.set(eventFilter[0],eventFilter[1])
+    let r
+    try{
+      r=await fetch(u,{headers:{...sbHeaders,Range:`${start}-${start+999}`},signal:AbortSignal.timeout(15000)})
+    }catch{return null}
+    if(!r.ok)return null
+    const rows=await r.json().catch(()=>null)
+    if(!Array.isArray(rows))return null
+    for(const row of rows)if(row?.user_id)seen.add(row.user_id)
+    if(rows.length<1000)break
+  }
+  return seen.size
+}
+
+const kpis={
+  totalUsers:await exactCount('nexops_profiles'),
+  newUsers:await exactCount('nexops_profiles',[['created_at',`gte.${since}`]]),
+  demoUsers:await uniqueUsers('nexops_activation','demo_opened_at'),
+  firstValueUsers:await uniqueUsers('nexops_activation','first_value_at'),
+  returningUsers:await uniqueUsers('nexops_events','occurred_at',['event_name','eq.user_returned']),
+  consultationRequests:await exactCount('nexops_consultation_leads',[['created_at',`gte.${since}`]])
+}
+const metric=v=>Number.isInteger(v)?String(v):'unavailable'
+
 const commits=git(['log',`--since=${since}`,'--date=short','--pretty=format:%h|%ad|%s'])
-  .split('\n').filter(Boolean).slice(0,40)
+  .split('\n').filter(Boolean)
+const importantCommits=commits.slice(0,8)
 
 const changed=git(['log',`--since=${since}`,'--name-only','--pretty=format:'])
   .split('\n').map(x=>x.trim()).filter(Boolean)
-const changedUnique=[...new Set(changed)].slice(0,30)
+const changedUnique=[...new Set(changed)].slice(0,12)
 
 const logFiles=(await readdir(LOG_DIR).catch(()=>[]))
   .filter(n=>/^v3-.*\.log$/.test(n)||/^codex-.*\.log$/.test(n))
@@ -54,15 +105,15 @@ for(const name of logFiles){
   if(s.mtimeMs<now-THREE_DAYS_MS)continue
   const text=await readFile(full,'utf8')
   const lines=text.split('\n').filter(l=>/(successful|passed|build|blocked|stop:|error|security|test|commit|complete)/i.test(l))
-  recentLogs.push(...lines.slice(-12).map(l=>l.replace(/[A-Za-z0-9_\-]{30,}/g,'[redacted]')))
+  recentLogs.push(...lines.slice(-8).map(l=>l.replace(/[A-Za-z0-9_\-]{30,}/g,'[redacted]')))
 }
-recentLogs=recentLogs.slice(-40)
+recentLogs=recentLogs.slice(-16)
 
 let nextTask=''
 try{
   const text=await readFile(path.join(REPO,'docs/NEXT_TASK.md'),'utf8')
   const m=text.match(/### Status[\s\S]*?(?=\n### |$)/)
-  nextTask=(m?.[0]||'').trim().slice(0,1800)
+  nextTask=(m?.[0]||'').trim().slice(0,1200)
 }catch{}
 
 const subject='Stockwise / Nexops — 3-Day Codex Activity Summary'
@@ -71,24 +122,35 @@ const body=[
   '',
   `Period: ${new Date(now-THREE_DAYS_MS).toLocaleString()} — ${new Date(now).toLocaleString()}`,
   '',
-  '1) Completed / committed work',
-  ...(commits.length?commits.map(x=>'- '+x):['- No git commits recorded in the last 3 days.']),
+  'EXECUTIVE KPI SUMMARY',
+  `- New users in last 3 days: ${metric(kpis.newUsers)}`,
+  `- Total users: ${metric(kpis.totalUsers)}`,
+  `- Users who opened demo: ${metric(kpis.demoUsers)}`,
+  `- Users who reached First Value: ${metric(kpis.firstValueUsers)}`,
+  `- Returning users: ${metric(kpis.returningUsers)}`,
+  `- Consultation requests: ${metric(kpis.consultationRequests)}`,
+  '',
+  '1) Major Codex accomplishments',
+  ...(importantCommits.length?importantCommits.map(x=>'- '+x):['- No git commits recorded in the last 3 days.']),
+  `- Total commits in period: ${commits.length}`,
   '',
   '2) Key files changed',
   ...(changedUnique.length?changedUnique.map(x=>'- '+x):['- No changed files recorded from commits.']),
   '',
-  '3) Test / build / blocker signals from automation logs',
+  '3) Test / build / blocker signals',
   ...(recentLogs.length?recentLogs.map(x=>'- '+x):['- No matching recent test/build/blocker log lines found.']),
   '',
   '4) Current task status',
   nextTask||'No NEXT_TASK status excerpt available.',
   '',
   '5) Next 3-day focus',
+  '- Prioritize measurable activation and user growth, not commit volume alone.',
   '- Continue the current READY task if safely actionable.',
   '- Preserve production deploy, billing, schema/RLS, secret and irreversible-change gates.',
   '- Resolve explicit CONFIGURATION REQUIRED items before claiming live readiness.',
   '',
-  'This report is generated only from local repository history and automation logs; it does not invent unverified activity.'
+  'KPI definitions: new/total users use nexops_profiles; demo and First Value use unique users in nexops_activation; returning users use unique user_returned events; consultations use nexops_consultation_leads.',
+  'If a KPI is unavailable, the report says unavailable rather than treating missing data as zero.'
 ].join('\n')
 
 const contentHash=sha(recipient+'\n'+subject+'\n'+body)
