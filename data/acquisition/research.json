@@ -1,0 +1,139 @@
+[
+  {
+    "company": "Secretlab",
+    "segment": "startups",
+    "industry": "Gaming chairs / physical products; official careers page describes manufacturing",
+    "official_site": "https://secretlab.co",
+    "segment_caveat": "Official page repeats historical startup-to-global-brand coverage; current startup/lean-team status is NOT verified",
+    "hypothesized_need": "Prioritize supplier/inventory follow-up if a lean in-house buyer team exists; not an observed pain",
+    "evidence": [
+      {
+        "source_url": "https://secretlab.co/pages/careers",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Administrative Operations & Logistics",
+        "scm_signal_verified": true,
+        "evidence_type": "official careers category; broad logistics signal, not a specific active vacancy or verified procurement need"
+      }
+    ],
+    "next_verification": "Find a current own-SCM job description and verify buyer/team scope; do not contact automatically"
+  },
+  {
+    "company": "PRISM+",
+    "segment": "startups",
+    "industry": "Not independently verified in this research pass",
+    "official_site": "https://prismplus.sg",
+    "segment_caveat": "Startup/lean-team status unverified",
+    "hypothesized_need": "Inventory and supplier follow-up is a discovery hypothesis only",
+    "evidence": [
+      {
+        "source_url": "https://prismplus.sg/pages/careers",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 404,
+        "excerpt": "404 Not Found",
+        "scm_signal_verified": false
+      },
+      {
+        "source_url": "https://prismplus.sg/pages/career-page",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "No explicit own-SCM evidence extracted",
+        "scm_signal_verified": false
+      }
+    ],
+    "next_verification": "No fit claim until an official inventory/procurement/supplier role is found"
+  },
+  {
+    "company": "Love, Bonito",
+    "segment": "ecommerce",
+    "industry": "Retail; procurement and inventory duties verified in company-linked jobs",
+    "official_site": "https://www.lovebonito.com",
+    "segment_caveat": "Official careers page links its Workable board; purchasing need/budget and any specific e-commerce team scope remain unverified",
+    "hypothesized_need": "Prioritize inventory discrepancies and procurement follow-up; hypothetical, not a reported pain",
+    "evidence": [
+      {
+        "source_url": "https://www.lovebonito.com/sg/global/careers",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Our Careers",
+        "linked_official_source": "https://apply.workable.com/lovebonito/",
+        "scm_signal_verified": false
+      },
+      {
+        "source_url": "https://apply.workable.com/api/v2/accounts/lovebonito/jobs/5115C61321",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Coordinate the procurement monthly store supplies",
+        "additional_excerpt": "Coordinate with store leaders on weekly cycle counts, investigation and resolution on inventory discrepancies",
+        "scm_signal_verified": true,
+        "evidence_type": "Retail Operations Executive job from company-linked recruitment board",
+        "function_evidence": true
+      }
+    ],
+    "next_verification": "Verify current vacancy and in-house buyer ownership; no personal contact data collected"
+  },
+  {
+    "company": "ZALORA",
+    "segment": "ecommerce",
+    "industry": "E-commerce candidate; own-SCM evidence not obtained in this pass",
+    "official_site": "https://corporate.zalora.com",
+    "segment_caveat": "No function/team or purchasing interest inferred from brand/category",
+    "hypothesized_need": "PO and supplier follow-up is an unverified hypothesis",
+    "evidence": [
+      {
+        "source_url": "https://corporate.zalora.com/careers",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 403,
+        "excerpt": "Access denied; no evidence extracted",
+        "scm_signal_verified": false
+      }
+    ],
+    "next_verification": "Use an accessible official source; do not bypass access restrictions"
+  },
+  {
+    "company": "OMRON",
+    "segment": "manufacturing",
+    "industry": "Industrial/manufacturing candidate; official supply-chain/procurement policy pages verified",
+    "official_site": "https://www.omron.com",
+    "segment_caveat": "Formal public SCM signal does not establish an unmet need, team size or product fit",
+    "hypothesized_need": "Traceable supplier-risk actions may be useful; not a known company problem",
+    "evidence": [
+      {
+        "source_url": "https://www.omron.com/global/en/sustainability/procurement/",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Supply Chain Management",
+        "scm_signal_verified": true,
+        "evidence_type": "Official supply-chain section title"
+      },
+      {
+        "source_url": "https://www.omron.com/global/en/sustainability/procurement/suppliers/",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Working Together with Suppliers",
+        "scm_signal_verified": true,
+        "evidence_type": "Official supplier-policy section title"
+      }
+    ],
+    "next_verification": "Verify relevant buyer-side team and scope; enterprise integration readiness is not claimed"
+  },
+  {
+    "company": "Daikin",
+    "segment": "manufacturing",
+    "industry": "Manufacturing candidate; official supply-chain guideline verified",
+    "official_site": "https://www.daikin.com",
+    "segment_caveat": "Supplier policy is evidence of a public SCM program, not proof of current procurement pain",
+    "hypothesized_need": "Supplier-risk review and follow-up is a discovery hypothesis only",
+    "evidence": [
+      {
+        "source_url": "https://www.daikin.com/sustainability/social/supplychain_gl",
+        "checked_at": "2026-10-30T03:42:38Z",
+        "http_status": 200,
+        "excerpt": "Supply Chain CSR Promotion Guidelines",
+        "scm_signal_verified": true,
+        "evidence_type": "Official supplier/SCM guideline title"
+      }
+    ],
+    "next_verification": "Confirm relevant procurement/material-planning owner and actual needs before qualifying"
+  }
+]

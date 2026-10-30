@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
 import { gmailTokenProvider } from '../services/gmail-oauth.js'
+import { collectGrowthKpis } from '../services/growth-kpis.js'
 
 const REPO=path.join(os.homedir(),'stockwise-v2')
 const LOG_DIR=path.join(REPO,'logs')
@@ -39,53 +40,9 @@ if(sender!==approved)throw Error('REPORT_SENDER_NOT_APPROVED')
 
 const since=new Date(now-THREE_DAYS_MS).toISOString()
 
-const supabaseUrl=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL
-const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY
-const sbHeaders=serviceKey?{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,Prefer:'count=exact'}:null
-
-async function exactCount(table,filters=[]){
-  if(!supabaseUrl||!sbHeaders)return null
-  const u=new URL(`${supabaseUrl.replace(/\/$/,'')}/rest/v1/${table}`)
-  u.searchParams.set('select','*')
-  for(const [k,v] of filters)u.searchParams.append(k,v)
-  try{
-    const r=await fetch(u,{headers:{...sbHeaders,Range:'0-0'},signal:AbortSignal.timeout(15000)})
-    if(!r.ok)return null
-    const range=r.headers.get('content-range')||''
-    const total=range.split('/')[1]
-    return /^\d+$/.test(total||'')?Number(total):null
-  }catch{return null}
-}
-
-async function uniqueUsers(table,timeColumn,eventFilter){
-  if(!supabaseUrl||!sbHeaders)return null
-  const seen=new Set()
-  for(let start=0;start<20000;start+=1000){
-    const u=new URL(`${supabaseUrl.replace(/\/$/,'')}/rest/v1/${table}`)
-    u.searchParams.set('select','user_id')
-    u.searchParams.set(timeColumn,`gte.${since}`)
-    if(eventFilter)u.searchParams.set(eventFilter[0],eventFilter[1])
-    let r
-    try{
-      r=await fetch(u,{headers:{...sbHeaders,Range:`${start}-${start+999}`},signal:AbortSignal.timeout(15000)})
-    }catch{return null}
-    if(!r.ok)return null
-    const rows=await r.json().catch(()=>null)
-    if(!Array.isArray(rows))return null
-    for(const row of rows)if(row?.user_id)seen.add(row.user_id)
-    if(rows.length<1000)break
-  }
-  return seen.size
-}
-
-const kpis={
-  totalUsers:await exactCount('nexops_profiles'),
-  newUsers:await exactCount('nexops_profiles',[['created_at',`gte.${since}`]]),
-  demoUsers:await uniqueUsers('nexops_activation','demo_opened_at'),
-  firstValueUsers:await uniqueUsers('nexops_activation','first_value_at'),
-  returningUsers:await uniqueUsers('nexops_events','occurred_at',['event_name','eq.user_returned']),
-  consultationRequests:await exactCount('nexops_consultation_leads',[['created_at',`gte.${since}`]])
-}
+// Shared read-only KPI reader; do not import this sending entrypoint for measurement.
+const growth=await collectGrowthKpis({from:since,to:new Date(now).toISOString()})
+const kpis={totalUsers:growth.total_users.value,newUsers:growth.new_signups.value,demoUsers:growth.demo_starts.value,firstValueUsers:growth.first_value.value,returningUsers:growth.returning_users.value,consultationRequests:growth.consultation_requests.value}
 const metric=v=>Number.isInteger(v)?String(v):'unavailable'
 
 const commits=git(['log',`--since=${since}`,'--date=short','--pretty=format:%h|%ad|%s'])

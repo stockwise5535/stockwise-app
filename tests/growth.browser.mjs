@@ -127,6 +127,7 @@ try{
  await page.reload();await page.getByRole('heading',{name:'TODAY',exact:true}).waitFor()
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('input[type=email]').waitFor();await page.goto(base+'/growth');await page.locator('input[type=email]').waitFor()
  await page.locator('input[type=email]').fill(user.email);await page.locator('input[type=password]').fill('local-test-password-only');await page.getByRole('button',{name:'Log in',exact:true}).click();await page.getByRole('heading',{name:'TODAY',exact:true}).waitFor()
+ assert.equal(await page.getByRole('link',{name:'Public synthetic demo',exact:true}).getAttribute('href'),'/demo/operations?lang=en')
  const beforeRootBootstrap=bootstrapCalls
  await page.goto(base+'/');await page.getByRole('button',{name:/TODAY \/ /}).waitFor();assert.equal(bootstrapCalls,beforeRootBootstrap+1);await page.goto(base+'/growth');await page.getByRole('heading',{name:'TODAY',exact:true}).waitFor()
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))

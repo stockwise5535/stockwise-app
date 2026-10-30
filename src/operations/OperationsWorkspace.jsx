@@ -19,9 +19,9 @@ function readDemo() {
   return migrateSnapshot()
 }
 export function resetSavedDemo(){try{localStorage.removeItem(STORAGE)}catch{/* Demo can still open without storage. */}}
-export default function OperationsWorkspace({ initialPage = 'today', lang:outerLang, onLegacy, onEvent, guided=false, customerFacing=false }) {
+export default function OperationsWorkspace({ initialPage = 'today', initialLang, lang:outerLang, onLegacy, onEvent, guided=false, customerFacing=false }) {
   const emit=onEvent || capture
-  const [localLang, setLocalLang] = useState('ja')
+  const [localLang, setLocalLang] = useState(initialLang==='en'?'en':'ja')
   const lang = outerLang || localLang
   const l = (en, ja) => lang === 'ja' ? ja : en
   const label = text => lang === 'ja' ? JP[text] || text : text

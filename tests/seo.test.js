@@ -14,7 +14,7 @@ test('SEO generation has real localized HTML and only uses a configured canonica
   await run(process.execPath,[resolve('scripts/generate-seo.mjs')],{cwd:dir,env:{...process.env,VITE_PUBLIC_SITE_URL:'https://public.example.test'}})
   const english=await readFile(dir+'/dist/en/index.html','utf8')
   assert.ok(english.includes('rel="canonical" href="https://public.example.test/en"'))
-  assert.ok(english.includes('hreflang="ja"'));assert.ok(english.includes('See supply risks'))
+  assert.ok(english.includes('href="/demo/operations?lang=en"'));assert.ok((await readFile(dir+'/dist/ja/index.html','utf8')).includes('href="/demo/operations?lang=ja"'));assert.ok(english.includes('hreflang="ja"'));assert.ok(english.includes('See supply risks'))
   assert.ok((await readFile(dir+'/dist/sitemap.xml','utf8')).includes('https://public.example.test/ja'))
   await writeFile(dir+'/dist/index.html',template)
   await run(process.execPath,[resolve('scripts/generate-seo.mjs')],{cwd:dir,env:{...process.env,VITE_PUBLIC_SITE_URL:''}})

@@ -1,0 +1,21 @@
+# NOT installed: review/pin action revisions and move to .github/workflows only after approval.
+# No provider credentials, hosted reads, email, publication, artifact upload or deployment.
+name: Acquisition internal checks
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: node --test tests/*.test.js
+      - run: npm run build
+      - run: node scripts/acquisition-report.mjs

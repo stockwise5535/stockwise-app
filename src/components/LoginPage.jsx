@@ -41,7 +41,7 @@ export default function LoginPage({ lang = 'en', setLang, initialMode = 'login',
           <span style={{ fontWeight:700, fontSize:18, color:'#0d1b2a', letterSpacing:'0.03em' }}>StockWise</span>
         </div>
         <div style={{ fontSize:12, color:'#6b7d93', marginBottom:28, paddingLeft:38 }}>{L('login_tagline')}</div>
-        {campaign && <p style={{marginBottom:16,color:'#0d1b2a'}}>Free for 30 days. No credit card. <a href="/demo/operations">View the demo immediately</a>; confirm your email to save your workspace.</p>}
+        {campaign && <p style={{marginBottom:16,color:'#0d1b2a'}}>Free for 30 days. No credit card. <a href={'/demo/operations?lang='+lang}>View the demo immediately</a>; confirm your email to save your workspace.</p>}
         {(configurationError || authError) && <p role="alert" style={{color:'#9a2b20',marginBottom:16}}>{configurationError || authError}</p>}
         {error && <div style={{ background:'#fdf3f2', border:'1px solid #f5c6c3', borderLeft:'3px solid #c0392b', borderRadius:3, padding:'9px 12px', fontSize:12, color:'#c0392b', marginBottom:14 }}>{error}</div>}
         {msg   && <div style={{ background:'#f0faf4', border:'1px solid #b8e8cc', borderLeft:'3px solid #1a6e3c', borderRadius:3, padding:'9px 12px', fontSize:12, color:'#1a6e3c', marginBottom:14 }}>{msg}</div>}

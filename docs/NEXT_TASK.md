@@ -18,6 +18,18 @@ The top-level growth objective is **10,000 APAC users within 30 days of growth l
 
 ## Current task — Build Outbound Automation V3
 
+### Current execution scope — 2026-10-29 user acquisition request
+
+The latest user instruction authorizes internal audit, ICP/public-source research,
+drafts/UTM planning, read-only KPI aggregation, tests/build and development-branch
+commits. **Every external publication/send, production change, paid operation,
+external data export, new integration/permission and schema/RLS change requires
+prior human approval for this work.** Earlier unattended V3 goals are not current
+permission to execute them. Existing prohibitions remain intact.
+See docs/ACQUISITION_OPERATIONS.md for the internal-only entrypoint; do not use the
+mail-report or scheduled V3 entrypoints for measurement. Broad V3 live delivery
+remains incomplete and is not marked COMPLETE by this acquisition checkpoint.
+
 Implement the next outbound automation layer so Stockwise/Nexops can run approved lifecycle email plus X and Threads publishing unattended, while retaining hard safety boundaries for high-risk external actions.
 
 ### Goal
@@ -179,7 +191,12 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ### Status
 
-- State: READY
+- State: BLOCKED — V3 live delivery/configuration/approval remains incomplete
+- Internal acquisition checkpoint: COMPLETE — 2026-10-29 audit, shared read-only KPI reader, 3 ICPs, 12 approval-required drafts, 6 evidence-annotated candidates and local reporting
+- Validation: 125 unit/security tests, 17 local SQL tests, acquisition/Growth/operations browser checks and production build passed; see latest report for exact scope
+- External publication/send: PRIOR HUMAN APPROVAL REQUIRED; none performed
+- Measurement gaps: Visitors/source/channel conversion unavailable; development/test counts are not real customer acquisition
+- CI/scheduler: template/preparation only; no new installation or activation
 - Deployment: NOT REQUESTED
 - Production promotion: FORBIDDEN
 - Billing: FORBIDDEN

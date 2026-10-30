@@ -827,3 +827,178 @@ docs/OUTBOUND_AUTOMATION_V3.md; docs/NEXT_TASK.md; this report. Pre-existing unt
 automation/, logs/ and supabase/.temp/ artifacts are preserved and excluded from commit.
 No deployment/promotion, email, social post, billing/charge, hosted write, schema/RLS,
 OAuth/secret change or push.
+
+## USER ACQUISITION — INTERNAL PREPARATION / HUMAN RELEASE CONTROL — 2026-10-29
+
+Latest user scope requires prior human approval for all external publication, sends,
+production changes, paid actions, data export, new integrations/permissions and
+schema/RLS changes. This narrower authorization governs this run; the older V3
+unattended target is not an execution grant. **Internal acquisition checkpoint
+complete; live V3 and broad acquisition/delivery readiness are not complete.**
+
+### Completed audit and implementation
+
+Read NEXT_TASK, PRODUCT_STRATEGY, ROADMAP and current report, then fast-forwarded the
+existing remote checkpoint without rewriting history. Audited LP/signup/demo,
+existing Supabase metrics/weekly SQL, event definitions, outbound/Buffer modules,
+test setup and tracked Mac automation. No .github/workflows exists. Existing Buffer
+adapter is mock-tested, not live-verified; all four Buffer credential/channel
+settings were absent in this process. PostHog's public key was absent. Mac scheduler
+installation cannot be established from tracked installer files. Full audit and
+three-day work plan: docs/ACQUISITION_OPERATIONS.md.
+
+- Added safe internal CLI `scripts/acquisition-report.mjs`: default offline even
+  with credentials present; explicit `--read-dev-kpis` allows only aggregate GET/HEAD
+  reads against the configured development ref. No send/publish/approve mode exists.
+- Extracted existing activity-email KPI logic into `services/growth-kpis.js` and
+  reused it in the existing report entrypoint. Corrected missing upper time bounds,
+  silent partial counts after 20k rows, and pagination assumptions. Reader checks
+  URL/dev-ref, safe HTTPS origin, exact counts, range/order, distinct users, caps and
+  changed dataset totals; errors produce null/unavailable independently. No raw
+  user/lead records or credentials enter artifacts. The existing **sending** report
+  entrypoint was neither executed nor imported; its delivery settings/logic remain
+  unchanged. New CLI is independent of Gmail credentials and send gates.
+- Added three SCM-based ICPs, industry-specific hypotheses/questions/exclusions,
+  12 distinct X/Threads/LinkedIn/search draft variants, fixed-vocabulary UTM links,
+  proposed Asia/Singapore times, hash-bound text/URL/date/search-outline and manual
+  approval status. Copy claims only shipped synthetic-demo/decision-support
+  behavior; there are no fabricated results, real-data connections or auto-PO claims.
+  Hashes are review evidence, not permission tokens; no new draft is put into a
+  publishing allowlist. Suggested post dates Nov 2–4 are proposals, not reservations.
+- Reused existing V3 static-copy context and single-host lock/private atomic-write
+  primitives. JSON + human-readable review report include all drafts, evidence,
+  aggregates/definitions/missing reasons and three next actions under ignored
+  logs/acquisition/. This is repeatable local preparation, not a distributed queue
+  or installed unattended scheduler. CI example is deliberately outside .github;
+  activation/action-revision review requires separate approval.
+- Collected six public company candidates from official/official-linked sources in
+  data/acquisition/research.json. 403/404 and insufficient evidence stay unqualified.
+  Four have broad public SCM/logistics/policy signals; **only Love, Bonito currently
+  has detailed own-procurement/inventory duties verified in the captured evidence**.
+  Startup/lean-team status and actual buying need remain unverified; all six have
+  contact_authorized=false. Job/policy signals are not customer pain, buying intent
+  or qualified opportunities. No personal contact list was collected, outreach
+  performed or hosted qualification overwritten.
+
+### Concrete funnel defect fixed on the development branch
+
+English LP/registration demo links opened the public demo's Japanese default.
+Added optional initialLang through the existing demo route and `?lang=en/ja` to
+localized LP/static LP, registration and account-footer demo links. The public
+demo language toggle and existing direct-URL Japanese default are preserved;
+authenticated workspace locale remains unchanged. No new route/state model or
+event name was added. Browser evidence now verifies English TODAY → exception →
+recommended action. **Production LP/code publication remains unapproved and was
+not performed.** LP segment clarity and request-only consultation CTA wording are
+recorded as further copy proposals, not silently published changes.
+
+### Actual development KPI observation
+
+Read at **2026-10-30T03:54:55.889Z**. Window is **2026-10-23T00:00:00Z inclusive to
+2026-10-30T00:00:00Z exclusive**. Configured development project only. Existing
+test/fixture accounts and test consultations are included; these figures are **not
+new real-customer acquisition evidence or progress toward 10,000 production users**.
+
+| KPI | Actual result | Definition / limitation |
+| --- | --- | --- |
+| Website Visitors | 未取得 / null | No authorized anonymous visitor reader; optional analytics configuration alone would not supply a verified count |
+| Traffic Source | 未取得 / null | Current browser UTM capture/persistence and source-to-signup/demo attribution not verified/implemented |
+| New Signups | 3 | nexops_profiles created in window, including test/unconfirmed accounts |
+| Demo Starts | 3 | Unique authenticated users whose first demo_opened_at falls in window; excludes anonymous demo visits |
+| First Value | 3 | Unique users with first_value_at in window |
+| Returning Users | 1 | Unique user_returned users in window; existing prior-day-return definition |
+| Qualified Leads | 4 | Existing qualification-status rows updated in window; heuristic, not 4 SCM-verified prospects or unique companies |
+| Consultation Requests | 4 | Request rows created in window, not confirmed appointments |
+| Total profiles (context) | 4 | All-time development profiles; different window from new signups |
+
+No unavailable field was replaced by zero. No conversion rate was inferred from
+these differently timed activity counts. UTM links are preparation, not source
+measurement. Existing referral_source property can support a separately reviewed
+coarse/consent-aware capture path; **no schema/RLS change was made or assumed**.
+If such changes prove necessary, stop that step for approval. Visitor/provider
+read access and source instrumentation remain distinct missing work.
+
+### Verification actually run
+
+```sh
+node --test tests/*.test.js
+NEXOPS_PGLITE_PATH=/tmp/stockwise-acquisition-deps/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/stockwise-acquisition-deps/node_modules/playwright-core node tests/acquisition.browser.mjs
+NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176 NEXOPS_PGLITE_PATH=/tmp/stockwise-acquisition-deps/node_modules/@electric-sql/pglite NEXOPS_PLAYWRIGHT_PATH=/tmp/stockwise-acquisition-deps/node_modules/playwright-core node tests/growth.browser.mjs
+NEXOPS_TEST_URL=http://127.0.0.1:5176 NEXOPS_PLAYWRIGHT_PATH=/tmp/stockwise-acquisition-deps/node_modules/playwright-core node tests/operations.browser.mjs
+npm run build
+NEXOPS_TEST_URL=http://127.0.0.1:4182 NEXOPS_PLAYWRIGHT_PATH=/tmp/stockwise-acquisition-deps/node_modules/playwright-core node tests/acquisition.browser.mjs
+node --check scripts/send-codex-activity-report.mjs
+git diff --check
+```
+
+**125 unit/security tests passed, 0 failed** (10 new acquisition tests); **17 local
+SQL tests passed**. New tests cover dev-project refusal, independent failures,
+exact zero vs unknown, capped pagination/distinct users, overflow/change refusal,
+UTM privacy/validation, 12 manual-approval/hash-bound drafts, unofficial/403/404
+research rejection, offline CLI, invalid publish flags and overlap protection.
+Existing source/reminder/suppression/unknown-delivery, bootstrap and permission
+tests remain passing. SQL tests use local PostgreSQL with unchanged migrations,
+not a new hosted isolation test or service-role proof of RLS behavior.
+
+Acquisition desktop/mobile and production-build local-preview checks passed for
+CTA targets, language, demo/exception/recommendation and signup/consultation auth
+entry without submitted data or external requests. Existing Growth integration
+and operations browser suites passed. Static SEO regression also verifies en/ja
+demo language links. Build passed. No lint/type-check command is configured. Test
+dependencies installed only in /tmp; initial npm cache permissions were resolved
+using a /tmp cache. No new application dependency or browser tracker was added.
+The 390px production-build landing screenshot was also visually inspected: the
+signup, demo and consultation CTAs are visible and readable on the first screen.
+
+Security scan: 151 current tracked/new source, build, generated local report and
+test-log files checked against five configured secret values plus service-role
+JWT detection; **zero findings**, with no values printed. Server KPI/preparation
+modules are not browser imports. This is not a historical Git or external-log
+audit. No approval-bypass runner was executed; existing operating risks below
+remain unapproved rather than being silently enabled.
+
+Hosted KPI CLI ran explicitly in read-dev mode and produced aggregates above;
+subsequent local reformatting reused that observation without changing its time.
+Public company research used unauthenticated HTTPS reads; failed pages were not
+bypassed. These reads are disclosed separately from the **zero external writes**.
+
+### Automation / remaining approval boundaries
+
+- **Automated internally:** bounded KPI reads when explicitly requested, unknown
+  handling, ICP/draft/UTM/schedule proposals, evidence assessments, review reports,
+  next-action recommendations, tests and build.
+- **Unimplemented/unverified:** actual visitor/source/channel conversion reader,
+  consented source persistence across signup/email-confirmation, LinkedIn provider
+  execution, social final-state reconciliation/durable shared claims and broad V3
+  automatic-email templates/mode. Full 1,000–10,000-user capacity is not established.
+- **Approval/configuration pending:** every post/send/deploy/paid action/external
+  export; Buffer credentials/selected channels plus controlled tests; any new
+  provider/read scope; actual CI/scheduler activation; existing legal/publication
+  details; any discovered schema/RLS need. Gmail is low-volume pilot only.
+- **Existing HIGH operating concerns:** codex-v3.sh includes --approve-for-me and
+  the direct activity-email entrypoint can send outside the ordinary worker's
+  draft-only measurement concept. Scheduled cycle can mutate lifecycle drafts.
+  None was executed/installed in this run or certified safe for the latest human
+  approval rule. Owner must inspect any already-installed Mac automation before
+  using it; runtime state cannot be inferred from repository scripts.
+
+Next three priorities: (1) agree the legitimate production measurement cohort,
+exclude fixtures and confirm public/legal/old-runner approval boundaries; (2)
+verify consent-aware coarse source→signup/demo measurement using existing events
+where possible; (3) validate ICP evidence and approve one exact content/channel/time
+for a bounded acquisition test, then measure the same cohort before expansion.
+
+Files: new services/growth-kpis.js and acquisition-preparation.js; new
+scripts/acquisition-report.mjs; shared-reader refactor in send-codex-activity-report;
+data/acquisition/research.json; new tests/acquisition.test.js and acquisition.browser;
+existing Growth/SEO tests; minimal language-link changes in main, OperationsWorkspace,
+Landing, GrowthApplication, LoginPage and generate-seo; CI example; .gitignore;
+docs/ACQUISITION_OPERATIONS.md, NEXT_TASK Status and this report.
+
+**No schema/RLS/migration/RPC change, hosted application write, social post,
+email/DM, billing activation/charge, new provider permission, Production deployment
+or push.** No send flag, OAuth, template/reviewer/admin assignment or consent state
+was changed. Only development-branch implementation and local review preparation
+are complete; live acquisition results and unattended production readiness are not
+claimed.
