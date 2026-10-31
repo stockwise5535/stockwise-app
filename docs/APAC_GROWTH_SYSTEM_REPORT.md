@@ -1229,3 +1229,16 @@ application.** Only public/authenticated read checks (including OAuth refresh) a
 local implementation/tests/files were performed. Real operational demo/customer
 data and existing templates, reviewer/admin assignments, consent records and
 Gmail/database sending gates were not modified.
+
+
+## Production readiness — 2026-10-31
+
+Baseline `abcdf77baf70d577199c6ca45a099595224cb551`. Full findings, exact setup steps, seven-table CRM comparison and migration/rollback plan: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
+- Push deliberately held: previous remote commit triggered four Vercel Preview deployments. Prepared branch-specific deployment guard; without project/root-directory/webhook visibility, first-push publication cannot be ruled out. Remote remains `82821288dd3b19ecd93cd6a8469acfae2a8c14f4`.
+- Only workflow is internal/local and secret-free; current default main has none. Remote branch Actions run count 0; cron not running. Actions settings/Secret-name/webhook reads denied HTTP403; no secret values requested.
+- Buffer five required configuration values absent; authenticated discovery and actual three channel IDs/permissions remain unverified. No posts/schedules.
+- CRM proposal remains unapplied: RLS + composite keys reviewed; transactional authenticated write/claim APIs, immutable actor-bound approval/audit, privacy/retention and production cohort classification block launch. Local 20 SQL tests include proposal-only RLS checks, not hosted CRM verification.
+- Gmail `--verify-oauth` passed with draft_only/send-disabled; OAuth refresh/sender/scopes verified, emails_sent=0, database_writes=0. Read-only development runtime: sending disabled, self-test marker present, OAuth marker stale (~140h; gate requires <24h). No template registration/connection-state writes. Reply/unsubscribe/bounce plan documented; no new scope.
+- Validation: 144 unit/security and 20 local SQL tests passed; production build and source/dist/report security scan passed. Added guard/workflow regression tests. No UI changes; prior five-browser-suite result is historical, not a new browser run.
+- No push, deployment, hosted schema/RLS or data change, social publication, email, billing or provider permission change.

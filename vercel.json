@@ -16,5 +16,10 @@
       "source": "/(.*)",
       "destination": "/"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/managed-service-mvp": false
+    }
+  }
 }

@@ -202,6 +202,9 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 ### Status
 
+- Production-readiness audit (2026-10-31): local checkpoint complete; push BLOCKED by four automatic Vercel Preview integrations whose per-project deployment controls cannot be verified. See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Branch-only Vercel guard prepared but not live-verified.
+- Current validation: 144 unit/security + 20 local SQL tests and production build passed; no UI changes. GitHub Actions runs=0; cron not registered on default main; settings/secrets/hooks metadata denied (403). Buffer configuration missing. Gmail read-only OAuth verified; DB send gate disabled, OAuth marker stale (~140h). No hosted writes or external delivery.
+
 - State: BLOCKED — V3 live delivery/configuration/approval remains incomplete
 - Internal acquisition checkpoint: COMPLETE — 2026-10-29 audit, shared read-only KPI reader, 3 ICPs, 12 approval-required drafts, 6 evidence-annotated candidates and local reporting
 - Integrated checkpoint: Implemented & Tested — 2026-10-31 fixture CRM/approval/suppression/quota/unknown handling, Buffer three-channel mocks/readers, gated attribution, CI definitions and schema proposal
