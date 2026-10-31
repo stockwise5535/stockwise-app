@@ -7,3 +7,4 @@ dist
 /logs/outbound-v3-ledger.json*
 /logs/outbound-v3.lock/
 /logs/acquisition/
+/logs/growth/

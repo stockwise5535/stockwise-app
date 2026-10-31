@@ -18,6 +18,17 @@ The top-level growth objective is **10,000 APAC users within 30 days of growth l
 
 ## Current task — Build Outbound Automation V3
 
+### Current execution scope — 2026-10-31 integrated growth request
+
+The latest user authorizes safe internal implementation, scheduled-job definitions,
+CRM/approval/email/social/funnel dry-runs, public-source research and read-only
+connection checks. Human approval remains mandatory for external messages/posts,
+production tracking/publication/deployment, billing, new privileges and any schema/RLS
+application. Migration proposals may be written outside the registered migrations
+directory and tested only in disposable local databases; do not apply them remotely.
+No unauthorized push. This scope supersedes older unattended-delivery permissions.
+See docs/GROWTH_AUTOMATION_RUNBOOK.md for implemented vs running vs blocked status.
+
 ### Current execution scope — 2026-10-29 user acquisition request
 
 The latest user instruction authorizes internal audit, ICP/public-source research,
@@ -193,17 +204,22 @@ Update `docs/APAC_GROWTH_SYSTEM_REPORT.md` with:
 
 - State: BLOCKED — V3 live delivery/configuration/approval remains incomplete
 - Internal acquisition checkpoint: COMPLETE — 2026-10-29 audit, shared read-only KPI reader, 3 ICPs, 12 approval-required drafts, 6 evidence-annotated candidates and local reporting
-- Validation: 125 unit/security tests, 17 local SQL tests, acquisition/Growth/operations browser checks and production build passed; see latest report for exact scope
+- Integrated checkpoint: Implemented & Tested — 2026-10-31 fixture CRM/approval/suppression/quota/unknown handling, Buffer three-channel mocks/readers, gated attribution, CI definitions and schema proposal
+- Verified running: local dry-run/public research, existing development KPI reads and read-only Gmail OAuth/sender check; not production CRM/delivery or hosted scheduled jobs
+- Validation: 142 unit/security tests, 20 local SQL tests (3 for the unapproved proposal), 5 browser suites, production build and security check passed; see latest report for exact scope
 - External publication/send: PRIOR HUMAN APPROVAL REQUIRED; none performed
 - Measurement gaps: Visitors/source/channel conversion unavailable; development/test counts are not real customer acquisition
-- CI/scheduler: template/preparation only; no new installation or activation
+- CI/scheduler: actual workflow definition prepared; GitHub execution/default-branch cron registration and Mac rollout unverified, no push/installation performed
 - Deployment: NOT REQUESTED
 - Production promotion: FORBIDDEN
 - Billing: FORBIDDEN
 - Schema/RLS changes: FORBIDDEN
-- Approved lifecycle/social automation: TARGET OF THIS TASK
+- Approved lifecycle/social automation: future target only; no current live permission inferred from the historical allowlist
 
 ### 2026-10-25 implementation checkpoint
+
+Historical target only: current 2026-10-31 scope above requires human authorization
+for live actions; do not treat this older paragraph as new execution approval.
 
 Safe offline preparation is implemented and tested; **V3 live/unattended delivery is not
 complete**. See `docs/OUTBOUND_AUTOMATION_V3.md` and the latest report section.

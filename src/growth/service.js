@@ -1,10 +1,11 @@
+import {attributionProperties} from './attribution.js'
 // This module never imports demo state or reads browser-local operational data.
 export const MARKETS = ['SG','AU','NZ','HK','JP','KR','TW','OTHER_APAC']
 export const QUALIFIED = ['Qualified Lead','Consultation','Pilot Candidate']
 export const EVENTS = ['homepage_view','signup_started','signup_completed','login_completed','demo_workspace_opened','today_viewed','exception_opened','recommended_action_viewed','csv_upload_started','csv_upload_completed','consultation_clicked','consultation_submitted','consultation_booked','user_returned','activation_completed','supplier_monitoring_viewed','invite_sent','invite_accepted']
 export function cleanProperties(properties = {}) {
   const allowed = ['locale','market','workspace_type','data_mode','screen','referral_source']
-  return Object.fromEntries(Object.entries(properties).filter(([key,value]) => allowed.includes(key) && typeof value === 'string' && value.length <= 80))
+  return Object.fromEntries(Object.entries(properties).filter(([key,value]) => allowed.includes(key) && (key!=='referral_source'||['x','threads','linkedin','organic_search'].includes(value)) && typeof value === 'string' && value.length <= 80))
 }
 export function conversion(numerator,denominator) { return numerator == null || denominator == null || denominator === 0 ? null : Math.round(1000*numerator/denominator)/10 }
 export function validateConsultation(d) {
@@ -42,7 +43,7 @@ export function createGrowthService(client) {
     leads:id=>result(client.from('nexops_consultation_leads').select('*').eq('workspace_id',id).order('created_at',{ascending:false})),
     qualifications:id=>result(client.from('nexops_lead_qualification').select('*').eq('workspace_id',id)),
     createWorkspace:(fields,id)=>rpc('nexops_create_workspace',{p_name:fields.name,p_market:fields.market,p_locale:fields.locale,p_request_id:id}),
-    track:(name,id,props={},eventId=crypto.randomUUID())=>rpc('nexops_track_event',{p_event_name:name,p_workspace_id:id,p_properties:cleanProperties(props),p_event_id:eventId}),
+    track:(name,id,props={},eventId=crypto.randomUUID())=>{const safe={...props};delete safe.referral_source;return rpc('nexops_track_event',{p_event_name:name,p_workspace_id:id,p_properties:cleanProperties({...safe,...attributionProperties()}),p_event_id:eventId})},
     consult:(id,details,requestId)=>rpc('nexops_submit_consultation',{p_workspace_id:id,p_details:validateConsultation(details),p_request_id:requestId}),
     invite:(id,role='viewer')=>rpc('nexops_create_invite',{p_workspace_id:id,p_role:role}),
     acceptInvite:token=>rpc('nexops_accept_invite',{p_token:token}),

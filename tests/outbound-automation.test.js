@@ -18,7 +18,7 @@ function providerMock({listed = channels, mutation, fail} = {}) {
     if (fail) throw Error(env.BUFFER_API_KEY)
     return {ok: true, json: async () => calls.at(-1).startsWith('query') ? {data: {channels: listed}} : mutation ?? {data: {createPost: {post: {id: 'post1', dueAt: '2099-01-01T00:00:00Z', status: 'scheduled'}}}}}
   }
-  return {calls, adapter: createBufferAdapter({env, fetch})}
+  return {calls, adapter: createBufferAdapter({env, fetch,authorizePublication:async request=>({authorized:true,contentHash:request.contentHash})})}
 }
 async function temporary(work) {
   const directory = await mkdtemp(join(tmpdir(), 'nexops-v3-'))
@@ -40,14 +40,14 @@ test('Buffer missing credentials, wrong service, absent or paused channel fail b
   await assert.rejects(createBufferAdapter({env: {BUFFER_ORGANIZATION_ID: 'org1'}, fetch: () => assert.fail('network forbidden')}).channels(), /CONFIGURATION_REQUIRED/)
   for (const listed of [[], [{id: 'x1', service: 'threads', isQueuePaused: false}], [{id: 'x1', service: 'twitter', isQueuePaused: true}]]) {
     const {calls, adapter} = providerMock({listed})
-    await assert.rejects(adapter.createPost({network: 'x', text: 'Fixture'}), /CHANNEL_MISMATCH/)
+    await assert.rejects(adapter.createPost({network: 'x', text: 'Fixture',requestedAt:'2099-01-01T00:00:00Z'}), /CHANNEL_MISMATCH/)
     assert.equal(calls.length, 1)
   }
 })
 test('Buffer ambiguous, malformed and GraphQL errors are static and never retried', async () => {
   for (const options of [{fail: true}, {mutation: {errors: [{message: env.BUFFER_API_KEY}]}}, {mutation: {data: {createPost: {message: env.BUFFER_API_KEY}}}}]) {
     const {calls, adapter} = providerMock(options)
-    await assert.rejects(adapter.createPost({network: 'x', text: 'Fixture'}), error => !error.message.includes(env.BUFFER_API_KEY) && /UNCONFIRMED/.test(error.message))
+    await assert.rejects(adapter.createPost({network: 'x', text: 'Fixture',requestedAt:'2099-01-01T00:00:00Z'}), error => !error.message.includes(env.BUFFER_API_KEY) && /UNCONFIRMED/.test(error.message))
     assert.ok(calls.length <= 2)
   }
 })

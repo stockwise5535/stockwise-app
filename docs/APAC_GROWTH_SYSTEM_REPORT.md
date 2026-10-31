@@ -1002,3 +1002,230 @@ or push.** No send flag, OAuth, template/reviewer/admin assignment or consent st
 was changed. Only development-branch implementation and local review preparation
 are complete; live acquisition results and unattended production readiness are not
 claimed.
+
+## INTEGRATED APAC GROWTH FOUNDATION — 2026-10-31
+
+**Internal implementation and fixture E2E completed to the currently authorized
+boundary. Production CRM, hosted scheduled operation and live acquisition delivery
+are NOT complete/running.** Latest user scope requires human approval before
+external sends/posts, production changes, new permissions and schema/RLS application;
+no push is authorized. Existing acquisition/KPI/event/outbound foundations are reused.
+
+### Completed implementation
+
+- `services/growth-workflow.js`: fixture-only persistent CRM, evidence-based ICP
+  score, domain/contact deduplication, company/contact states, message/contact/
+  meeting history, reply/stop/bounce/suppression, approved follow-up drafts,
+  mutation audit, single-host lock and private atomic writes. Real addresses cannot
+  be added; contacts require .invalid/.test. Evidence changes invalidate queued
+  approvals and dispatch rechecks the evidence version. This is not a live CRM API
+  and fixture role flags are not server authentication.
+- Draft → Review → Approved → Scheduled → Published → Measured model. Approval
+  hash binds final content, recipient/channel, images, URL and absolute time.
+  Editing invalidates approval; accepted/unknown items are immutable. Claims are
+  persisted before provider invocation. Unknown/sending holds cannot auto-retry;
+  a date change cannot bypass same-content duplication. Same-workspace scope,
+  10/hour, 50/day and same-recipient/24h restrictions are maintained. Queues are
+  capped at 500 fixture items; no recursive task or Codex creation exists.
+- Existing outbound risk rules are shared with fixture orchestration; high-risk
+  legal/financial/PO/supplier/confidential/unsupported/uncertain content cannot
+  reach the mock provider. Existing real Gmail policies/templates/SQL gates are
+  unchanged; CRM introduction drafts are NOT registered sendable templates.
+- Buffer adapter adds LinkedIn (`linkedin`, alongside `twitter` and `threads`),
+  organization/channel discovery, post/status/metric read and a default-deny
+  trusted-server approval callback for mutations. Custom future schedule is
+  mandatory; no unreviewed add-to-queue default. Provider acceptance is not
+  publication. Reconciliation checks ID/channel/content plus sent status.
+  Images are hash-bound for review but real image delivery rejects until a
+  verified immutable-asset workflow exists. No live adapter is wired into cron.
+- `scripts/growth-cycle.mjs` reuses the existing 12 variants and six candidates.
+  Nine social variants go through mock Buffer GraphQL discovery/approval/create/
+  read/reconcile/measure; three search outlines remain draft preparation. Email
+  dispatch is fixture-only. An output directory cannot be converted to production;
+  the CLI has no live/send/publish/approve flag or provider injection.
+- Research revalidation is bounded to 25 candidates, 20 requests, seven known
+  public hosts, HTTPS/no credentials/query/redirect, 2MB body cap and exact existing
+  excerpt comparison. No contact scraping, recursive crawl or 403/404 bypass.
+  Results remain separate for review, not an automatic live CRM import.
+- `src/growth/attribution.js`: coarse x/threads/linkedin/organic_search source only,
+  consent-first, seven-day expiry, same-origin signup/new-tab persistence, revocation
+  and logout clearing, no raw URL/campaign/contact data storage. Existing RPC
+  referral_source property is reused; stale pending properties are stripped after
+  withdrawal. **VITE_GROWTH_ATTRIBUTION_ENABLED defaults OFF and is OFF in the
+  actual production build configuration; no production tracking was enabled.**
+- `services/funnel-analysis.js` separates environment and explicitly verified
+  population. Demo workspace != test account. Production unknown/test rows cannot
+  be promoted by a browser tag. Anonymous Visitors needs an independent verified
+  source; missing values remain null. Post conversion requires an explicit matching
+  post ID, never allocating a channel's entire totals to each post. Production
+  source/population ingestion and per-post event persistence are not implemented.
+- `.github/workflows/growth-internal.yml`: pinned verified action commits,
+  contents:read, no persisted checkout credentials, no production/provider secrets,
+  push/PR/manual and 01:15/09:15/17:15 UTC schedule definitions. Unit/security/local
+  DB/browser/build plus offline KPI/research/content drill; fixed-label internal
+  failure annotations and Step Summary. No mail/Slack/artifact export/deploy job.
+  YAML parsed locally; GitHub has NOT executed it. Cron depends on registration on
+  the default branch; a feature-branch push alone does not establish cron operation.
+- Legacy Mac wrappers now invoke only internal dry-run; approval bypass, recursive
+  Codex, .env autoload, hosted lifecycle preparation and direct report-email sending
+  were removed. `send-codex-activity-report.mjs` is now a report-only compatibility
+  entrypoint. Existing reviewed outbound worker remains intact. Mac distribution,
+  launchd state and installer execution were not performed/verified.
+
+### Connection/permissions audit and actual jobs run
+
+| Area | Observation | State |
+| --- | --- | --- |
+| Supabase foundation | Existing configured development project aggregate HEAD/GET succeeded; no new CRM tables/RPCs applied | Configured & Running for development reads only |
+| Gmail OAuth | Forced process-only draft_only / send-enabled=false; refresh/scopes/approved sender verified; emails_sent=0, database_writes=0 | Configured & Running for read-only connection check, not delivery |
+| Gmail DB runtime | Read-only check: sending disabled, historical sender delivery test confirmed; database OAuth marker stale | Awaiting Human Approval for any connection-record update or delivery test |
+| Buffer runtime | API key, organization and X/Threads/LinkedIn channel settings all absent in process; no authenticated account request | Awaiting Human Approval / Configuration Required |
+| ChatGPT Buffer | No Buffer tool exposed in this session; service-UI connection state cannot be inferred or reused as runtime API access | Unverified, distinct from Codex credentials |
+| GitHub Actions | Files prepared and YAML parsed; no push/workflow dispatch/permission change | Awaiting Human Approval, NOT Running |
+| Local growth cycle | 6 companies / 1 synthetic contact / 11 items: 1 simulated email, 9 mock measured posts, 1 follow-up blocked by stop | Configured & Running as single-run fixture, NOT continuous production |
+| Public research | 9 unauthenticated GETs, 6 candidates; PRISM old URL404 and ZALORA403 retained as failures; no promotion/outreach | Configured & Running as bounded read-only check |
+| Production CRM/analytics | No approved CRM schema, production population or visitor/provider read path | Blocked / Not Implemented |
+
+Gmail check command was `EMAIL_SEND_MODE=draft_only NEXOPS_GMAIL_SEND_ENABLED=false
+node --use-env-proxy scripts/outbound-worker.mjs --verify-oauth`, never
+--verify-connection (which writes registration/connection state). Current process
+and build checks also confirm draft_only, send-enabled=false and attribution OFF.
+No runtime DB flag, template, reviewer/admin, consent or OAuth scope was changed.
+
+Buffer public docs inspected: organization/channel examples; Service enum confirms
+twitter/threads/linkedin; text scheduling and post/status/metrics examples. Metrics
+require personal automation API access and appropriate insights/channel permissions.
+Account plan/channel limits cannot be verified without credentials; no paid plan
+requirement/upgrade was invented. Link-click supply varies/deprecations exist;
+Buffer does not itself establish website signup/demo/lead conversion. Exact setup
+instructions and approval boundaries are in docs/GROWTH_AUTOMATION_RUNBOOK.md.
+
+### Production/test metrics and legal gates
+
+All eight **production** KPIs remain **未取得/null**, not zero: Visitors, Source,
+New Signups, Demo Starts, First Value, Returning Users, Qualified Leads and
+Consultation Requests. Actual Buffer Published/Impressions/Engagement/Link Clicks
+and web conversions likewise remain unavailable. Fixture values (including mock
+impressions=100) are explicitly synthetic and excluded from production reporting.
+
+Development observation at **2026-10-31T14:28:33.026Z**, window
+**2026-10-24T00:00:00Z <= timestamp < 2026-10-31T00:00:00Z**: profiles total4,
+new signups3, unique authenticated first demo3, first value3, prior-day returning1,
+existing heuristic qualification rows4 and consultation request rows4. Visitors and
+source unavailable. Test/internal records are included; these are NOT production
+customer acquisition or SCM-verified opportunity counts. Do not compute conversion
+rates from these unrelated period totals or infer progress toward 10,000 customers.
+
+Country review controls require consent, stopped/suppressed/bounced checks,
+recipient/sender jurisdictions, expiring review evidence, verified sender identity/
+address and an unsubscribe route. Public legal-source reads returned 200 for
+US/SG/HK/JP/TW, 503 for AU, 404 for the NZ/KR entry URLs; JP encoding and all
+applicability/exception/required-label/timing/stop conditions need professional
+review. No B2B exemption or consent is inferred from a public address or SCM fit.
+This is a conservative fixture gate, not a certified compliance engine. Real
+unsubscribe/reply/bounce ingestion is not implemented; reading Gmail message bodies
+would require additional approval/scopes. See docs/APAC_EMAIL_REVIEW_MATRIX.md.
+
+### Migration proposal — NOT APPLIED
+
+docs/proposals/APAC_GROWTH_CRM.sql proposes seven additive tables: verified
+population, companies, contacts, campaign items, approvals, delivery attempts and
+activity. It is outside registered migrations. All proposed tables enable/force
+RLS; ordinary browser DML is denied. CRM reads require Growth Admin AND matching
+workspace owner/admin; ordinary owner/global admin in another workspace/anonymous
+reads fail local tests. No new security-definer function is introduced.
+
+This is a reviewable proposal, **not a working production backend**. Auth.uid-bound
+transactional CRUD/review/claim RPCs, immutable audit/suppression/reconciliation,
+least-privilege aggregate API, retention/rollback and real population classification
+still need implementation/review before approval/application. Do not apply this
+proposal merely because its local RLS tests pass. No hosted schema/RLS/migration
+history or customer data was changed. No production service-role key is put into CI.
+
+### End-to-end dry-run evidence
+
+| Requested scenario | Result |
+| --- | --- |
+| Research → CRM | Existing public evidence imported into fixture; normalized company/contact dedup; refreshed evidence separate for review |
+| ICP → company mail | Detailed own-SCM evidence required; one synthetic contact and fixed feature-grounded draft |
+| Draft → approval queue | Version/hash review and simulated reviewer, not a real human approval |
+| Approved mail → dispatch simulation | One simulated receipt; consent/legal/suppression/quota enforced; live provider refused |
+| Social draft → Buffer prep | Reused 9 of 12 original variants for X/Threads/LinkedIn; search3 remain outlines |
+| Approved social → scheduling simulation | Mock real-adapter GraphQL call shape, discovered fake channel/service, exact approval, provider receipt, status/content/channel reconciliation |
+| Source → signup/demo → KPI | Browser consent/source/new-tab/RPC-property checks plus existing real local SQL Auth flow; pure fixture cohort/post join; production unavailable |
+| KPI → report/schedule | JSON/Markdown local reports, rerun stays11 items; actual workflow definition awaiting activation |
+| Unapproved operations | Missing/stale approval, edited text/image/URL/channel/time, real contact/live provider/high-risk content rejected |
+| Failure/retry/duplication | Unknown held durably without retry, changed-date duplicate refused, sender/recipient quotas, stop/bounce cancellation, overlap lock and fixed errors tested |
+
+### Validation actually executed
+
+```sh
+node --test tests/*.test.js
+NEXOPS_PGLITE_PATH=/tmp/stockwise-acquisition-deps/node_modules/@electric-sql/pglite node --test supabase/tests/*.test.mjs
+# Each uses NEXOPS_PLAYWRIGHT_PATH=/tmp/stockwise-acquisition-deps/node_modules/playwright-core:
+# acquisition.browser, growth.browser, attribution.browser, legal.browser, operations.browser
+# Local Vite: 127.0.0.1:5177, fixture Auth URL/key, attribution flag=true ONLY for test server.
+npm run build
+node scripts/check-growth-security.mjs
+sh -n automation/codex-v3.sh automation/run-v3-cycle.sh automation/send-codex-3day-report.sh
+node scripts/growth-cycle.mjs --dry-run --start-date 2026-11-02
+node scripts/research-refresh.mjs
+node --use-env-proxy scripts/research-refresh.mjs --read-public --output /tmp/growth-research-verified
+git diff --check
+```
+
+**142 unit/security tests passed, 0 failed** (17 new integration/security cases),
+**20 local SQL tests passed** (17 existing + 3 disposable proposal cases). All five
+browser suites passed: desktop/mobile LP/demo, first login/setup/retry/workspaces,
+internal permissions, legal navigation, local operational demo, consent-before-
+storage, source survival in signup/new tab, existing RPC mapping and withdrawal.
+No real signup/email/provider publication was used for tests. Initial new fixture
+setup issues (missing service_role / Playwright context creation) were corrected;
+they did not require changing application auth/RLS. Build passed. Workflow YAML and
+shell syntax parsed; no hosted CI run is claimed. No lint/type-check script exists.
+
+Security check passed for current source/dist: no configured secret value,
+privileged JWT, server-secret identifier in browser output or approval-bypass shell
+flag found. Legacy/new jobs were additionally tested with network forcibly denied
+even when provider credentials are present. Fixture provider errors do not enter
+audit files. This is not a historical Git/external-log audit or a production
+penetration/load test.
+
+### Completion classification / next actions
+
+- **Implemented & Tested:** fixture CRM/state machine/dispatch simulation, 3-channel
+  Buffer adapter with approval boundary and reads, consent-gated attribution,
+  environment/population/post aggregates, bounded research, internal report/CI code.
+- **Configured & Running:** this run's local dry-runs, public-source reads, existing
+  dev KPI reads and read-only Gmail OAuth/sender check; no continuously hosted jobs.
+- **Awaiting Human Approval:** push/workflow registration/default-branch cron/budget,
+  production tracking and privacy notice, CRM proposal/backend review/application,
+  Buffer secure configuration and exact bounded tests, legal sender/country review,
+  any new provider permission, all live messages/posts/deployment.
+- **Blocked / Not Implemented:** real CRM CRUD/approval/claim backend, production
+  population/anonymous analytics/provider reader/per-post persistence, broad
+  cold-outreach sending, reply/bounce/unsubscribe integration, verified image assets,
+  distributed processing and 10,000-user delivery/load readiness. New-company
+  discovery beyond the curated six is not an implemented autonomous crawler.
+
+Next three days: Day1 review legal/sender/country details, production cohort and
+CRM/backend/CI approval plan; Day2 securely configure and read-verify Buffer/account
+channels/insights and review the exact first copy/destination/time without posting;
+Day3 execute only a separately approved bounded distribution/measurement test,
+reconcile actual evidence and choose the next experiment from the same cohort.
+If approval/configuration is absent, continue only offline preparation/reporting.
+Gmail's retained 50/day pilot cap is not a 10k bulk-delivery strategy; no cap was
+raised and no scalable deliverability/provider capability is claimed.
+
+Files/operating guide: docs/GROWTH_AUTOMATION_RUNBOOK.md, APAC_EMAIL_REVIEW_MATRIX.md,
+proposal SQL; new growth-workflow/funnel-analysis/research-refresh services and
+growth-cycle/research-refresh/security scripts; Buffer/risk-rule reuse; attribution/
+existing analytics-service changes; actual workflow; safe legacy wrappers/report;
+new Unit/DB/Browser tests; .gitignore and NEXT_TASK Status.
+
+**No push, deployment/promotion, social post, email/DM, real charge/billing change,
+new OAuth scope/provider permission, hosted CRM/application write or schema/RLS
+application.** Only public/authenticated read checks (including OAuth refresh) and
+local implementation/tests/files were performed. Real operational demo/customer
+data and existing templates, reviewer/admin assignments, consent records and
+Gmail/database sending gates were not modified.

@@ -30,6 +30,7 @@ const REVIEW_RULES=[
  ['unclear_or_ai_copy',/\b(as an ai|ignore (?:all|previous) instructions|delve into|thrilled to|revolutionary|game.changing)\b/i],
 ]
 const BLOCK_RULES=[['threat_or_harassment',/\b(i will (?:kill|hurt) you|pay or (?:else|we expose)|blackmail|racial slur)\b/i],['illegal_or_abusive_intent',/\b(steal (?:their |the )?(?:password|credentials)|evade anti.spam|bypass (?:the )?(?:law|consent)|impersonate (?:a |the )?customer)\b/i]]
+export function outboundRiskFlags(text){return [...REVIEW_RULES,...BLOCK_RULES].filter(([,pattern])=>pattern.test(text)).map(([flag])=>flag)}
 export function evaluateOutbound(message,context){
  const flags=[],result=(decision,...reasons)=>({decision,risk_flags:[...new Set(flags)],reasons})
  const recipient=context.recipient

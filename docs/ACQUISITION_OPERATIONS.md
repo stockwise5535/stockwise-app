@@ -1,6 +1,8 @@
 # Stockwise / Nexops — 承認制のユーザー獲得運用
 
-更新: 2026-10-29（America/Los_Angeles）。UTCの取得日時は各データに明記。
+更新: 2026-10-31（America/Los_Angeles）。UTCの取得日時は各データに明記。
+
+**最新差分:** [GROWTH_AUTOMATION_RUNBOOK.md](GROWTH_AUTOMATION_RUNBOOK.md)参照。10/31にfixture CRM/承認/Buffer LinkedIn/同意付きsourceとCI定義を追加。旧runnerのapproval bypass・queue準備・直接メール送信経路は開発ブランチで廃止した。Mac配布・hosted CI実行・本番反映は未実施。以下の監査表と既存課題は10/29時点の履歴であり、最新の稼働/承認待ちはrunbookを優先する。
 
 ## 今回の境界
 

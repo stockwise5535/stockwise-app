@@ -1,0 +1,63 @@
+name: Growth internal validation
+on:
+  push:
+    branches: [codex/managed-service-mvp]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 1,9,17 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: growth-internal-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate-and-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Test-only dependencies
+        run: npm install --prefix "$RUNNER_TEMP/growth-deps" --no-save @electric-sql/pglite@0.5.13 playwright-core@1.64.1
+      - name: Unit and security
+        run: node --test tests/*.test.js
+      - name: Local database isolation
+        run: NEXOPS_PGLITE_PATH="$RUNNER_TEMP/growth-deps/node_modules/@electric-sql/pglite" node --test supabase/tests/*.test.mjs
+      - name: Production build and secret boundary
+        run: |
+          npm run build
+          node scripts/check-growth-security.mjs
+      - name: Browser regressions with synthetic local Auth
+        run: |
+          node "$RUNNER_TEMP/growth-deps/node_modules/playwright-core/cli.js" install --with-deps chromium
+          VITE_SUPABASE_URL=http://127.0.0.1:54329 VITE_SUPABASE_ANON_KEY=local-test-public-key VITE_GROWTH_ATTRIBUTION_ENABLED=true npm run dev -- --host 127.0.0.1 --port 5176 --strictPort > "$RUNNER_TEMP/growth-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for attempt in $(seq 1 30); do curl --silent --fail http://127.0.0.1:5176/en > /dev/null && break; sleep 1; done
+          export NEXOPS_PLAYWRIGHT_PATH="$RUNNER_TEMP/growth-deps/node_modules/playwright-core"
+          export NEXOPS_PGLITE_PATH="$RUNNER_TEMP/growth-deps/node_modules/@electric-sql/pglite"
+          export NEXOPS_CHROMIUM="$(node -e 'console.log(require(process.env.NEXOPS_PLAYWRIGHT_PATH).chromium.executablePath())')"
+          export NEXOPS_TEST_URL=http://127.0.0.1:5176
+          export NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176
+          node tests/acquisition.browser.mjs
+          node tests/growth.browser.mjs
+          node tests/attribution.browser.mjs
+          node tests/legal.browser.mjs
+          node tests/operations.browser.mjs
+      - name: Internal CRM/content/KPI dry-run
+        run: |
+          node scripts/research-refresh.mjs
+          node scripts/growth-cycle.mjs --dry-run
+          node scripts/acquisition-report.mjs
+          cat logs/growth/growth-cycle-latest.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Fixed-label failure notification
+        if: failure()
+        run: |
+          echo '::error::Growth internal validation failed; inspect the failing test step. No external delivery was attempted.'
+          echo 'Growth checks failed. Production/provider jobs are absent.' >> "$GITHUB_STEP_SUMMARY"
