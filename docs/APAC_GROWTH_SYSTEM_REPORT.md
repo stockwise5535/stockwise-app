@@ -1256,3 +1256,118 @@ Baseline `a814388bc229848a3e4937b7cd8bc019ea5d5f39`. [AUTOMATION_UNBLOCKING.md](
 - Read-only Gmail OAuth refresh/sender/grant verification passed; DB runtime read confirms disabled sending, approved sender match, populated self-test marker and stale OAuth marker ~140h. emails_sent=0, database_writes=0. Renewal via verify-connection would write marker/registry and remains approval-required; not executed.
 - Current validation: 147 unit/security, 23 local SQL, five browser suites, production build and security scan passed; fixture growth-cycle dry-run reports live_emails=0/live_posts=0/external_writes=0. No live/production acquisition KPI claim.
 - No push, deployment, email/DM, social post/schedule, billing, new provider permission, hosted schema/RLS or data mutation. Next steps: verify four Vercel exclusions + least GitHub read permissions; securely configure/read-verify Buffer; review final CRM/backend/privacy and separately authorize marker renewal.
+
+
+## 2026-11-01 — Authenticated Buffer metrics in Internal Growth Dashboard
+
+User-authorized implementation/local validation only; no hosted DB change, push,
+deployment, publication or scheduler activation. Working branch:
+`codex/managed-service-mvp`, integration baseline `5ea4dec`.
+
+Preserved previous main-based uncommitted files in a recoverable archive outside
+the checkout, then switched to the existing development history. Integrated the
+fixed-query server reader, its CLI and tests. `bbf5f77` remains unlocated (earlier
+GitHub patch lookup 404); used inspected source and added regression/security
+checks instead. Existing services/buffer-adapter.js has publication methods and
+is not imported by the new read-only route.
+
+Added GET /api/growth/social-metrics: Supabase getUser + nexops_is_growth_admin,
+RLS-backed organization owner/admin and workspace membership checks; fixed
+server organization/channel mapping; strict period/query validation; capped
+pagination and whole-request deadline; bounded process-local quota, single-flight
+and organization/period cache; fresh authorization on all cache hits; no-store
+responses and sanitized failures. No service-role credential is required.
+
+Internal Growth Dashboard now has a manual SNS read panel for LinkedIn/Threads/X.
+Available values (including real zero), missing metrics, loading, fetch failure,
+partial inventories and metrics freshness are distinct. Changes of scope/period
+clear data and obsolete responses cannot repopulate the old view. Extra available
+provider metrics are shown; posts are not modified.
+
+Validation: 171 Unit/Security cases passed; 23 disposable local SQL tests passed;
+existing acquisition/growth/attribution/legal/operations browser suites passed,
+plus the dedicated SNS browser suite. Existing production Build and secret scan
+passed. Final verification after the last UI/error-state edits is recorded below.
+All Browser Auth/provider responses are synthetic/local; no hosted Auth/RLS or
+end-to-end production verification is claimed.
+
+Live configuration inspection found only BUFFER_API_KEY present. Buffer fixed IDs,
+NEXOPS_SOCIAL_ORGANIZATION_ID and Supabase public Auth settings are absent.
+No values were requested in chat, recorded or written to environment settings.
+The endpoint fails closed pending configuration. Cache/rate limits are per-process;
+distributed enforcement and authorized-user hosted validation remain release work.
+See docs/SOCIAL_METRICS.md for exact contracts, caps, settings and limitations.
+
+
+Final post-edit verification (2026-11-01): all 171 Unit/Security tests passed;
+new SNS browser suite passed after adding independent post/metric failure checks;
+Growth browser verified administrator-only panel mounting. Existing five browser
+suites and 23 local SQL tests passed. Production Build passed; final source/dist
+security scan passed with 173 inspected files and no findings. git diff --check
+passed. No live authenticated endpoint test was possible without the missing
+server mapping/Auth configuration. No production changes or remote publication.
+
+
+## 2026-11-01 — Administrator-enabled daily SNS autopilot (local only)
+
+Current user policy supersedes older per-post human review for this new path:
+after explicit administrator activation, AI + deterministic-rule-approved posts
+may publish automatically. Default OFF; no runtime activation performed here.
+
+Implemented fixed three-channel daily cycle, private production-only job route,
+Supabase-authenticated organization/admin control API and Dashboard enable/stop
+panel. Generation is constrained composition from reviewed public facts and hooks,
+followed by separate AI review, fixed source/shape/risk/length checks, normalized
+copy dedup and seven-day same-topic cooldown. Source fingerprints are tested;
+version or channel changes require administrator reactivation. No unrestricted
+AI claims, numeric social proof or private customer data are published.
+
+Added an UNAPPLIED SQL proposal for eight social tables and scoped RPCs: durable
+per-UTC-day tick/run and one post/network/day, policy revisions, pre-call AI budget
+reservations, dispatch claims, accepted/unknown/published outcomes, common JSON
+snapshots, operator alerts and administrator audit. Counters/claims use PostgreSQL
+unique keys and policy-row locks, not per-process ledgers. Unknown/sending states
+hold future automatic publication; no retry or destructive reset mechanism added.
+Safe rejected copy and fixed reasons are retained; raw untrusted model output is not.
+
+AI limits: pinned gpt-4.1-mini, max 8192 input-content bytes / 600 output tokens,
+six generation+review calls/day, 20 US cents reserved/call, $1.20/day and $40/month
+per organization at reviewed price ceilings. Failures consume reservations. Current
+pricing and provider project budget/alerts must be verified before production;
+no paid AI request was made. Reservation is not a guarantee against provider
+repricing. Actual safe model output/request latency remains a production preflight.
+
+Buffer results are collected daily even when publishing policy is OFF (once the
+production job/configuration is approved), persisted as common JSON, and reused
+by the authenticated metrics API. Registered accepted IDs are reconciled without
+post text, including bounded individual reads when list pagination is incomplete.
+Measured prior-topic/channel performance and freshness feed the next day's plan;
+missing metrics stay missing. Stop blocks future dispatch gates but cannot retract
+in-flight or already Buffer-accepted posts/schedules. Faults send fixed-code HTTPS
+webhook alerts and record endpoint-acceptance status; no Gmail/email integration.
+
+Read-only Buffer schema introspection found required createPost assets and
+needsApproval fields missing from the old adapter. Added assets:[],
+needsApproval:false, saveToDraft:false, aiAssisted:true and verified current
+customScheduled/automatic enum and success/error fragment types. No mutation was
+sent to Buffer. Production write checks now also guard the reused adapter itself.
+Older dry-run tests use static simulated production flags with a hard-coded mocked
+transport; real environment credentials/transports are never used in these tests.
+
+Validation: 193 Unit/Security cases passed, 29 disposable local SQL tests passed
+(including six new autopilot SQL cases), seven browser suites passed, production
+Build passed. Dedicated browser tests cover dual activation consent, ON/stop,
+preview denial, unknown delivery, stale policy and fail-closed config/error states.
+Existing Auth/provider browser traffic is synthetic; no hosted authorization or
+multi-connection load verification is claimed. Final source/dist secret scan follows.
+
+Artifacts and exact setup/release bounds: docs/SOCIAL_AUTOPILOT.md,
+docs/proposals/SOCIAL_AUTOPILOT.sql, and INACTIVE
+SOCIAL_AUTOPILOT_CRON.json (daily 09:00 UTC). Active vercel.json, registered
+migrations, GitHub workflow/scheduler settings and package-lock are unchanged.
+Current environment still has only Buffer key; production IDs/Auth/worker/AI/
+notification/cron credentials and Vercel controls are unconfigured/unverified.
+
+No GitHub push, production deployment, hosted DB/role change, actual Buffer write,
+AI billing, notification delivery, email or scheduler activation was performed.
+Only the schema introspection contacted Buffer and it used query operations.

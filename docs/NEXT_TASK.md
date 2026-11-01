@@ -16,7 +16,59 @@ Before starting, read:
 
 The top-level growth objective is **10,000 APAC users within 30 days of growth launch**.
 
-## Current task — Build Outbound Automation V3
+## Current task — Daily administrator-enabled SNS autopilot (2026-11-01)
+
+Local implementation and validation complete on codex/managed-service-mvp.
+The user's latest policy authorizes fully automatic LinkedIn/Threads/X posts after
+ONE explicit administrator enable action; no human approval per passing post is
+required in this new pipeline. Initial OFF, fixed channels, checks, daily/budget
+caps, durable idempotency/unknown holds, stop/alerts and production-only writes.
+Historical outbound permissions below do not enable other jobs or senders.
+
+Validation: 193 Unit/Security, 29 local SQL, seven browser suites and Build passed.
+See SOCIAL_AUTOPILOT.md and the latest APAC_GROWTH_SYSTEM_REPORT.md section.
+SQL and daily-cron proposals remain unapplied/inactive. No hosted writes, actual
+Buffer publication, AI billing, notification, push or deployment occurred.
+
+Next single task: prepare and execute the approved production rollout with
+publication OFF, verifying exact Vercel project and auto-deploy settings, internal
+organization/admin membership, fixed Buffer IDs, secret configuration and hosting
+runtime first. Local API tests cannot substitute for hosted authorization checks.
+Obtain explicit approval before GitHub push, production deployment, applying the
+social-only SQL proposal, enabling the daily cron or any actual Buffer write.
+Administrator activation is the final publication gate; don't enable it as part of
+setup. Never clear unknown/sending/dedup/budget rows simply to resume processing.
+
+Residuals: existing on-demand custom-period metrics limits are process-local;
+review shared gateway limits before wider exposure. PostgreSQL proposal is
+single-engine-tested, not hosted multi-connection/load verified. Check current
+model prices and project billing alerts before acknowledging the price ceiling.
+
+## Previous checkpoint — Buffer SNS dashboard integration (2026-11-01)
+
+Implemented locally on codex/managed-service-mvp: fixed-query Buffer reader,
+authenticated/organization-authorized GET /api/growth/social-metrics and Internal
+Growth Dashboard SNS panel. No production DB writes, push, deployment or scheduled
+job activation authorized. Older outbound allowances below are historical and do
+not grant permission to send or publish in this task.
+
+Validation: 171 Unit/Security tests, 23 local SQL tests, six browser suites,
+production Build and security scan passed (final post-edit verification recorded
+in the latest development report). See SOCIAL_METRICS.md for configuration/caps.
+
+Next single task: prepare a release validation checklist using the existing
+internal organization, admin/member assignments and the three reviewed Buffer
+channel IDs, then perform authorized-user read-only endpoint/UI verification
+once secure server configuration is supplied. Do not create memberships, grant
+roles or change DB/schema to bypass checks. BUFFER_API_KEY is present; other
+required mapping/Auth settings are absent in this cloud instance.
+
+Production release remains pending configuration, hosted authorization/routing
+validation and a deployment-wide rate-limit decision. Per-process quotas/cache
+are implemented, not a distributed quota. Obtain explicit user approval before
+production DB change, push, deployment or enabling any recurring job.
+
+## Historical task — Build Outbound Automation V3
 
 ### Current execution scope — 2026-10-31 integrated growth request
 

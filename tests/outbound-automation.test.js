@@ -6,7 +6,7 @@ import {join} from 'node:path'
 import {createBufferAdapter} from '../services/buffer-adapter.js'
 import {classifyAutomationItem, prepareSocialItems, runOutboundAutomation, withAutomationLock} from '../services/outbound-automation.js'
 
-const env = {BUFFER_API_KEY: 'fixture-secret-not-for-logs', BUFFER_ORGANIZATION_ID: 'org1', BUFFER_X_CHANNEL_ID: 'x1', BUFFER_THREADS_CHANNEL_ID: 't1'}
+const env = {VERCEL_ENV:'production',NEXOPS_SOCIAL_WRITES_ALLOWED:'true',NEXOPS_SOCIAL_EMERGENCY_STOP:'false',BUFFER_API_KEY: 'fixture-secret-not-for-logs', BUFFER_ORGANIZATION_ID: 'org1', BUFFER_X_CHANNEL_ID: 'x1', BUFFER_THREADS_CHANNEL_ID: 't1'}
 const channels = [{id: 'x1', service: 'twitter', isQueuePaused: false}, {id: 't1', service: 'threads', isQueuePaused: false}]
 function providerMock({listed = channels, mutation, fail} = {}) {
   const calls = []

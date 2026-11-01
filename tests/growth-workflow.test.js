@@ -78,7 +78,7 @@ test('production metrics cannot count development/test rows; missing visitor/sou
  assert.equal(analyzeFunnel({environment:'production'}).metrics.new_signups.value,null)
 })
 test('Buffer LinkedIn mapping, mandatory server approval and read-only status/metrics use verified shapes',async()=>{
- const env={BUFFER_API_KEY:'fixture-secret',BUFFER_ORGANIZATION_ID:'org',BUFFER_LINKEDIN_CHANNEL_ID:'li'},calls=[]
+ const env={VERCEL_ENV:'production',NEXOPS_SOCIAL_WRITES_ALLOWED:'true',NEXOPS_SOCIAL_EMERGENCY_STOP:'false',BUFFER_API_KEY:'fixture-secret',BUFFER_ORGANIZATION_ID:'org',BUFFER_LINKEDIN_CHANNEL_ID:'li'},calls=[]
  const transport=async(_url,o)=>{const query=JSON.parse(o.body).query;calls.push(query);return {ok:true,json:async()=>query.includes('channels(')?{data:{channels:[{id:'li',service:'linkedin',isQueuePaused:false}]}}:query.startsWith('mutation')?{data:{createPost:{post:{id:'post1'}}}}:{data:{post:{id:'post1',channelId:'li',status:'sent',metrics:[{type:'impressions',value:0,unit:'count'}]}}}}}
  const args={network:'linkedin',text:'Public fixture copy',requestedAt:'2030-01-01T00:00:00Z'}
  await assert.rejects(createBufferAdapter({env,fetch:transport}).createPost(args),/APPROVAL/);assert.equal(calls.filter(q=>q.startsWith('mutation')).length,0)

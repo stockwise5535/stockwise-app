@@ -4,6 +4,7 @@ export const bufferApprovalHash=({network,channelId,text,requestedAt=null,images
 const identifier = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value)
 export function createBufferAdapter({env = process.env, fetch: transport = fetch, authorizePublication} = {}) {
   async function request(query) {
+    if(query.startsWith('mutation')&&(env.VERCEL_ENV!=='production'||env.NEXOPS_SOCIAL_WRITES_ALLOWED!=='true'||env.NEXOPS_SOCIAL_EMERGENCY_STOP!=='false'))throw Error('BUFFER_PRODUCTION_WRITE_DISABLED')
     if (!env.BUFFER_API_KEY?.trim()) throw Error('BUFFER_CONFIGURATION_REQUIRED')
     try {
       const response = await transport('https://api.buffer.com', {
@@ -29,13 +30,14 @@ export function createBufferAdapter({env = process.env, fetch: transport = fetch
       if (!Array.isArray(data.channels)) throw Error('BUFFER_CHANNELS_UNCONFIRMED')
       return data.channels
     },
-    async post(postId){
+    async post(postId,{includeText=true}={}){
       if(!identifier(postId))throw Error('BUFFER_POST_ID_REQUIRED')
-      const data=await request(`query { post(input: {id: ${JSON.stringify(postId)}}) { id text channelId status metrics { type name value unit } metricsUpdatedAt } }`)
+      const data=await request(`query { post(input: {id: ${JSON.stringify(postId)}}) { id ${includeText?'text ':''}channelId status metrics { type name value unit } metricsUpdatedAt } }`)
       const post=data.post;if(!identifier(post?.id)||post.id!==postId)throw Error('BUFFER_POST_UNCONFIRMED')
       return {providerId:post.id,channelId:post.channelId,text:typeof post.text==='string'?post.text:null,state:post.status,published:post.status==='sent',metrics:Array.isArray(post.metrics)?post.metrics.filter(m=>typeof m.type==='string'&&Number.isFinite(m.value)&&m.value>=0).map(m=>({type:m.type,value:m.value,unit:m.unit})):null,metricsUpdatedAt:post.metricsUpdatedAt||null,websiteVisits:null,signups:null,demoStarts:null,qualifiedLeads:null}
     },
     async createPost({network, text, requestedAt, images=[],url=null}) {
+      if(env.VERCEL_ENV!=='production'||env.NEXOPS_SOCIAL_WRITES_ALLOWED!=='true'||env.NEXOPS_SOCIAL_EMERGENCY_STOP!=='false')throw Error('BUFFER_PRODUCTION_WRITE_DISABLED')
       const service = {x: 'twitter', threads: 'threads', linkedin:'linkedin'}[network]
       const channelId = env[{x:'BUFFER_X_CHANNEL_ID',threads:'BUFFER_THREADS_CHANNEL_ID',linkedin:'BUFFER_LINKEDIN_CHANNEL_ID'}[network]]
       if (!service || !identifier(channelId)) throw Error('BUFFER_CHANNEL_CONFIGURATION_REQUIRED')
@@ -50,7 +52,7 @@ export function createBufferAdapter({env = process.env, fetch: transport = fetch
       let approval;try{approval=await authorizePublication({network,channelId,text,requestedAt:requestedAt||null,images,url,contentHash})}catch{throw Error('BUFFER_APPROVAL_UNCONFIRMED')}
       if(approval?.authorized!==true||approval.contentHash!==contentHash)throw Error('BUFFER_PUBLICATION_APPROVAL_REQUIRED')
       const schedule = `mode: customScheduled, dueAt: ${JSON.stringify(new Date(requestedAt).toISOString())}`
-      const data = await request(`mutation { createPost(input: {channelId: ${JSON.stringify(channelId)}, text: ${JSON.stringify(text)}, schedulingType: automatic, ${schedule}}) { ... on PostActionSuccess { post { id dueAt status } } ... on MutationError { message } } }`)
+      const data = await request(`mutation { createPost(input: {channelId: ${JSON.stringify(channelId)}, text: ${JSON.stringify(text)}, assets: [], needsApproval: false, saveToDraft: false, aiAssisted: true, schedulingType: automatic, ${schedule}}) { ... on PostActionSuccess { post { id dueAt status } } ... on MutationError { message } } }`)
       const post = data.createPost?.post
       if (!identifier(post?.id)) throw Error('BUFFER_OUTCOME_UNCONFIRMED')
       // Acceptance is not proof of final network publication.

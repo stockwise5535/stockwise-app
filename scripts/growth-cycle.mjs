@@ -30,7 +30,7 @@ try{
    const requestedAt=new Date(Date.parse(d.start_date+'T'+d.local_time+':00+08:00')+d.day_offset*86400000).toISOString()
    const row=await crm.draft({kind:'social',network:d.channel,channelId:'fixture-'+d.channel,text:d.composed_text,images:[],url:d.landing_url,requestedAt,campaign:'apac_scm_3day'})
    if(row.status==='draft'){await crm.submit(row.id);await crm.approve(row.id,row.hash)}
-   const adapter=createBufferAdapter({env:{BUFFER_API_KEY:'fixture-key-not-live',BUFFER_ORGANIZATION_ID:'fixture-org',BUFFER_X_CHANNEL_ID:'fixture-x',BUFFER_THREADS_CHANNEL_ID:'fixture-threads',BUFFER_LINKEDIN_CHANNEL_ID:'fixture-linkedin'},
+   const adapter=createBufferAdapter({env:{VERCEL_ENV:'production',NEXOPS_SOCIAL_WRITES_ALLOWED:'true',NEXOPS_SOCIAL_EMERGENCY_STOP:'false',BUFFER_API_KEY:'fixture-key-not-live',BUFFER_ORGANIZATION_ID:'fixture-org',BUFFER_X_CHANNEL_ID:'fixture-x',BUFFER_THREADS_CHANNEL_ID:'fixture-threads',BUFFER_LINKEDIN_CHANNEL_ID:'fixture-linkedin'},
     authorizePublication:async request=>({authorized:row.status==='sending'&&row.approval?.hash===approvalHash(row.payload)&&request.contentHash===bufferApprovalHash({...row.payload,text:row.payload.text}),contentHash:request.contentHash}),
     fetch:async(_url,options)=>{const query=JSON.parse(options.body).query;return {ok:true,json:async()=>query.includes('channels(')?{data:{channels:['x','threads','linkedin'].map(network=>({id:'fixture-'+network,service:network==='x'?'twitter':network,isQueuePaused:false}))}}:query.startsWith('mutation')?{data:{createPost:{post:{id:'fixture-'+row.id.slice(0,16)}}}}:{data:{post:{id:'fixture-'+row.id.slice(0,16),channelId:row.payload.channelId,text:row.payload.text,status:'sent',metrics:[{type:'impressions',value:100,unit:'count'}]}}}}}
    })

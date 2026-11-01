@@ -104,6 +104,8 @@ try{
  assert.ok((await page.locator('.growth-card').textContent()).includes('Qualified Lead'))
  await page.getByRole('button',{name:'Invite a colleague',exact:true}).click();await page.getByRole('button',{name:'Create viewer invitation link',exact:true}).click();await page.getByLabel('Private invitation link',{exact:true}).waitFor()
  assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),0)
+ assert.equal(await page.getByRole('region',{name:'SNS performance'}).count(),0)
+ assert.equal(await page.getByRole('region',{name:'SNS automation'}).count(),0)
  assert.equal(await page.getByRole('button',{name:'Outbound Review',exact:true}).count(),0)
  for(const view of ['dashboard','communications']){
   await page.goto(base+'/growth?view='+view);await page.getByRole('heading',{name:'Page unavailable for this workspace'}).waitFor()
@@ -141,6 +143,8 @@ try{
  await db.query('insert into public.nexops_growth_admins(user_id)values($1)',[userId])
  await page.goto(base+'/growth?view=dashboard');await page.getByRole('heading',{name:'Internal Growth Dashboard',exact:true}).waitFor();await page.getByRole('button',{name:'Load authorized metrics',exact:true}).click();await page.getByText('registered users',{exact:true}).waitFor()
  assert.equal(await page.getByRole('button',{name:'Internal Growth Dashboard',exact:true}).count(),1)
+ await page.getByRole('region',{name:'SNS performance'}).getByText('未取得 / Not loaded',{exact:true}).waitFor()
+ await page.getByRole('region',{name:'SNS automation'}).getByText('状態未取得 / Not loaded',{exact:true}).waitFor()
  // Admin + workspace owner can read the queue, but has no review assignment.
  await page.goto(base+'/growth?view=communications');await page.getByRole('heading',{name:'Outbound Communication Review Queue'}).waitFor()
  assert.equal(await page.getByRole('button',{name:'Approve and Send',exact:true}).count(),0)
