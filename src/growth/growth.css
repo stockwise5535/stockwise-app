@@ -1,0 +1,6 @@
+.growth{background:#061a2d;color:#edf5fc;min-height:100vh;padding:24px clamp(16px,4vw,60px);font:15px/1.65 Arial,Helvetica,sans-serif}
+.growth *{box-sizing:border-box}.growth header{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.growth a{color:#9cdbed}.growth h1{font-size:26px}
+.growth button,.growth input,.growth select{font:inherit;border-radius:7px;padding:9px 12px;background:#12344b;color:#eff8ff;border:1px solid #45657a;max-width:100%}
+.growth button{cursor:pointer}.growth button:disabled{opacity:.5;cursor:default}.growth label{display:flex;flex-direction:column;gap:6px;margin:12px 0;max-width:600px;font-size:13px}.growth .growth-check{flex-direction:row;align-items:center}
+.growth .growth-card{background:#0b263d;border:1px solid #28485d;border-radius:12px;padding:24px;margin:20px 0}.growth .growth-card h2{margin:8px 0 14px}.growth .growth-card p{margin:12px 0}.growth .growth-card article{border-bottom:1px solid #34566a;padding:16px 0;overflow-wrap:anywhere}.growth .growth-card dd{margin-bottom:12px}.growth [role=alert]{padding:14px;border-left:3px solid #ff9b9b;background:#472733;overflow-wrap:anywhere}.growth :focus-visible{outline:3px solid #87f1d4;outline-offset:3px}
+@media(max-width:600px){.growth .growth-card{padding:16px}.growth header{gap:10px}.growth button,.growth input,.growth select{min-width:0}}

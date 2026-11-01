@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div>
+<script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import SocialMetrics from '../../src/growth/SocialMetrics.jsx';
+import SocialAutomation from '../../src/growth/SocialAutomation.jsx';
+import '../../src/growth/growth.css';
+const root=createRoot(document.getElementById('root'));
+const client={auth:{getSession:async()=>({data:{session:{access_token:'synthetic-user-session'}}})}};
+window.mountSocial=workspaceId=>root.render(React.createElement('main',{className:'growth'},React.createElement(SocialMetrics,{key:workspaceId,client,workspaceId})));
+window.mountAutomation=workspaceId=>root.render(React.createElement('main',{className:'growth'},React.createElement(SocialAutomation,{key:workspaceId,client,workspaceId})));
+window.mountSocial('33333333-3333-4333-8333-333333333333');
+</script></body></html>
