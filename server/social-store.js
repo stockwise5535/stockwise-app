@@ -22,6 +22,7 @@ export function createSocialStore({env=process.env,signal,client}={}){
     },
     finish:(run,state)=>result(client.from('nexops_social_runs').update({state}).eq('id',run)),
     recent:org=>result(client.from('nexops_social_posts').select('day,network,content_hash,fact_ids,state,provider_id,metrics,metrics_updated_at').eq('organization_id',org).order('day',{ascending:false}).limit(90)),
+    savedSnapshot:async(org,period)=>{const row=await result(client.from('nexops_social_snapshots').select('payload').eq('organization_id',org).eq('period_start',period.start).eq('period_end',period.end).maybeSingle());return row?.payload || null;},
     snapshot:(org,payload)=>result(client.from('nexops_social_snapshots').upsert({organization_id:org,period_start:payload.period.start,period_end:payload.period.end,payload,updated_at:new Date().toISOString()})),
     async reconcile(org,snapshot,readPost){
       let failed=0,unconfirmed=0;

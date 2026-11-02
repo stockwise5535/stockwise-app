@@ -1,5 +1,84 @@
 # Stockwise / NexOps development log
 
+## 2026-11-02 — independent metrics sync and cross-layer rehearsal
+
+- User authorized autonomous development through Nov 4 and review Nov 5, within
+  existing production safety conditions. No persistent agent/task scheduler is
+  available; no unattended three-day execution or future report is claimed.
+- Implemented private GET /api/internal/social-metrics-sync independent of AI and
+  publication activation. Production/CRON_SECRET required; caller targets refused.
+  Fixed Buffer queries only; no run/tick/AI-budget/policy mutations. Uses existing
+  snapshot schema/ACLs and dashboard read path, so no new SQL migration needed.
+- Shared scoped daily cache, 30-day UTC window, bounded inventory/page count,
+  25-second cancellation and fixed partial/failure notification labels added.
+  Missing metrics remain null and partial channels remain partial. Concurrent
+  cold readers may duplicate safe queries/upserts, never Buffer dispatches.
+- Added inactive 08:50 UTC metrics cron proposal, separate from 09:00 UTC posting
+  proposal. Active vercel.json remains unchanged; all schedulers remain absent.
+- Unit/Security: all 9 suites passed, including 7 new sync scenarios plus a scoped
+  store lookup test. Build passed. Earlier 15 SQL cases remain passed; added one
+  real cycle + production SQL + least-privilege store integration case, passed.
+  It proves OFF sync, six AI reservations/three checked mocked registrations,
+  durable daily no-replay and stop, using only local synthetic data/transport.
+- Secret scanning passed on 95 source/build files using the existing logic with
+  shell-generated file list (Node Git spawning restricted). No secret output.
+- GitHub remote inspection failed: proxy:8080 unreachable. Buffer read-only
+  attempt also returned no successful response. No retry/bypass or mutation.
+  Existing security CSV audit was not rerun. No production SQL, main change,
+  deployment, active cron, AI billing, SNS reservation/post or external message.
+- Results saved locally on integration branch; remote CI/push cannot be verified
+  until network access is restored. Production post time remains unassigned.
+
+## 2026-11-02 — target UUIDs finalized; production rollout blocked by access
+
+- User supplied confirmed target admin/org/workspace UUIDs; set the three literals
+  in SOCIAL_AUTOPILOT_PRODUCTION.sql. Other executable SQL is byte-equivalent
+  after normalizing the target literals. Exact UUID format/static checks passed.
+- Three supplied CSVs match existing development authorization function/policy
+  hashes and compatible effective table privileges. Schema-addition decision GO,
+  without repeating production audits. New SQL tests: 7/7 passed again locally.
+- Test fixture binding now replaces either NULL or configured UUIDs, keeping all
+  tests on synthetic data in disposable PostgreSQL/PGlite.
+- User subsequently authorized hosted SQL, main integration/deployment and cron/
+  automatic publication only after successful OFF-state production validation.
+  That authorization is recorded; no additional release approval requested.
+- Current environment readiness: BUFFER_API_KEY ready only; no Vercel/Supabase
+  admin connection, AI key, fixed IDs, alert endpoint/secret or cron secret.
+  Network policy does not allow deployment/DB/AI destinations. No relevant
+  Vercel/Supabase connector available. Cannot inspect Vercel-side settings.
+- Stopped before production changes per the user's missing-credentials condition.
+  No push, main change, hosted SQL, deploy, cron, AI call or Buffer mutation.
+  Next production post time remains unassigned.
+
+## 2026-11-02 — additive production SQL preparation (not applied)
+
+- Compared the user-reported production audit (PASS 18 / MISSING 24 /
+  MISSING_OR_REVIEW 21) and the supplied seven-row REVIEW CSV with the existing
+  SOCIAL_AUTOPILOT proposal. All eight social tables/functions are absent.
+- Growth-admin table RLS/default deny and no authenticated SELECT are compatible
+  with the SECURITY DEFINER admin RPC; no foundation grants or policies added.
+  Four policy mismatches and the admin RPC body mismatch remain unproven without
+  their actual hashes/metadata. No blanket safety approval from summary counts.
+- Added SOCIAL_AUTOPILOT_PRODUCTION.sql: new SNS objects only, default OFF, exact
+  existing confirmed admin/org/workspace preflight, known minimal/development
+  authorization definitions, fail-closed privilege/ownership/column/TRUNCATE
+  checks, least required service-role direct grants and no scheduler.
+- Added read-only baseline evidence SQL, empty-only guarded rollback proposal
+  (no CASCADE) and a production verification/rollback runbook. Unknown existing
+  definitions stop rather than being rewritten. Original application unchanged.
+- Local PostgreSQL/PGlite: 7 new production SQL tests plus 8 existing SQL tests
+  passed; both compatible foundations re-audited with SNS checks PASS. Tests
+  cover preserved baseline definitions/ACLs/data, OFF default, cross-org/browser
+  denial, worker quotas/dedup/unknown hold, atomic refusal and safe rollback.
+- Local Build passed. Existing secret-scan logic passed on 90 source/build files.
+  The standard scanner's Node spawnSync git was denied EPERM by this environment;
+  used a shell-generated identical git file list with the unchanged scan logic in
+  a temporary runner. No repository scanner changes or permission escalation.
+- Production application remains NO-GO pending baseline hash/effective privilege
+  evidence, exact confirmed administrator/organization/workspace and external
+  Vercel/cron settings. No production access/write, push, deployment, scheduler
+  activation, AI/Buffer request or SNS post performed.
+
 ## 2026-11-01 — main-based selective SNS integration
 
 - User-confirmed production: stockwise-app-1qz9.vercel.app, main, Ready at 69e5474.

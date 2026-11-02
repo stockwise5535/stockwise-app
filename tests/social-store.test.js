@@ -20,3 +20,10 @@ test('reconciliation rejects mismatched channel or failed reads rather than infe
     const f=fixture();const result=await f.store.reconcile('org',{channels:[{service:'x',id:'fixed-channel',posts:[]}]},reader);assert.equal(result.unconfirmed,1);assert.equal(f.updates.length,0);
   }
 });
+test('persisted snapshot lookup binds exact organization and UTC period before reading payload',async()=>{
+ const conditions=[];const payload={status:'partial',channels:[]};
+ const client={from(table){assert.equal(table,'nexops_social_snapshots');const q={select(columns){assert.equal(columns,'payload');return q;},eq(k,v){conditions.push([k,v]);return q;},async maybeSingle(){return {data:{payload}};}};return q;}};
+ const period={start:'2026-10-03T00:00:00.000Z',end:'2026-11-02T00:00:00.000Z'};
+ assert.deepEqual(await createSocialStore({client}).savedSnapshot('fixed-org',period),payload);
+ assert.deepEqual(conditions,[['organization_id','fixed-org'],['period_start',period.start],['period_end',period.end]]);
+});

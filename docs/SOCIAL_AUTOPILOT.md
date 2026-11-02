@@ -10,6 +10,38 @@ approval for every post. It supersedes historical per-post human-review rules
 for this specific path only. Email, customer commitments and other outbound
 workers are not enabled or granted new authority.
 
+## Independent daily metrics (publication OFF supported)
+
+`GET /api/internal/social-metrics-sync` is a private production-only, CRON_SECRET
+protected Buffer-query path. It requires server-side Supabase worker credentials
+and the fixed Buffer organization/three-channel mapping, but NO AI key/pricing
+ack, publication policy, write gate or emergency-stop release. Emergency stop
+continues to block publication while analytics can remain available.
+
+The job reads a bounded 30-day UTC window and all-date bounded post inventory,
+then upserts the existing `nexops_social_snapshots` row used by the dashboard's
+existing authorized metrics API. It preserves unavailable metrics as null and
+partial results as partial. It does not change publication policy, consume daily
+posting ticks/runs/budget or call Buffer mutations. Registered-post reconciliation
+still belongs to the existing publication cycle; dashboard inventory/status and
+metrics come directly from Buffer. No additional DB schema is required.
+
+Same-organization, exact period and channel mapping are checked before reuse of
+a persisted snapshot (maximum age 26 hours). Concurrent cold instances can repeat
+bounded read queries and an idempotent snapshot upsert; this cannot dispatch posts.
+Private credential authentication precedes store creation. Query parameters and
+non-production execution are refused. Whole request deadline is 25 seconds;
+function maxDuration is 30 seconds. Fixed-code failure/partial notifications use
+the existing notification endpoint when configured; platform failed-job monitoring
+remains required when an endpoint is not configured or delivery fails.
+
+`docs/proposals/SOCIAL_METRICS_SYNC_CRON.json` proposes daily 08:50 UTC
+(00:50 Los Angeles standard time / 01:50 daylight time), before the separate
+09:00 UTC publication proposal. Neither is active in `vercel.json`. Initial
+production validation should invoke the authorized private read-sync endpoint
+manually while publication gates remain OFF; later merge approved cron entries
+into existing config without replacing rewrites or deployment protections.
+
 ## Implemented flow
 
 1. Private `GET /api/internal/social-cycle` requires a 32+ character CRON_SECRET,
