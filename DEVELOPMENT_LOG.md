@@ -1,5 +1,21 @@
 # Stockwise / NexOps development log
 
+## 2026-11-06 — prepare metrics-only production cron
+
+- Added exactly one local vercel.json cron: GET /api/internal/social-metrics-sync,
+  daily `50 8 * * *`. No publication cron; original rewrites/Git exclusions kept.
+- Updated release guard to assert the exact metrics-only schedule and exclude
+  /api/internal/social-cycle. Unit/Security 9 suites and Build passed. Existing
+  secret-scan logic passed 95 files with shell-generated Git target list.
+- No baseline audit repeated or SQL body changed. User-confirmed target UUIDs
+  remain configured. Production SQL application was NOT attempted without access.
+- GitHub remote main check failed at proxy:8080. No Vercel/Supabase admin connection
+  or allowed management API destination exists here. No remote merge, push, deploy,
+  active hosted cron, real sync, AI request, SNS post/reservation or live data write.
+- User-reported Vercel env registration is distinct from cloud credential availability.
+  Supabase worker URL/key and publication OFF flags still require Vercel-side
+  confirmation; no secret values requested or emitted.
+
 ## 2026-11-02 — independent metrics sync and cross-layer rehearsal
 
 - User authorized autonomous development through Nov 4 and review Nov 5, within

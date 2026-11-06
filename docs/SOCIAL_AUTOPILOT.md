@@ -37,7 +37,8 @@ remains required when an endpoint is not configured or delivery fails.
 
 `docs/proposals/SOCIAL_METRICS_SYNC_CRON.json` proposes daily 08:50 UTC
 (00:50 Los Angeles standard time / 01:50 daylight time), before the separate
-09:00 UTC publication proposal. Neither is active in `vercel.json`. Initial
+09:00 UTC publication proposal. The metrics-only entry is now in the local `vercel.json`; it is not deployed.
+The publication entry remains absent. Initial
 production validation should invoke the authorized private read-sync endpoint
 manually while publication gates remain OFF; later merge approved cron entries
 into existing config without replacing rewrites or deployment protections.

@@ -14,5 +14,11 @@
       "codex/managed-service-mvp": false,
       "codex/integrate-social-autopilot-main": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/internal/social-metrics-sync",
+      "schedule": "50 8 * * *"
+    }
+  ]
 }
