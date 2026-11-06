@@ -1,0 +1,56 @@
+name: SNS integration checks
+on:
+  push:
+    branches: [codex/integrate-social-autopilot-main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: social-integration-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  NEXOPS_SOCIAL_WRITES_ALLOWED: 'false'
+  NEXOPS_SOCIAL_EMERGENCY_STOP: 'true'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Install isolated test dependencies
+        run: npm install --prefix "$RUNNER_TEMP/social-test-deps" --no-save --package-lock=false --ignore-scripts @electric-sql/pglite@0.5.13 playwright-core@1.64.1
+      - name: Unit and security regressions
+        run: npm run test:unit
+      - name: Disposable database integration
+        run: NEXOPS_PGLITE_PATH="$RUNNER_TEMP/social-test-deps/node_modules/@electric-sql/pglite" npm run test:db
+      - name: Build and secret boundary check
+        run: |
+          npm run build
+          npm run test:security
+      - name: Browser regressions with synthetic local Auth
+        run: |
+          node "$RUNNER_TEMP/social-test-deps/node_modules/playwright-core/cli.js" install --with-deps chromium
+          VITE_SUPABASE_URL=http://127.0.0.1:54329 VITE_SUPABASE_ANON_KEY=local-test-public-key npm run dev -- --host 127.0.0.1 --port 5176 --strictPort > "$RUNNER_TEMP/social-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:5176/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:5176/ > /dev/null
+          export NEXOPS_PLAYWRIGHT_PATH="$RUNNER_TEMP/social-test-deps/node_modules/playwright-core"
+          export NEXOPS_PGLITE_PATH="$RUNNER_TEMP/social-test-deps/node_modules/@electric-sql/pglite"
+          export NEXOPS_CHROMIUM="$(node -e 'console.log(require(process.env.NEXOPS_PLAYWRIGHT_PATH).chromium.executablePath())')"
+          export NEXOPS_GROWTH_TEST_URL=http://127.0.0.1:5176
+          node tests/main-integration.browser.mjs
+          node tests/social-metrics.browser.mjs
+          node tests/social-automation.browser.mjs

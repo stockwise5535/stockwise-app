@@ -1,5 +1,21 @@
 # Stockwise / NexOps development log
 
+## 2026-11-06 — PR validation workflow
+
+- Added a validation-only GitHub Actions workflow for integration-branch pushes
+  and PRs targeting main: Unit/Security, disposable DB, Build/secret scan and
+  three synthetic local browser suites. Pinned actions/test dependencies, read-only
+  token permissions, no workflow cron, deployment or production/provider secrets.
+- Workflow explicitly keeps publication write permission false and emergency stop
+  true. Production SQL and provider writes are not run by CI.
+- Local Unit/Security 9 suites, DB 3 suites, Build and 96-file secret scan passed.
+- Latest fetched main remains 69e5474 and is an ancestor of integration HEAD.
+- Git connection works using the approved execution permission with unchanged
+  proxy/allowlist. api.github.com is separately denied; saved an additive network
+  draft for that host, preserving api.buffer.com. Draft is not runtime publication.
+- Browser/remote CI status is recorded separately after actual completion; this
+  entry does not assert hosted checks or PR creation have succeeded.
+
 ## 2026-11-06 — prepare metrics-only production cron
 
 - Added exactly one local vercel.json cron: GET /api/internal/social-metrics-sync,
