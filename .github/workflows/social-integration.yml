@@ -39,7 +39,7 @@ jobs:
       - name: Browser regressions with synthetic local Auth
         run: |
           node "$RUNNER_TEMP/social-test-deps/node_modules/playwright-core/cli.js" install --with-deps chromium
-          VITE_SUPABASE_URL=http://127.0.0.1:54329 VITE_SUPABASE_ANON_KEY=local-test-public-key npm run dev -- --host 127.0.0.1 --port 5176 --strictPort > "$RUNNER_TEMP/social-vite.log" 2>&1 &
+          VITE_SUPABASE_URL=http://127.0.0.1:54329 VITE_SUPABASE_ANON_KEY=local-test-public-key VITE_STRIPE_PRICE_BASIC=price_fixture_basic VITE_STRIPE_PRICE_PRO=price_fixture_pro npm run dev -- --host 127.0.0.1 --port 5176 --strictPort > "$RUNNER_TEMP/social-vite.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" || true' EXIT
           for attempt in $(seq 1 30); do

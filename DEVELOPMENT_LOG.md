@@ -13,8 +13,11 @@
 - Git connection works using the approved execution permission with unchanged
   proxy/allowlist. api.github.com is separately denied; saved an additive network
   draft for that host, preserving api.buffer.com. Draft is not runtime publication.
-- Browser/remote CI status is recorded separately after actual completion; this
-  entry does not assert hosted checks or PR creation have succeeded.
+- All 3 local browser suites subsequently passed. Fixed workflow test-server
+  configuration to supply synthetic Stripe prices required by the unchanged
+  checkout UI; no product code or real Stripe connection changed.
+- Integration branch push succeeded. Remote CI status is recorded separately
+  after actual completion; this entry does not assert PR creation has succeeded.
 
 ## 2026-11-06 — prepare metrics-only production cron
 
