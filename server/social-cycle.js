@@ -20,8 +20,8 @@ export async function runSocialCycle({env=process.env,store,signal=AbortSignal.t
     await store.snapshot(org,snapshot);
     const statusReader=createBufferAdapter({env,fetch:(url,init)=>fetchImpl(url,{...init,signal:AbortSignal.any([signal,init.signal])})});
     const reconciliation=await store.reconcile(org,snapshot,id=>statusReader.post(id,{includeText:false}));
-    if(reconciliation?.failed)await alert('PROVIDER_PUBLICATION_FAILED');
-    if(reconciliation?.unconfirmed)await alert('POST_STATUS_READ_FAILED');
+    if(reconciliation?.failed){await alert('PROVIDER_PUBLICATION_FAILED');return {status:'blocked',reason:'PROVIDER_PUBLICATION_FAILED'};}
+    if(reconciliation?.unconfirmed){await alert('POST_STATUS_READ_FAILED');return {status:'blocked',reason:'POST_STATUS_READ_FAILED'};}
     if(snapshot.channels.length!==3||snapshot.channels.some(c=>c.disconnected!==false)){await alert('CHANNEL_DISCONNECTED');return {status:'blocked',reason:'CHANNEL_DISCONNECTED'};}
     if(snapshot.status==='partial'||snapshot.channels.some(c=>c.metricsError))await alert('METRICS_PARTIAL');
   }catch{await alert('METRICS_READ_FAILED');return {status:'blocked',reason:'METRICS_READ_FAILED'};}
@@ -62,7 +62,8 @@ export async function runSocialCycle({env=process.env,store,signal=AbortSignal.t
         receipt=await adapter.createPost({network,text:candidate.text,requestedAt,images:[],url:null});
         if(receipt.channelId!==binding.channels[network])throw Error();
       }catch{
-        await store.complete(run,network,dispatch.token,null);await alert('DELIVERY_UNKNOWN_NO_RETRY');outcomes.push({network,state:'delivery_unknown'});continue;
+        await store.complete(run,network,dispatch.token,null);await alert('DELIVERY_UNKNOWN_NO_RETRY');outcomes.push({network,state:'delivery_unknown'});
+        await store.finish(run,'failed');return {status:'blocked',reason:'UNKNOWN_DELIVERY_HELD',outcomes};
       }
       await store.complete(run,network,dispatch.token,receipt.providerId);
       outcomes.push({network,state:'provider_accepted'});

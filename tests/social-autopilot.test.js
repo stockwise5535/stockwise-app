@@ -15,7 +15,7 @@ function fixture(options={}){
   let tick=false,enabled=options.enabled??true,aiCalls=0;
   const store={
     claimTick:async()=>{if(tick)return false;tick=true;return true;},
-    snapshot:async()=>events.push('snapshot'),reconcile:async()=>events.push('reconcile'),
+    snapshot:async()=>events.push('snapshot'),reconcile:async()=>{events.push('reconcile');return options.reconciliation;},
     claimRun:async()=>enabled?{claimed:true,runId:'run',day:'2099-01-02'}:{claimed:false,reason:'DISABLED_OR_VERSION_CHANGED'},
     recent:async()=>options.prior || [],
     reserveAI:async()=>{events.push('budget');return enabled&&++aiCalls<=6&&!options.budgetFailure;},
@@ -77,8 +77,8 @@ test('UTC date boundary never schedules a second days post from an earlier day q
   const f=fixture();const r=await f.run({now:()=>new Date('2099-01-02T23:59:30Z')});assert.equal(r.status,'failed');assert.equal(f.events.includes('mutation'),false);
 });
 test('ambiguous dispatch is held and never retried; failed notifications are recorded',async()=>{
-  const f=fixture({unknown:true,alertFailure:true});await f.run();assert.equal(f.posts.filter(p=>p.state==='delivery_unknown').length,3);
-  assert.ok(f.alerts.every(a=>!a.delivered));await f.run();assert.equal(f.events.filter(e=>e==='mutation').length,3);
+  const f=fixture({unknown:true,alertFailure:true});const r=await f.run();assert.equal(r.reason,'UNKNOWN_DELIVERY_HELD');assert.equal(f.posts.filter(p=>p.state==='delivery_unknown').length,1);
+  assert.ok(f.alerts.every(a=>!a.delivered));assert.equal(f.events.filter(e=>e==='generate').length,1);await f.run();assert.equal(f.events.filter(e=>e==='mutation').length,1);
 });
 test('crash after provider acceptance leaves durable sending unresolved, no repeated publication',async()=>{
   const f=fixture({completionFailure:true});assert.equal((await f.run()).status,'failed');assert.equal(f.events.filter(e=>e==='mutation').length,1);
@@ -107,4 +107,12 @@ test('job needs scheduler secret and production gate before constructing any DB 
   const res={setHeader(){},status(n){this.n=n;return this;},json(b){this.b=b;return this;}};
   await handler({method:'GET',url:'/api/internal/social-cycle',headers:{}},res);assert.equal(res.n,401);
   await handler({method:'GET',url:'/api/internal/social-cycle',headers:{authorization:'Bearer '+env.CRON_SECRET}},res);assert.equal(res.n,403);assert.equal(calls,0);
+});
+
+test('failed publication or unconfirmed registered post status blocks the whole new posting run',async()=>{
+ for(const [reconciliation,reason]of [[{failed:1,unconfirmed:0},'PROVIDER_PUBLICATION_FAILED'],[{failed:0,unconfirmed:1},'POST_STATUS_READ_FAILED']]){
+  const f=fixture({reconciliation}),r=await f.run();assert.equal(r.status,'blocked');assert.equal(r.reason,reason);
+  assert.equal(f.events.includes('generate'),false);assert.equal(f.events.includes('budget'),false);assert.equal(f.events.includes('mutation'),false);
+  assert.equal(f.alerts[0].code,reason);
+ }
 });

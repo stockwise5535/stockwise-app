@@ -38,7 +38,8 @@ remains required when an endpoint is not configured or delivery fails.
 `docs/proposals/SOCIAL_METRICS_SYNC_CRON.json` proposes daily 08:50 UTC
 (00:50 Los Angeles standard time / 01:50 daylight time), before the separate
 09:00 UTC publication proposal. The metrics-only entry is now in the local `vercel.json`; it is not deployed.
-The publication entry remains absent. Initial
+The publication entry is prepared on the posting-cron release branch and still
+requires production gates plus explicit administrator activation. Initial
 production validation should invoke the authorized private read-sync endpoint
 manually while publication gates remain OFF; later merge approved cron entries
 into existing config without replacing rewrites or deployment protections.
@@ -53,6 +54,8 @@ into existing config without replacing rewrites or deployment protections.
    the common JSON, reconcile known accepted post IDs and update measured metrics.
    Incomplete list pagination does not prevent an individual registered post read.
    Unknown dispatches without a verified provider ID are never guessed or retried.
+   A failed prior publication or an unconfirmed registered-post read blocks new
+   generation/dispatch for that cycle after recording the fixed alert.
 4. When policy is OFF or the catalog/channel binding changed, collect metrics only.
    There are no AI generation or publication calls in that state.
 5. With policy ON, atomically reserve budget BEFORE each AI call. The generator
@@ -69,7 +72,8 @@ into existing config without replacing rewrites or deployment protections.
 8. A valid receipt means provider_accepted, not published. Only a subsequent
    verified Buffer `sent` state marks published. Transport/receipt uncertainty or
    a crash after reservation remains sending/delivery_unknown and blocks further
-   automatic runs until independently reconciled. Do not clear these records to retry.
+   automatic runs until independently reconciled. An uncertain send also stops
+   all remaining networks in the current cycle; it is not retried. Do not clear these records to retry.
 9. Next day's generation receives measured channel metrics and matched prior
    fact-topic/post metrics with freshness metadata. This is an optimization signal,
    not causal evidence. No SNS numbers, private drafts or customer outcomes are
@@ -156,11 +160,11 @@ only. Authorize/review application to the exact production project separately.
 No hosted SQL or grant was executed. Preserve nonempty ledger/budget rows on rollback;
 disable publishing/jobs first and forward-repair rather than deleting dedup history.
 
-`docs/proposals/SOCIAL_AUTOPILOT_CRON.json` is an INACTIVE additive proposal for a
-daily 09:00 UTC Vercel cron (01:00 Los Angeles winter / 02:00 summer). It is outside
-active vercel.json, not installed. Merge only that property into the reviewed
-Vercel configuration after explicit scheduler approval; never replace existing
-rewrites/Git deployment protections with the snippet. Production cron uses
+`docs/proposals/SOCIAL_AUTOPILOT_CRON.json` documents the additive schedule for a
+daily 09:00 UTC Vercel cron (01:00 Los Angeles winter / 02:00 summer). It is now prepared in this branch's vercel.json alongside metrics sync, but is not
+installed in Production by a branch push. Existing rewrites/Git deployment protections
+are retained. Deploy only after CI and configuration checks; cron presence alone
+cannot bypass write/emergency-stop/policy gates. Production cron uses
 Authorization: Bearer CRON_SECRET. The source branch's scheduled internal GitHub workflow was not imported. This
 integration introduces no active scheduled workflow; do not later import one blindly.
 
@@ -195,6 +199,50 @@ first bounded three-channel run and later receipt/metrics. No per-post human
 approval is needed after that activation. Unapproved unknown outcomes stop rather
 than silently retry. Production target, credentials and actual writes remain
 unverified; this local implementation is not a production readiness claim.
+
+## First live three-channel verification (before continuous operation)
+
+Latest user approval covers actual first posts on all three channels after safe
+configuration/connection checks. Until those checks pass, retain write gate false,
+emergency stop true and policy OFF. Registering the cron does not enable posting.
+
+1. Review/merge this release PR and deploy with those OFF settings. Confirm the
+   publication function/cron path is present and the existing metrics cron remains.
+   Verify model access/current prices for gpt-4.1-mini, pricing ACK, server keys,
+   all three fixed Buffer IDs/queue state, Supabase worker, and a working fixed
+   alert receiver. Set OpenAI project usage alerts/budget too. No key in chat,
+   browser, URL, source or command arguments. Dashboard authenticated admin GET
+   /api/growth/social-automation?workspaceId=... provides current policy/limits;
+   server-only cron GET requires CRON_SECRET. Do not call the cron as a browser URL
+   with a secret query parameter.
+2. Only after readiness checks, set NEXOPS_SOCIAL_WRITES_ALLOWED=true and
+   NEXOPS_SOCIAL_EMERGENCY_STOP=false in Vercel Production and redeploy. Policy
+   must remain OFF until the existing administrator enable operation succeeds.
+   Confirm the fixed targets and notification test through the dashboard. Its
+   two acknowledgments activate only the current fact/binding version.
+3. Avoid the normal 09:00 UTC execution window for the controlled first run. In
+   Vercel Cron Jobs, run ONLY /api/internal/social-cycle once. If today's execution
+   was already reserved, do not clear DB rows or retry; use the next UTC date.
+   Refresh dashboard state until the run completes and all three networks show
+   provider_accepted. This is receipt confirmation, not publication proof.
+4. Immediately disable policy in the dashboard while verifying the initial batch.
+   OFF does not cancel Buffer-accepted schedules: these three intended posts
+   remain scheduled, normally two minutes ahead. Check their actual `sent` state
+   in Buffer on the exact accounts. Any blocked/unknown/error/missing receipt:
+   keep OFF, inspect fixed alerts and never automatically resubmit an unknown.
+5. Only after all three are confirmed published, enable the current policy again
+   for normal daily operation. PostgreSQL preserves one run/one post per network
+   per UTC date; reactivation does not grant another same-day batch. Existing
+   08:50 UTC metrics sync stays independent; the 09:00 UTC posting cycle also
+   reconciles registered receipts. Host monitoring should alert if a cron never
+   starts. A provider status error blocks that cycle, not an indefinite automatic
+   disable of the policy; uncertain sending remains a durable global hold.
+
+Six AI calls/day and $40/calendar-month reservations apply to this worker's fixed
+organization, not other OpenAI project traffic or provider repricing. Pricing ACK
+is `gpt-4.1-mini-input10-output50-per-million-v1`, entered only after rates/budget
+review. Live billing/model/receiver/write entitlement must not be marked verified
+from synthetic tests. No initial post time is promised before live activation.
 
 ## Validation
 

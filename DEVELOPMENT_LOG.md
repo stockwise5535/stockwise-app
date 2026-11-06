@@ -1,5 +1,27 @@
 # Stockwise / NexOps development log
 
+## 2026-11-06 — prepare gated daily publication release
+
+- User reports PR #2 merged, Production Ready and metrics cron Active. Fetched
+  latest main 2b4d5a8; no completed DB/security audit repeated.
+- New branch codex/enable-social-posting-cron adds daily 09:00 UTC publication
+  cron beside existing metrics sync. Gates/policy remain unchanged. Branch Git
+  deployment disabled; CI runs validation only with publication OFF.
+- Stop current cycle on failed/unconfirmed prior receipt status and stop remaining
+  channels immediately after uncertain dispatch. Durable unknown hold/no retry,
+  daily reservations, monthly budget and prior accepted posts remain intact.
+- Local Unit/Security 9 suites, disposable DB 3 suites and Build passed. Added
+  assertions for whole-cycle stop and unchanged no-replay semantics.
+- Existing Buffer adapter read returned HTTP 200 for organization and channels:
+  one organization, LinkedIn/Threads/X all queuePaused=false. Production mapping
+  and Buffer write entitlement were not independently verified.
+- Only BUFFER_API_KEY is available here; no Vercel/Supabase/AI/scheduler admin
+  credentials or management API network access. No live AI request/alert delivery,
+  policy ON, gate change, Buffer mutation, production deployment or DB change.
+- Prepared bounded first-run sequence: gates/readiness verification, one manual
+  three-channel cycle, policy OFF while verifying actual sent, normal ON only
+  after all three publish. Source docs distinguish acceptance from publication.
+
 ## 2026-11-06 — PR validation workflow
 
 - Added a validation-only GitHub Actions workflow for integration-branch pushes

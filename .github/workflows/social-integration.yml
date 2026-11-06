@@ -1,7 +1,7 @@
 name: SNS integration checks
 on:
   push:
-    branches: [codex/integrate-social-autopilot-main]
+    branches: [codex/integrate-social-autopilot-main, codex/enable-social-posting-cron]
   pull_request:
     branches: [main]
   workflow_dispatch:

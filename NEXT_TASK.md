@@ -10,6 +10,24 @@ Additive /growth admin dashboard + SNS reader/automatic cycle integrated.
 52 Unit/Security tests, 8 local SQL tests, 3 browser suites and Build passed.
 Publishing OFF, cron absent. SQL proposals unapplied; no remote writes.
 
+## Current publication release
+
+User reports PR #2/main deployed and metrics cron Active. Latest fetched main is
+2b4d5a8. Posting-cron release branch: codex/enable-social-posting-cron. It adds
+09:00 UTC /api/internal/social-cycle and fail-closed handling of unconfirmed
+receipts/uncertain sends; no changes to production flags or policy are made here.
+
+Local tests/build pass. Buffer read-only connection works with three unpaused
+services, but Production fixed mapping, AI pricing/key access, alert receiver and
+write entitlement still require live verification. This cloud has only Buffer
+credentials; Vercel/AI/Supabase/scheduler connections and GitHub API remain blocked.
+Git push works through approved execution permissions and the existing proxy.
+
+Use docs/SOCIAL_AUTOPILOT.md first-live verification sequence. Keep OFF until
+readiness, then run once, return policy OFF while checking the three actual sent
+posts, then resume daily policy. Do not clear daily reservations or unknown sends.
+The historical sections below describe earlier preparation, not current Production.
+
 ## Latest rollout status — 2026-11-06
 
 Local vercel.json now includes ONLY /api/internal/social-metrics-sync at
