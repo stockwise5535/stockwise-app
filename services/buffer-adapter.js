@@ -52,7 +52,7 @@ export function createBufferAdapter({env = process.env, fetch: transport = fetch
       let approval;try{approval=await authorizePublication({network,channelId,text,requestedAt:requestedAt||null,images,url,contentHash})}catch{throw Error('BUFFER_APPROVAL_UNCONFIRMED')}
       if(approval?.authorized!==true||approval.contentHash!==contentHash)throw Error('BUFFER_PUBLICATION_APPROVAL_REQUIRED')
       const schedule = `mode: customScheduled, dueAt: ${JSON.stringify(new Date(requestedAt).toISOString())}`
-      const data = await request(`mutation { createPost(input: {channelId: ${JSON.stringify(channelId)}, text: ${JSON.stringify(text)}, assets: [], needsApproval: false, saveToDraft: false, aiAssisted: true, schedulingType: automatic, ${schedule}}) { ... on PostActionSuccess { post { id dueAt status } } ... on MutationError { message } } }`)
+      const data = await request(`mutation { createPost(input: {channelId: ${JSON.stringify(channelId)}, text: ${JSON.stringify(text)}, assets: [], needsApproval: false, saveToDraft: false, aiAssisted: false, schedulingType: automatic, ${schedule}}) { ... on PostActionSuccess { post { id dueAt status } } ... on MutationError { message } } }`)
       const post = data.createPost?.post
       if (!identifier(post?.id)) throw Error('BUFFER_OUTCOME_UNCONFIRMED')
       // Acceptance is not proof of final network publication.

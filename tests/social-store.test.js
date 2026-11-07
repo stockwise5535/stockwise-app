@@ -27,3 +27,15 @@ test('persisted snapshot lookup binds exact organization and UTC period before r
  assert.deepEqual(await createSocialStore({client}).savedSnapshot('fixed-org',period),payload);
  assert.deepEqual(conditions,[['organization_id','fixed-org'],['period_start',period.start],['period_end',period.end]]);
 });
+test('stock usage lookup searches exact approved hashes across all history with organization scope and a fixed bound',async()=>{
+ const seen=[];const hashes=['a'.repeat(64),'b'.repeat(64)];
+ const client={from(t){assert.equal(t,'nexops_social_posts');const q={select(s){seen.push(['select',s]);return q;},eq(k,v){seen.push(['eq',k,v]);return q;},in(k,v){seen.push(['in',k,v]);return q;},async limit(n){assert.equal(n,6);return {data:[{content_hash:hashes[0]}],count:1};}};return q;}};
+ assert.deepEqual(await createSocialStore({client}).usedStock('fixed-org',hashes),[{content_hash:hashes[0]}]);
+ assert.deepEqual(seen,[['select','content_hash'],['eq','organization_id','fixed-org'],['in','content_hash',hashes]]);
+ await assert.rejects(createSocialStore({client}).usedStock('fixed-org',[]),/STOCK_INVALID/);
+});
+
+test('truncated all-time stock history fails closed rather than reusing unseen text',async()=>{
+ const client={from(){const q={select:()=>q,eq:()=>q,in:()=>q,limit:async()=>({data:[],count:1})};return q;}};
+ await assert.rejects(createSocialStore({client}).usedStock('org',['a'.repeat(64)]),/STOCK_HISTORY_UNAVAILABLE/);
+});

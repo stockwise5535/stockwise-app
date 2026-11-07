@@ -1,0 +1,437 @@
+[
+  {
+    "id": "linkedin-01",
+    "network": "linkedin",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv"
+    ],
+    "text": "Stockwise for inventory planning.\n\nImport inventory CSV files into Stockwise to review your item data."
+  },
+  {
+    "id": "linkedin-02",
+    "network": "linkedin",
+    "hook": 1,
+    "factIds": [
+      "coverage"
+    ],
+    "text": "An inventory workflow in Stockwise.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "linkedin-03",
+    "network": "linkedin",
+    "hook": 2,
+    "factIds": [
+      "forecast"
+    ],
+    "text": "Stockwise product notes.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "linkedin-04",
+    "network": "linkedin",
+    "hook": 0,
+    "factIds": [
+      "early_access"
+    ],
+    "text": "Stockwise for inventory planning.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "linkedin-05",
+    "network": "linkedin",
+    "hook": 1,
+    "factIds": [
+      "inbound_csv"
+    ],
+    "text": "An inventory workflow in Stockwise.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "linkedin-06",
+    "network": "linkedin",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "coverage"
+    ],
+    "text": "Stockwise product notes.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "linkedin-07",
+    "network": "linkedin",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv",
+      "forecast"
+    ],
+    "text": "Stockwise for inventory planning.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "linkedin-08",
+    "network": "linkedin",
+    "hook": 1,
+    "factIds": [
+      "inventory_csv",
+      "early_access"
+    ],
+    "text": "An inventory workflow in Stockwise.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "linkedin-09",
+    "network": "linkedin",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "inbound_csv"
+    ],
+    "text": "Stockwise product notes.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "linkedin-10",
+    "network": "linkedin",
+    "hook": 0,
+    "factIds": [
+      "coverage",
+      "forecast"
+    ],
+    "text": "Stockwise for inventory planning.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "linkedin-11",
+    "network": "linkedin",
+    "hook": 1,
+    "factIds": [
+      "coverage",
+      "early_access"
+    ],
+    "text": "An inventory workflow in Stockwise.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "linkedin-12",
+    "network": "linkedin",
+    "hook": 2,
+    "factIds": [
+      "coverage",
+      "inbound_csv"
+    ],
+    "text": "Stockwise product notes.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "linkedin-13",
+    "network": "linkedin",
+    "hook": 0,
+    "factIds": [
+      "forecast",
+      "early_access"
+    ],
+    "text": "Stockwise for inventory planning.\n\nReview the 13-week stock forecast before planning your next order.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "linkedin-14",
+    "network": "linkedin",
+    "hook": 1,
+    "factIds": [
+      "forecast",
+      "inbound_csv"
+    ],
+    "text": "An inventory workflow in Stockwise.\n\nReview the 13-week stock forecast before planning your next order.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "linkedin-15",
+    "network": "linkedin",
+    "hook": 2,
+    "factIds": [
+      "early_access",
+      "inbound_csv"
+    ],
+    "text": "Stockwise product notes.\n\nYou can submit an Early Access request when you need to manage more items.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "threads-01",
+    "network": "threads",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv"
+    ],
+    "text": "Stockwise: inventory workflow.\n\nImport inventory CSV files into Stockwise to review your item data."
+  },
+  {
+    "id": "threads-02",
+    "network": "threads",
+    "hook": 1,
+    "factIds": [
+      "coverage"
+    ],
+    "text": "Working with inventory in Stockwise.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "threads-03",
+    "network": "threads",
+    "hook": 2,
+    "factIds": [
+      "forecast"
+    ],
+    "text": "Stockwise feature notes.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "threads-04",
+    "network": "threads",
+    "hook": 0,
+    "factIds": [
+      "early_access"
+    ],
+    "text": "Stockwise: inventory workflow.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "threads-05",
+    "network": "threads",
+    "hook": 1,
+    "factIds": [
+      "inbound_csv"
+    ],
+    "text": "Working with inventory in Stockwise.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "threads-06",
+    "network": "threads",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "coverage"
+    ],
+    "text": "Stockwise feature notes.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "threads-07",
+    "network": "threads",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv",
+      "forecast"
+    ],
+    "text": "Stockwise: inventory workflow.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "threads-08",
+    "network": "threads",
+    "hook": 1,
+    "factIds": [
+      "inventory_csv",
+      "early_access"
+    ],
+    "text": "Working with inventory in Stockwise.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "threads-09",
+    "network": "threads",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "inbound_csv"
+    ],
+    "text": "Stockwise feature notes.\n\nImport inventory CSV files into Stockwise to review your item data.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "threads-10",
+    "network": "threads",
+    "hook": 0,
+    "factIds": [
+      "coverage",
+      "forecast"
+    ],
+    "text": "Stockwise: inventory workflow.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nReview the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "threads-11",
+    "network": "threads",
+    "hook": 1,
+    "factIds": [
+      "coverage",
+      "early_access"
+    ],
+    "text": "Working with inventory in Stockwise.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "threads-12",
+    "network": "threads",
+    "hook": 2,
+    "factIds": [
+      "coverage",
+      "inbound_csv"
+    ],
+    "text": "Stockwise feature notes.\n\nReview inventory coverage and reorder suggestions in the Stockwise dashboard.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "threads-13",
+    "network": "threads",
+    "hook": 0,
+    "factIds": [
+      "forecast",
+      "early_access"
+    ],
+    "text": "Stockwise: inventory workflow.\n\nReview the 13-week stock forecast before planning your next order.\n\nYou can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "threads-14",
+    "network": "threads",
+    "hook": 1,
+    "factIds": [
+      "forecast",
+      "inbound_csv"
+    ],
+    "text": "Working with inventory in Stockwise.\n\nReview the 13-week stock forecast before planning your next order.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "threads-15",
+    "network": "threads",
+    "hook": 2,
+    "factIds": [
+      "early_access",
+      "inbound_csv"
+    ],
+    "text": "Stockwise feature notes.\n\nYou can submit an Early Access request when you need to manage more items.\n\nStockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "x-01",
+    "network": "x",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv"
+    ],
+    "text": "Stockwise inventory planning. Import inventory CSV files into Stockwise to review your item data."
+  },
+  {
+    "id": "x-02",
+    "network": "x",
+    "hook": 1,
+    "factIds": [
+      "coverage"
+    ],
+    "text": "A look at Stockwise. Review inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "x-03",
+    "network": "x",
+    "hook": 2,
+    "factIds": [
+      "forecast"
+    ],
+    "text": "Stockwise workflow notes. Review the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "x-04",
+    "network": "x",
+    "hook": 0,
+    "factIds": [
+      "early_access"
+    ],
+    "text": "Stockwise inventory planning. You can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "x-05",
+    "network": "x",
+    "hook": 1,
+    "factIds": [
+      "inbound_csv"
+    ],
+    "text": "A look at Stockwise. Stockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "x-06",
+    "network": "x",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "coverage"
+    ],
+    "text": "Stockwise workflow notes. Import inventory CSV files into Stockwise to review your item data. Review inventory coverage and reorder suggestions in the Stockwise dashboard."
+  },
+  {
+    "id": "x-07",
+    "network": "x",
+    "hook": 0,
+    "factIds": [
+      "inventory_csv",
+      "forecast"
+    ],
+    "text": "Stockwise inventory planning. Import inventory CSV files into Stockwise to review your item data. Review the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "x-08",
+    "network": "x",
+    "hook": 1,
+    "factIds": [
+      "inventory_csv",
+      "early_access"
+    ],
+    "text": "A look at Stockwise. Import inventory CSV files into Stockwise to review your item data. You can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "x-09",
+    "network": "x",
+    "hook": 2,
+    "factIds": [
+      "inventory_csv",
+      "inbound_csv"
+    ],
+    "text": "Stockwise workflow notes. Import inventory CSV files into Stockwise to review your item data. Stockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "x-10",
+    "network": "x",
+    "hook": 0,
+    "factIds": [
+      "coverage",
+      "forecast"
+    ],
+    "text": "Stockwise inventory planning. Review inventory coverage and reorder suggestions in the Stockwise dashboard. Review the 13-week stock forecast before planning your next order."
+  },
+  {
+    "id": "x-11",
+    "network": "x",
+    "hook": 1,
+    "factIds": [
+      "coverage",
+      "early_access"
+    ],
+    "text": "A look at Stockwise. Review inventory coverage and reorder suggestions in the Stockwise dashboard. You can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "x-12",
+    "network": "x",
+    "hook": 2,
+    "factIds": [
+      "coverage",
+      "inbound_csv"
+    ],
+    "text": "Stockwise workflow notes. Review inventory coverage and reorder suggestions in the Stockwise dashboard. Stockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "x-13",
+    "network": "x",
+    "hook": 0,
+    "factIds": [
+      "forecast",
+      "early_access"
+    ],
+    "text": "Stockwise inventory planning. Review the 13-week stock forecast before planning your next order. You can submit an Early Access request when you need to manage more items."
+  },
+  {
+    "id": "x-14",
+    "network": "x",
+    "hook": 1,
+    "factIds": [
+      "forecast",
+      "inbound_csv"
+    ],
+    "text": "A look at Stockwise. Review the 13-week stock forecast before planning your next order. Stockwise supports inbound CSV uploads for inventory planning."
+  },
+  {
+    "id": "x-15",
+    "network": "x",
+    "hook": 2,
+    "factIds": [
+      "early_access",
+      "inbound_csv"
+    ],
+    "text": "Stockwise workflow notes. You can submit an Early Access request when you need to manage more items. Stockwise supports inbound CSV uploads for inventory planning."
+  }
+]

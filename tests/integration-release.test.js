@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync,readdirSync,readFileSync} from 'node:fs';
-test('integration preserves main SPA/API rewrites and schedules only read-only metrics sync',()=>{
+test('integration preserves main SPA/API rewrites and schedules metrics and gated daily publication',()=>{
   const v=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url)));
   assert.deepEqual(v.rewrites,[{source:'/api/(.*)',destination:'/api/$1'},{source:'/(.*)',destination:'/'}]);
-  assert.deepEqual(v.crons,[{path:'/api/internal/social-metrics-sync',schedule:'50 8 * * *'}]);
-  assert.ok(!v.crons.some(c=>c.path==='/api/internal/social-cycle'));
+  assert.deepEqual(v.crons,[{path:'/api/internal/social-metrics-sync',schedule:'50 8 * * *'},{path:'/api/internal/social-cycle',schedule:'0 9 * * *'}]);
+  assert.equal(v.git.deploymentEnabled['codex/enable-social-posting-cron'],false);
   assert.equal(v.git.deploymentEnabled['codex/integrate-social-autopilot-main'],false);
   assert.equal(v.git.deploymentEnabled['codex/managed-service-mvp'],false);
   const directory=new URL('../.github/workflows',import.meta.url);

@@ -1,5 +1,61 @@
 # Stockwise / NexOps development log
 
+## 2026-11-06 — PR #3 changes to zero-AI approved stock
+
+- User's zero-AI-cost requirement supersedes the paid generation/reviewer design.
+  Remain on existing codex/enable-social-posting-cron / PR #3; no new PR or deployment.
+- Removed generation/review/model metadata transport and AI credential/pricing ACK
+  requirements. Legacy AI adapter throws before any transport. Production paths
+  cannot use an existing AI key to re-enable inference; AI alert hosts are refused.
+- Added 45 literal, source-backed stock entries (15/service), exact validation and
+  versioned full-text administrator consent. Old paid-mode consent/version cannot
+  authorize this stock. New text is not treated as user-approved until that action.
+- All-time content-hash lookup excludes any used/reserved content under the exact
+  organization. Daily/SQL uniqueness and seven-day topic cooldown remain. Any
+  exhausted service blocks all posting, records/alerts and never recycles content.
+- UI now shows AI API calls/cost 0 and stock counts/text. Notifications, receipt
+  reconciliation, uncertain-delivery hold, metrics and emergency stop remain.
+- Unit/Security 9 suites, disposable DB 3 suites, 3 browser suites and Build passed.
+  Network spies/static checks reject AI requests even with old keys present; exact
+  stock-history count detects truncated responses. Secret boundary scan passed
+  on 98 source/build files. Buffer posts use aiAssisted:false.
+- No production SQL/data/gates/policy/provider changes. Legacy budget tables/history
+  remain; new stock runs do not call reservation RPCs and record zero AI counters.
+- Local DB/server integration tested 45 unique registrations over 15 synthetic
+  dates, zero AI calls/cents/budget rows, and day-16 stop/notification. No real
+  registration, publication, paid model call or external notification was sent.
+
+## 2026-11-06 — prepare gated daily publication release
+
+- User reports PR #2 merged, Production Ready and metrics cron Active. Fetched
+  latest main 2b4d5a8; no completed DB/security audit repeated.
+- New branch codex/enable-social-posting-cron adds daily 09:00 UTC publication
+  cron beside existing metrics sync. Gates/policy remain unchanged. Branch Git
+  deployment disabled; CI runs validation only with publication OFF.
+- Stop current cycle on failed/unconfirmed prior receipt status and stop remaining
+  channels immediately after uncertain dispatch. Durable unknown hold/no retry,
+  daily reservations, monthly budget and prior accepted posts remain intact.
+- Local Unit/Security 9 suites, disposable DB 3 suites, Build and 3 browser suites
+  passed. Added assertions for whole-cycle stop and unchanged no-replay semantics.
+- Added authenticated production-only OFF readiness action/button. Requires both
+  OFF gates and policy OFF; verifies fixed Buffer targets, a fixed notification
+  test and OpenAI model metadata GET. No completion, budget/run reservation or
+  policy/Buffer write. Cannot use it as an activation bypass; existing dual consent
+  remains mandatory. Missing model/alert/mapping/pricing/authorization fails closed.
+- Existing Buffer adapter read returned HTTP 200 for organization and channels:
+  one organization, LinkedIn/Threads/X all queuePaused=false. Production mapping
+  and Buffer write entitlement were not independently verified.
+- An initial hosted CI ran at 23:59 UTC and failed in the DB happy-flow test
+  because its two-minute schedule correctly crossed UTC midnight. Freeze only
+  that test's Date clock at 09:00; production boundary rejection remains covered
+  and unchanged. Corrected real DB/server integration passed locally.
+- Only BUFFER_API_KEY is available here; no Vercel/Supabase/AI/scheduler admin
+  credentials or management API network access. No live AI request/alert delivery,
+  policy ON, gate change, Buffer mutation, production deployment or DB change.
+- Prepared bounded first-run sequence: gates/readiness verification, one manual
+  three-channel cycle, policy OFF while verifying actual sent, normal ON only
+  after all three publish. Source docs distinguish acceptance from publication.
+
 ## 2026-11-06 — PR validation workflow
 
 - Added a validation-only GitHub Actions workflow for integration-branch pushes

@@ -10,6 +10,41 @@ Additive /growth admin dashboard + SNS reader/automatic cycle integrated.
 52 Unit/Security tests, 8 local SQL tests, 3 browser suites and Build passed.
 Publishing OFF, cron absent. SQL proposals unapplied; no remote writes.
 
+## Current requirement — AI API calls and fees zero
+
+Update existing PR #3 / codex/enable-social-posting-cron only. Paid generation,
+review and model metadata requests are removed. AI key/pricing ACK are unnecessary.
+Only administrator-approved exact stock may publish: 45 literal entries (15 per
+network), all-time usage exclusion, immutable versioned consent, exhaustion stop
+and notification. Existing production schema/budget history is preserved.
+
+After PR review/deployment, keep OFF while reviewing all stock and checking fixed
+Buffer targets/alerts via readiness. Existing paid-mode policy version will not
+match; approve this exact new stock before enabling. See docs/SOCIAL_AUTOPILOT.md.
+No production activation, DB modification, model request or SNS write has occurred
+in this code-change session. Historical sections below describe superseded modes.
+
+## Current publication release
+
+User reports PR #2/main deployed and metrics cron Active. Latest fetched main is
+2b4d5a8. Posting-cron release branch: codex/enable-social-posting-cron. It adds
+09:00 UTC /api/internal/social-cycle, fail-closed handling of unconfirmed
+receipts/uncertain sends and an admin-only OFF readiness check; no changes to production flags or policy are made here.
+
+Local tests/build pass. Buffer read-only connection works with three unpaused
+services, but Production fixed mapping, AI pricing/key access, alert receiver and
+write entitlement still require live verification. This cloud has only Buffer
+credentials; Vercel/AI/Supabase/scheduler connections and GitHub API remain blocked.
+Git push works through approved execution permissions and the existing proxy.
+
+Use docs/SOCIAL_AUTOPILOT.md first-live verification sequence. Once deployed with
+OFF flags, use Check readiness without publishing to validate Buffer targets,
+model metadata and alert acceptance before releasing the stop settings. No AI
+completion or policy/provider write occurs in that check. Keep OFF until
+readiness, then run once, return policy OFF while checking the three actual sent
+posts, then resume daily policy. Do not clear daily reservations or unknown sends.
+The historical sections below describe earlier preparation, not current Production.
+
 ## Latest rollout status — 2026-11-06
 
 Local vercel.json now includes ONLY /api/internal/social-metrics-sync at
