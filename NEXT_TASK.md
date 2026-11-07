@@ -14,8 +14,8 @@ Publishing OFF, cron absent. SQL proposals unapplied; no remote writes.
 
 User reports PR #2/main deployed and metrics cron Active. Latest fetched main is
 2b4d5a8. Posting-cron release branch: codex/enable-social-posting-cron. It adds
-09:00 UTC /api/internal/social-cycle and fail-closed handling of unconfirmed
-receipts/uncertain sends; no changes to production flags or policy are made here.
+09:00 UTC /api/internal/social-cycle, fail-closed handling of unconfirmed
+receipts/uncertain sends and an admin-only OFF readiness check; no changes to production flags or policy are made here.
 
 Local tests/build pass. Buffer read-only connection works with three unpaused
 services, but Production fixed mapping, AI pricing/key access, alert receiver and
@@ -23,7 +23,10 @@ write entitlement still require live verification. This cloud has only Buffer
 credentials; Vercel/AI/Supabase/scheduler connections and GitHub API remain blocked.
 Git push works through approved execution permissions and the existing proxy.
 
-Use docs/SOCIAL_AUTOPILOT.md first-live verification sequence. Keep OFF until
+Use docs/SOCIAL_AUTOPILOT.md first-live verification sequence. Once deployed with
+OFF flags, use Check readiness without publishing to validate Buffer targets,
+model metadata and alert acceptance before releasing the stop settings. No AI
+completion or policy/provider write occurs in that check. Keep OFF until
 readiness, then run once, return policy OFF while checking the three actual sent
 posts, then resume daily policy. Do not clear daily reservations or unknown sends.
 The historical sections below describe earlier preparation, not current Production.

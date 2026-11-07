@@ -1,10 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
 export default function SocialAutomation({client,workspaceId}){
-  const [state,setState]=useState({status:'idle'}),[confirmed,setConfirmed]=useState(false),[budget,setBudget]=useState(false),seq=useRef(0),pending=useRef(null);
+  const [state,setState]=useState({status:'idle'}),[confirmed,setConfirmed]=useState(false),[budget,setBudget]=useState(false),[readiness,setReadiness]=useState(null),seq=useRef(0),pending=useRef(null);
   useEffect(()=>()=>{seq.current++;pending.current?.abort();},[workspaceId]);
   async function request(action){
     const id=++seq.current;pending.current?.abort();const controller=new AbortController();pending.current=controller;
-    const previous=state.data;setState({status:'loading'});
+    const previous=state.data;setReadiness(null);setState({status:'loading'});
     try{
       const {data,error}=await client.auth.getSession();if(error||!data?.session?.access_token)throw Error();
       if(id!==seq.current)return;
@@ -13,6 +13,7 @@ export default function SocialAutomation({client,workspaceId}){
         headers['Content-Type']='application/json';
         const payload=action==='enable'?{workspaceId,action,factsVersion:previous.factsVersion,acceptAutomaticPublishing:confirmed,acceptBudget:budget}:{workspaceId,action};
         const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(payload),signal:controller.signal});if(!r.ok)throw Error();
+        if(action==='check'){const check=await r.json();if(check.ready!==true||check.publicationEnabled!==false)throw Error();if(id===seq.current)setReadiness(check);}
       }
       const r=await fetch(url+'?'+new URLSearchParams({workspaceId}),{headers,cache:'no-store',signal:controller.signal});if(!r.ok)throw Error();
       const result=await r.json();if(id===seq.current){setState({status:'ready',data:result});setConfirmed(false);setBudget(false);}
@@ -26,6 +27,7 @@ export default function SocialAutomation({client,workspaceId}){
     {state.status==='idle'&&<p role="status">状態未取得 / Not loaded</p>}
     {state.status==='loading'&&<p role="status">Checking automation…</p>}
     {state.status==='error'&&<p role="alert">設定・認可・DBを確認できませんでした。有効化結果が不明な場合は、状態を再取得してください。</p>}
+    {readiness&&state.status==='ready'&&<p role="status">接続確認済み。AI生成・投稿は未実行です。</p>}
     {data&&<>
       <p role="status">{data.policy.enabled?'ON — 自動公開有効':'OFF — 自動公開停止'}</p>
       {data.policy.enabled&&data.policyCurrent===false&&<p role="alert">公開情報またはチャンネル設定が変わったため、送信は保留されます。一度停止し、内容を確認して再有効化してください。</p>}
@@ -33,6 +35,7 @@ export default function SocialAutomation({client,workspaceId}){
       <details><summary>確認済み公開情報 / Public fact catalog</summary><ul>{(data.facts || []).map(f=><li key={f.id}>{f.text}</li>)}</ul></details>
       {!data.activationReady&&<p role="alert">本番設定・料金確認・通知先の準備が必要です。自動公開は有効化できません。</p>}
       {!data.policy.enabled&&<>
+        <button disabled={!data.production} onClick={()=>void request('check')}>Check readiness without publishing</button>
         <label className="growth-check"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>固定3チャンネルへの毎回の承認なしの自動公開を許可する</label>
         <label className="growth-check"><input type="checkbox" checked={budget} onChange={e=>setBudget(e.target.checked)}/>AI料金上限と確認済み公開情報の使用を確認した</label>
         <button disabled={!data.production||!data.activationReady||!confirmed||!budget} onClick={()=>void request('enable')}>Enable automatic publishing</button>

@@ -10,8 +10,13 @@
 - Stop current cycle on failed/unconfirmed prior receipt status and stop remaining
   channels immediately after uncertain dispatch. Durable unknown hold/no retry,
   daily reservations, monthly budget and prior accepted posts remain intact.
-- Local Unit/Security 9 suites, disposable DB 3 suites and Build passed. Added
-  assertions for whole-cycle stop and unchanged no-replay semantics.
+- Local Unit/Security 9 suites, disposable DB 3 suites, Build and 3 browser suites
+  passed. Added assertions for whole-cycle stop and unchanged no-replay semantics.
+- Added authenticated production-only OFF readiness action/button. Requires both
+  OFF gates and policy OFF; verifies fixed Buffer targets, a fixed notification
+  test and OpenAI model metadata GET. No completion, budget/run reservation or
+  policy/Buffer write. Cannot use it as an activation bypass; existing dual consent
+  remains mandatory. Missing model/alert/mapping/pricing/authorization fails closed.
 - Existing Buffer adapter read returned HTTP 200 for organization and channels:
   one organization, LinkedIn/Threads/X all queuePaused=false. Production mapping
   and Buffer write entitlement were not independently verified.

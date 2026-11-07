@@ -210,7 +210,14 @@ emergency stop true and policy OFF. Registering the cron does not enable posting
    publication function/cron path is present and the existing metrics cron remains.
    Verify model access/current prices for gpt-4.1-mini, pricing ACK, server keys,
    all three fixed Buffer IDs/queue state, Supabase worker, and a working fixed
-   alert receiver. Set OpenAI project usage alerts/budget too. No key in chat,
+   alert receiver. In the Growth dashboard, use **Check readiness without publishing**
+   while write permission=false, emergency stop=true and policy OFF. This admin-only
+   action reads fixed Buffer targets and the OpenAI model metadata, and sends a
+   fixed-label notification test. Confirm receipt at the receiver too. It neither
+   generates content nor reserves budget/runs, writes policy or posts to Buffer.
+   A successful metadata read does not prove completion quota/billing readiness;
+   the initial bounded live run still verifies those. Set OpenAI project usage
+   alerts/budget too. No key in chat,
    browser, URL, source or command arguments. Dashboard authenticated admin GET
    /api/growth/social-automation?workspaceId=... provides current policy/limits;
    server-only cron GET requires CRON_SECRET. Do not call the cron as a browser URL

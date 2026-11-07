@@ -10,10 +10,11 @@ function setup(options={}){
     if(name==='nexops_is_growth_admin')return options.authUnavailable?{error:{}}:{data:options.admin??true};
     assert.equal(name,'nexops_social_set_policy');writes.push(args);return {data:{enabled:args.turn_on}};
   },from:table=>{
-    const q={select:()=>q,eq:()=>q,order:()=>q,limit:async()=>({data:[]}),maybeSingle:async()=>({data:table==='nexops_workspaces'?{id:workspace,organization_id:options.otherOrg?'other':org}:table==='nexops_organization_memberships'?{organization_id:org,user_id:user,role:'owner'}:{workspace_id:workspace,user_id:user}})};return q;
+    const q={select:()=>q,eq:()=>q,order:()=>q,limit:async()=>({data:[]}),maybeSingle:async()=>({data:table==='nexops_social_policy'?{enabled:options.enabled??false}:table==='nexops_workspaces'?{id:workspace,organization_id:options.otherOrg?'other':org}:table==='nexops_organization_memberships'?{organization_id:org,user_id:user,role:'owner'}:{workspace_id:workspace,user_id:user}})};return q;
   }});
   const fetchImpl=async(url,init)=>{
     network.push(url);
+    if(url==='https://api.openai.com/v1/models/gpt-4.1-mini'){assert.equal(init.method,'GET');assert.equal(init.body,undefined);return {ok:!options.modelFailure,json:async()=>({id:'gpt-4.1-mini'})};}
     if(url===env.NEXOPS_SOCIAL_ALERT_URL)return {ok:!options.alertFailure};
     const query=JSON.parse(init.body).query;assert.match(query,/^query/);
     return {ok:true,json:async()=>query.includes('account')?{data:{account:{organizations:[{id:'buffer-org'}]}}}:{data:{channels:[{id:'li',service:'linkedin',isQueuePaused:false},{id:'th',service:'threads',isQueuePaused:false},{id:options.wrongChannel?'wrong':'tw',service:'twitter',isQueuePaused:false}]}}};
@@ -47,4 +48,18 @@ test('preview cannot enable; stop remains available without AI/provider credenti
   const preview=setup({env:{VERCEL_ENV:'preview'}});assert.equal((await preview.call('POST',enable)).n,403);assert.equal(preview.network.length,0);
   const f=setup({env:{NEXOPS_SOCIAL_AI_KEY:'',BUFFER_API_KEY:'',NEXOPS_SOCIAL_EMERGENCY_STOP:'true'}});
   assert.equal((await f.call('POST',{workspaceId:workspace,action:'disable'})).n,200);assert.equal(f.writes[0].turn_on,false);assert.equal(f.network.length,0);
+});
+
+const offEnv={NEXOPS_SOCIAL_WRITES_ALLOWED:'false',NEXOPS_SOCIAL_EMERGENCY_STOP:'true'};
+test('OFF readiness checks fixed Buffer/model/notification without enabling or generating',async()=>{
+ const f=setup({env:offEnv}),r=await f.call('POST',{workspaceId:workspace,action:'check'});
+ assert.equal(r.n,200);assert.equal(r.body.ready,true);assert.equal(r.body.publicationEnabled,false);assert.equal(r.body.aiGenerationTested,false);
+ assert.equal(f.writes.length,0);assert.equal(f.network.length,4);assert.ok(!f.network.some(u=>u.includes('completions')));
+});
+test('readiness cannot bypass authorization, OFF gates, pricing, mapping or model/alert failures',async()=>{
+ const on=setup();assert.equal((await on.call('POST',{workspaceId:workspace,action:'check'})).n,409);assert.equal(on.writes.length,0);assert.equal(on.network.length,0);
+ for(const options of [{noAuth:true},{admin:false},{otherOrg:true},{enabled:true},{wrongChannel:true},{modelFailure:true},{alertFailure:true},{env:{NEXOPS_SOCIAL_AI_PRICING_ACK:''}}]){
+  const f=setup({...options,env:{...offEnv,...options.env}});
+  assert.notEqual((await f.call('POST',{workspaceId:workspace,action:'check'})).n,200);assert.equal(f.writes.length,0);
+ }
 });
