@@ -1,0 +1,23 @@
+name: Sales Autopilot Safety Tests
+on:
+  pull_request:
+    paths:
+      - 'server/sales-*.mjs'
+      - 'tests/sales-*.test.mjs'
+      - 'api/auth/google/**'
+      - 'supabase/migrations/*sales*'
+      - '.github/workflows/sales-autopilot-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sales-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run sales unit tests (no external services)
+        run: npm run test:sales

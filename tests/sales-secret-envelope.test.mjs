@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
+import {encryptSalesSecret,decryptSalesSecret} from '../server/sales-secret-envelope.mjs';
+const key=randomBytes(32).toString('base64');
+test('round trips encrypted token bound to contact context',()=>{const e=encryptSalesSecret('refresh-token',key,'gmail:nexops2026test@gmail.com');assert.equal(decryptSalesSecret(e,key,'gmail:nexops2026test@gmail.com'),'refresh-token');assert.notEqual(e.ciphertext,'refresh-token');});
+test('rejects wrong associated identity',()=>{const e=encryptSalesSecret('refresh-token',key,'gmail:a');assert.throws(()=>decryptSalesSecret(e,key,'gmail:b'),/decryption_failed/);});
+test('rejects tampering',()=>{const e=encryptSalesSecret('refresh-token',key,'gmail:a');e.tag=randomBytes(16).toString('base64');assert.throws(()=>decryptSalesSecret(e,key,'gmail:a'),/decryption_failed/);});
+test('rejects weak key',()=>assert.throws(()=>encryptSalesSecret('token','bad','gmail:a'),/invalid_encryption_key/));
+test('uses random nonce',()=>{const a=encryptSalesSecret('token',key,'gmail:a'),b=encryptSalesSecret('token',key,'gmail:a');assert.notEqual(a.iv,b.iv);});

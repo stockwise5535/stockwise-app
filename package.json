@@ -14,7 +14,8 @@
     "test:browser:automation": "node tests/social-automation.browser.mjs",
     "buffer:read": "node --use-env-proxy scripts/buffer-growth-read.mjs",
     "test:db": "node --test supabase/tests/*.test.mjs",
-    "test:browser:main": "node tests/main-integration.browser.mjs"
+    "test:browser:main": "node tests/main-integration.browser.mjs",
+    "test:sales": "node --test tests/sales-*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

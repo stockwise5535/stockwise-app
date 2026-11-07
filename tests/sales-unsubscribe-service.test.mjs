@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createUnsubscribeToken} from '../server/sales-unsubscribe-token.mjs';
+import {processSalesUnsubscribe} from '../server/sales-unsubscribe-service.mjs';
+const secret='a'.repeat(40),now=1762500000;
+const token=createUnsubscribeToken({organizationId:'org',contactId:'c1',issuedAt:now},secret).token;
+test('acknowledges only committed durable suppression',async()=>{let called=false;const r=await processSalesUnsubscribe({token,secret,now,commitSuppression:async v=>{called=true;assert.deepEqual(v,{organizationId:'org',contactId:'c1'});return {committed:true};}});assert.equal(called,true);assert.equal(r.status,200);});
+test('fails closed when storage absent',async()=>assert.equal((await processSalesUnsubscribe({token,secret,now})).status,503));
+test('fails closed when storage returns false',async()=>assert.equal((await processSalesUnsubscribe({token,secret,now,commitSuppression:async()=>({committed:false})})).status,503));
+test('fails closed on storage error',async()=>assert.equal((await processSalesUnsubscribe({token,secret,now,commitSuppression:async()=>{throw new Error('db')}})).status,503));
+test('rejects tampering without DB call',async()=>{let called=false;const r=await processSalesUnsubscribe({token:token+'x',secret,now,commitSuppression:async()=>{called=true;}});assert.equal(r.status,400);assert.equal(called,false);});
