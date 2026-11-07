@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {exchangeGmailAuthorizationCode} from '../server/sales-google-oauth-exchange.mjs';
+const input={code:'code',verifier:'v'.repeat(64),clientId:'562356358390-quot4mgcatkble05itb85vruhm42fseu.apps.googleusercontent.com',clientSecret:'local-test-secret',redirectUri:'https://stockwise-app-1qz9.vercel.app/api/auth/google/callback',transactionConsumed:true};
+const good=async(url,options)=>{assert.equal(url,'https://oauth2.googleapis.com/token');assert.equal(options.method,'POST');assert.match(options.body,/code_verifier=/);return {ok:true,json:async()=>({access_token:'access',refresh_token:'refresh',expires_in:3600,scope:'https://www.googleapis.com/auth/gmail.send'})}};
+test('exchanges consumed authorization code with Gmail send-only scope',async()=>{const r=await exchangeGmailAuthorizationCode(input,good);assert.equal(r.ok,true);assert.equal(r.tokens.refreshToken,'refresh');});
+test('does not call Google for unconsumed transaction',async()=>{let calls=0;const r=await exchangeGmailAuthorizationCode({...input,transactionConsumed:false},async()=>{calls++;});assert.equal(r.ok,false);assert.equal(calls,0);});
+test('does not call Google for wrong redirect',async()=>{let calls=0;const r=await exchangeGmailAuthorizationCode({...input,redirectUri:'https://other.example/callback'},async()=>{calls++;});assert.equal(r.ok,false);assert.equal(calls,0);});
+test('rejects missing refresh token',async()=>assert.equal((await exchangeGmailAuthorizationCode(input,async()=>({ok:true,json:async()=>({access_token:'a',expires_in:3600,scope:'https://www.googleapis.com/auth/gmail.send'})}))).ok,false));
+test('rejects wrong granted scope',async()=>assert.equal((await exchangeGmailAuthorizationCode(input,async()=>({ok:true,json:async()=>({access_token:'a',refresh_token:'r',expires_in:3600,scope:'openid'})}))).ok,false));
+test('does not leak Google errors',async()=>assert.deepEqual(await exchangeGmailAuthorizationCode(input,async()=>{throw new Error('secret!')}),{ok:false,error:'token_exchange_unavailable'}));
