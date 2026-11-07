@@ -16,7 +16,7 @@ export async function salesDbRequest({table,method='GET',query='',body,prefer},e
  } catch {return {ok:false,error:'db_unavailable'};}
 }
 export async function salesDbRpc(name,body,env=process.env,fetchImpl=globalThis.fetch) {
- if(!['sales_consume_oauth_state','sales_commit_unsubscribe','sales_reserve_send'].includes(name)) return {ok:false,error:'rpc_not_allowed'};
+ if(!['sales_consume_oauth_state','sales_commit_unsubscribe','sales_reserve_send','sales_record_outreach_event','sales_mark_send_result'].includes(name)) return {ok:false,error:'rpc_not_allowed'};
  const config=salesSupabaseConfig(env);
  if(!config) return {ok:false,error:'db_not_configured'};
  try {
