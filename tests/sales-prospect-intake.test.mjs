@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeProspect, selectProspects } from '../server/sales-prospect-intake.mjs';
+const lead={domain:'Example.com',email:'SALES@example.com',segment:'manufacturing',sourceUrl:'https://example.com/contact',sourceTermsPermitUse:true,businessVerified:true,contactBasisVerified:true,regionAllowed:true,suppressed:false,contactBasis:'verified',jurisdiction:'US'};
+test('normalizes and scores verified leads',()=>{const r=normalizeProspect(lead);assert.equal(r.accepted,true);assert.equal(r.prospect.email,'sales@example.com');});
+test('rejects unknown permissions',()=>assert.equal(normalizeProspect({...lead,sourceTermsPermitUse:undefined}).accepted,false));
+test('rejects opt-out',()=>assert.equal(normalizeProspect({...lead,suppressed:true}).accepted,false));
+test('rejects malformed email',()=>assert.equal(normalizeProspect({...lead,email:'bad'}).accepted,false));
+test('rejects unknown jurisdiction permission',()=>assert.equal(normalizeProspect({...lead,regionAllowed:undefined}).accepted,false));
+test('deduplicates and ranks deterministically',()=>{const r=selectProspects([lead,lead]);assert.equal(r.accepted.length,1);assert.equal(r.rejected.length,1);});
+test('does not accept unbounded batch',()=>assert.equal(selectProspects([lead],1001).accepted.length,0));
