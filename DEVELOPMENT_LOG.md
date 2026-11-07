@@ -1,5 +1,30 @@
 # Stockwise / NexOps development log
 
+## 2026-11-06 — PR #3 changes to zero-AI approved stock
+
+- User's zero-AI-cost requirement supersedes the paid generation/reviewer design.
+  Remain on existing codex/enable-social-posting-cron / PR #3; no new PR or deployment.
+- Removed generation/review/model metadata transport and AI credential/pricing ACK
+  requirements. Legacy AI adapter throws before any transport. Production paths
+  cannot use an existing AI key to re-enable inference; AI alert hosts are refused.
+- Added 45 literal, source-backed stock entries (15/service), exact validation and
+  versioned full-text administrator consent. Old paid-mode consent/version cannot
+  authorize this stock. New text is not treated as user-approved until that action.
+- All-time content-hash lookup excludes any used/reserved content under the exact
+  organization. Daily/SQL uniqueness and seven-day topic cooldown remain. Any
+  exhausted service blocks all posting, records/alerts and never recycles content.
+- UI now shows AI API calls/cost 0 and stock counts/text. Notifications, receipt
+  reconciliation, uncertain-delivery hold, metrics and emergency stop remain.
+- Unit/Security 9 suites, disposable DB 3 suites, 3 browser suites and Build passed.
+  Network spies/static checks reject AI requests even with old keys present; exact
+  stock-history count detects truncated responses. Secret boundary scan passed
+  on 98 source/build files. Buffer posts use aiAssisted:false.
+- No production SQL/data/gates/policy/provider changes. Legacy budget tables/history
+  remain; new stock runs do not call reservation RPCs and record zero AI counters.
+- Local DB/server integration tested 45 unique registrations over 15 synthetic
+  dates, zero AI calls/cents/budget rows, and day-16 stop/notification. No real
+  registration, publication, paid model call or external notification was sent.
+
 ## 2026-11-06 — prepare gated daily publication release
 
 - User reports PR #2 merged, Production Ready and metrics cron Active. Fetched

@@ -11,11 +11,12 @@ export function runtimeBinding(env){
   return {organizationId:env.NEXOPS_SOCIAL_ORGANIZATION_ID,bufferOrganizationId:env.BUFFER_ORGANIZATION_ID,channels,hash};
 }
 export function activationReady(env){productionGate(env);return activationConfiguration(env);}
+export const isAiServiceHost=host=>/(^|\.)(openai\.com|openai\.azure\.com|anthropic\.com|generativelanguage\.googleapis\.com|aiplatform\.googleapis\.com|services\.ai\.azure\.com)$/i.test(host);
 export function activationConfiguration(env){
   const binding=runtimeBinding(env);
-  if(!env.BUFFER_API_KEY||!env.NEXOPS_SOCIAL_AI_KEY||!env.SUPABASE_SERVICE_ROLE_KEY||env.NEXOPS_SOCIAL_AI_PRICING_ACK!=='gpt-4.1-mini-input10-output50-per-million-v1')throw Error('AUTOPILOT_CONFIGURATION_REQUIRED');
+  if(!env.BUFFER_API_KEY||!env.SUPABASE_SERVICE_ROLE_KEY)throw Error('AUTOPILOT_CONFIGURATION_REQUIRED');
   let u;try{u=new URL(env.NEXOPS_SOCIAL_ALERT_URL);}catch{throw Error('ALERT_CONFIGURATION_REQUIRED');}
-  if(u.protocol!=='https:'||u.hostname!==env.NEXOPS_SOCIAL_ALERT_HOST||u.username||u.password||u.port||u.search||u.hash||!env.NEXOPS_SOCIAL_ALERT_SECRET)throw Error('ALERT_CONFIGURATION_REQUIRED');
+  if(isAiServiceHost(u.hostname)||u.protocol!=='https:'||u.hostname!==env.NEXOPS_SOCIAL_ALERT_HOST||u.username||u.password||u.port||u.search||u.hash||!env.NEXOPS_SOCIAL_ALERT_SECRET)throw Error('ALERT_CONFIGURATION_REQUIRED');
   return binding;
 }
 export function secretMatches(header,secret){

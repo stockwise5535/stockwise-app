@@ -1,3 +1,4 @@
+import stock from './social-stock.json' with {type:'json'};
 import {SOCIAL_EVIDENCE} from './social-evidence.js';
 import {createHash} from 'node:crypto';
 import {outboundRiskFlags} from '../services/social-risk-rules.js';
@@ -29,9 +30,10 @@ export const FACTS=Object.freeze([
     "source": "src/App.jsx"
   }
 ]);
-export const HOOKS=Object.freeze({x:['A practical supply-chain review.','From exception to a next step.','Explore the workflow.'],threads:['A closer look at the Stockwise workflow.','How do you review a supply exception?','Try a practical review flow.'],linkedin:['A practical workflow for supply-chain teams.','Review exceptions before deciding on the next step.','Explore supply-chain decision support.']});
+export const HOOKS=Object.freeze({x:['Stockwise inventory planning.','A look at Stockwise.','Stockwise workflow notes.'],threads:['Stockwise: inventory workflow.','Working with inventory in Stockwise.','Stockwise feature notes.'],linkedin:['Stockwise for inventory planning.','An inventory workflow in Stockwise.','Stockwise product notes.']});
 export const hashText=text=>createHash('sha256').update(text.normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase()).digest('hex');
-export const FACTS_VERSION=createHash('sha256').update(JSON.stringify([FACTS,HOOKS,SOCIAL_EVIDENCE,'constrained-composition-v1','gpt-4.1-mini',20,6,4000])).digest('hex');
+export const APPROVED_STOCK=Object.freeze(stock.map(p=>Object.freeze({...p,factIds:Object.freeze([...p.factIds])})));
+export const FACTS_VERSION=createHash('sha256').update(JSON.stringify([FACTS,HOOKS,SOCIAL_EVIDENCE,APPROVED_STOCK,'approved-stock-no-ai-v1'])).digest('hex');
 export function compose(network,plan){
   if(!Object.hasOwn(HOOKS,network)||!plan||Object.keys(plan).sort().join(',')!=='factIds,hook'||!Number.isInteger(plan.hook)||!HOOKS[network][plan.hook]||!Array.isArray(plan.factIds)||plan.factIds.length<1||plan.factIds.length>3||new Set(plan.factIds).size!==plan.factIds.length)throw Error('CONTENT_SHAPE_REJECTED');
   const facts=plan.factIds.map(id=>FACTS.find(f=>f.id===id));if(facts.some(f=>!f))throw Error('UNVERIFIED_FACT');

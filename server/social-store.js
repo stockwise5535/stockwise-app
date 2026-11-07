@@ -21,6 +21,12 @@ export function createSocialStore({env=process.env,signal,client}={}){
       return row?.state==='running'&&row.policy_revision===revision&&Date.parse(row.expires_at)>Date.now()&&row.day===new Date().toISOString().slice(0,10)&&post?.state==='sending'&&post.claim_token===token;
     },
     finish:(run,state)=>result(client.from('nexops_social_runs').update({state}).eq('id',run)),
+    usedStock:async(org,hashes)=>{
+      if(!Array.isArray(hashes)||hashes.length<1||hashes.length>90||hashes.some(h=>!/^([0-9a-f]{64})$/.test(h)))throw Error('STOCK_INVALID');
+      const {data,error,count}=await client.from('nexops_social_posts').select('content_hash',{count:'exact'}).eq('organization_id',org).in('content_hash',hashes).limit(hashes.length*3);
+      if(error||!Array.isArray(data)||!Number.isInteger(count)||count!==data.length)throw Error('STOCK_HISTORY_UNAVAILABLE');
+      return data;
+    },
     recent:org=>result(client.from('nexops_social_posts').select('day,network,content_hash,fact_ids,state,provider_id,metrics,metrics_updated_at').eq('organization_id',org).order('day',{ascending:false}).limit(90)),
     savedSnapshot:async(org,period)=>{const row=await result(client.from('nexops_social_snapshots').select('payload').eq('organization_id',org).eq('period_start',period.start).eq('period_end',period.end).maybeSingle());return row?.payload || null;},
     snapshot:(org,payload)=>result(client.from('nexops_social_snapshots').upsert({organization_id:org,period_start:payload.period.start,period_end:payload.period.end,payload,updated_at:new Date().toISOString()})),

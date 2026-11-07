@@ -1,12 +1,12 @@
 import {createBufferAdapter,bufferApprovalHash} from '../services/buffer-adapter.js';
 import {readBufferGrowth} from './buffer-growth.js';
-import {createSocialAI} from './social-ai.js';
-import {FACTS_VERSION,compose,analyzeSocial} from './social-content.js';
+import {FACTS_VERSION} from './social-content.js';
+import {approvedPostCatalog,chooseStock} from './social-stock.js';
 import {productionGate,activationReady} from './social-runtime.js';
 import {notifySocial} from './social-notifier.js';
 
 // Never run through the old outbound/fixture orchestration or email workers.
-export async function runSocialCycle({env=process.env,store,signal=AbortSignal.timeout(240000),read=readBufferGrowth,ai=createSocialAI({env}),fetchImpl=fetch,now=()=>new Date()}={}){
+export async function runSocialCycle({env=process.env,store,signal=AbortSignal.timeout(240000),read=readBufferGrowth,fetchImpl=fetch,now=()=>new Date()}={}){
   const binding=activationReady(env),org=binding.organizationId;
   if(!await store.claimTick(org))return {status:'not_started',reason:'DAILY_EXECUTION_ALREADY_RESERVED'};
   async function alert(code){
@@ -30,20 +30,22 @@ export async function runSocialCycle({env=process.env,store,signal=AbortSignal.t
   const run=claim.runId,outcomes=[];
   try{
     const prior=await store.recent(org);
-    for(const network of ['linkedin','threads','x']){
-      let candidate;
-      try{
-        productionGate(env);if(signal.aborted||claim.day!==now().toISOString().slice(0,10))throw Error('CYCLE_STOPPED');
-        if(!await store.reserveAI(run))throw Error('AI_BUDGET_OR_STOP');
-        const plan=await ai.generate(network,{performance:analyzeSocial(snapshot,prior),previousPlans:prior.filter(p=>p.network===network).slice(0,30).map(p=>({factIds:p.fact_ids,state:p.state,day:p.day}))},signal);
-        candidate=compose(network,plan);
-        if(prior.some(p=>p.network===network&&(p.content_hash===candidate.contentHash || (p.day>=new Date(+now()-7*86400000).toISOString().slice(0,10) && JSON.stringify([...(p.fact_ids || [])].sort())===JSON.stringify([...candidate.factIds].sort())))))throw Error('DUPLICATE_CONTENT');
-        if(!await store.reserveAI(run))throw Error('AI_BUDGET_OR_STOP');
-        if(!await ai.review(network,candidate,signal))throw Error('AI_REVIEW_REJECTED');
-        if(!await store.candidate(run,network,candidate))throw Error('DUPLICATE_CONTENT');
-      }catch(e){
-        const known=['CONTENT_SHAPE_REJECTED','UNVERIFIED_FACT','NETWORK_LENGTH_REJECTED','CONTENT_RULE_REJECTED','AI_BUDGET_OR_STOP','AI_REVIEW_REJECTED','DUPLICATE_CONTENT','AI_INPUT_LIMIT','AI_REQUEST_FAILED','AI_OUTCOME_UNKNOWN','AI_RESPONSE_REJECTED','CYCLE_STOPPED'];
-        await store.candidate(run,network,candidate,known.includes(e?.message)?e.message:'CHECK_FAILED');await alert('CONTENT_CHECK_FAILED');outcomes.push({network,state:'blocked'});continue;
+    const catalog=approvedPostCatalog();
+    const used=new Set((await store.usedStock(org,catalog.map(p=>p.contentHash))).map(p=>p.content_hash));
+    const selections=['linkedin','threads','x'].map(network=>({network,...chooseStock(network,catalog,used,prior,now())}));
+    const unavailable=selections.filter(p=>!p.candidate);
+    if(unavailable.length){
+      for(const p of unavailable)await store.candidate(run,p.network,null,p.reason);
+      const reason=unavailable.some(p=>p.reason==='STOCK_EXHAUSTED')?'STOCK_EXHAUSTED':'STOCK_COOLDOWN';
+      await store.finish(run,'failed');await alert(reason);
+      return {status:'blocked',reason,networks:unavailable.map(p=>p.network)};
+    }
+    for(const {network,candidate} of selections){
+      productionGate(env);if(signal.aborted||claim.day!==now().toISOString().slice(0,10))throw Error('CYCLE_STOPPED');
+      // The SQL unique key is the final cross-instance duplicate barrier.
+      if(!await store.candidate(run,network,candidate)){
+        await store.finish(run,'failed');await alert('DUPLICATE_CONTENT');
+        return {status:'blocked',reason:'DUPLICATE_CONTENT',outcomes};
       }
       // Atomic durable dispatch claim BEFORE any provider transport. A crash leaves
       // sending held, never an automatically retryable post.

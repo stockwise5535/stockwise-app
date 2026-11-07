@@ -10,6 +10,20 @@ Additive /growth admin dashboard + SNS reader/automatic cycle integrated.
 52 Unit/Security tests, 8 local SQL tests, 3 browser suites and Build passed.
 Publishing OFF, cron absent. SQL proposals unapplied; no remote writes.
 
+## Current requirement — AI API calls and fees zero
+
+Update existing PR #3 / codex/enable-social-posting-cron only. Paid generation,
+review and model metadata requests are removed. AI key/pricing ACK are unnecessary.
+Only administrator-approved exact stock may publish: 45 literal entries (15 per
+network), all-time usage exclusion, immutable versioned consent, exhaustion stop
+and notification. Existing production schema/budget history is preserved.
+
+After PR review/deployment, keep OFF while reviewing all stock and checking fixed
+Buffer targets/alerts via readiness. Existing paid-mode policy version will not
+match; approve this exact new stock before enabling. See docs/SOCIAL_AUTOPILOT.md.
+No production activation, DB modification, model request or SNS write has occurred
+in this code-change session. Historical sections below describe superseded modes.
+
 ## Current publication release
 
 User reports PR #2/main deployed and metrics cron Active. Latest fetched main is
