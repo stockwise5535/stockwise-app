@@ -10,10 +10,21 @@ export default async function handler(req,res) {
  res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
  if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'method_not_allowed'});}
  const env=process.env;
- if(env.STOCKWISE_SALES_OAUTH_SETUP_ENABLED!=='true'||!salesSupabaseConfig(env)||
-   typeof env.STOCKWISE_SALES_OAUTH_ADMIN_KEY!=='string'||env.STOCKWISE_SALES_OAUTH_ADMIN_KEY.length<32||
-   !env.STOCKWISE_SALES_ENCRYPTION_KEY||!env.STOCKWISE_SALES_GMAIL_CLIENT_SECRET)
-   return res.status(503).json({error:'oauth_setup_disabled'});
+ const missing=[];
+ if(env.STOCKWISE_SALES_OAUTH_SETUP_ENABLED!=='true')missing.push('setup_flag');
+ if(!salesSupabaseConfig(env))missing.push('supabase_config');
+ if(typeof env.STOCKWISE_SALES_OAUTH_ADMIN_KEY!=='string'||env.STOCKWISE_SALES_OAUTH_ADMIN_KEY.length<32)missing.push('admin_key');
+ if(!env.STOCKWISE_SALES_ENCRYPTION_KEY)missing.push('encryption_key');
+ if(!env.STOCKWISE_SALES_GMAIL_CLIENT_SECRET)missing.push('gmail_client_secret');
+ if(missing.length){
+  const admin=env.STOCKWISE_SALES_OAUTH_ADMIN_KEY;
+  const supplied=req.headers.authorization?.replace(/^Bearer /,'')||'';
+  if(typeof admin==='string'&&admin.length>=32){
+   const a=Buffer.from(digest(supplied),'hex'),b=Buffer.from(digest(admin),'hex');
+   if(timingSafeEqual(a,b))return res.status(503).json({error:'oauth_setup_disabled',checks:missing});
+  }
+  return res.status(503).json({error:'oauth_setup_disabled'});
+ }
  const supplied=req.headers.authorization?.replace(/^Bearer /,'')||'';
  const a=Buffer.from(digest(supplied),'hex'),b=Buffer.from(digest(env.STOCKWISE_SALES_OAUTH_ADMIN_KEY),'hex');
  if(!timingSafeEqual(a,b)) return res.status(403).json({error:'not_authorized'});
