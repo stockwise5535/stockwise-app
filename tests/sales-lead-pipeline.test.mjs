@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { scoreLead, evaluateFollowUp } from '../server/sales-lead-pipeline.mjs';
+const lead={segment:'manufacturing',sourceUrl:'https://example.org',sourceTermsPermitUse:true,businessVerified:true,contactBasisVerified:true,regionAllowed:true,suppressed:false};
+test('eligible verified lead is scored deterministically',()=>assert.deepEqual(scoreLead({...lead,inventoryPainVerified:true}),{eligible:true,score:70,reasons:[]}));
+test('missing provenance rejects lead',()=>assert.equal(scoreLead({...lead,sourceUrl:''}).eligible,false));
+test('suppressed lead rejects',()=>assert.equal(scoreLead({...lead,suppressed:true}).eligible,false));
+test('unknown segment rejects',()=>assert.equal(scoreLead({...lead,segment:'other'}).eligible,false));
+const entry={status:'delivered',replyReceived:false,unsubscribed:false,bounced:false,complained:false,deliveryUncertain:false,contactBasisStillValid:true,providerAuthorized:true,followUpsSent:0,nextEligibleAt:100};
+const policy={globalStop:false,followUpsEnabled:true,maxFollowUps:1,now:100};
+test('follow-up eligible only after confirmed delivery',()=>assert.equal(evaluateFollowUp(entry,policy).allowed,true));
+for(const patch of [{replyReceived:true},{unsubscribed:true},{bounced:true},{complained:true},{deliveryUncertain:true},{status:'accepted'},{contactBasisStillValid:false},{providerAuthorized:false},{followUpsSent:1}])test('follow-up denied for '+JSON.stringify(patch),()=>assert.equal(evaluateFollowUp({...entry,...patch},policy).allowed,false));
+test('follow-up denied by default',()=>assert.equal(evaluateFollowUp(entry).allowed,false));
+test('follow-up denied before cooldown',()=>assert.equal(evaluateFollowUp(entry,{...policy,now:99}).allowed,false));
