@@ -34,9 +34,9 @@ export default async function handler(req,res) {
  if(!exchanged.ok)return res.status(502).json({error:exchanged.error});
  let verifiedEmail;
  try {
-  const profile=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile',{headers:{Authorization:'Bearer '+exchanged.tokens.accessToken},signal:AbortSignal.timeout(10000)});
+  const profile=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+exchanged.tokens.accessToken},signal:AbortSignal.timeout(10000)});
   if(!profile.ok)return res.status(502).json({error:'mailbox_verification_failed'});
-  const data=await profile.json();verifiedEmail=data.emailAddress;
+  const data=await profile.json();verifiedEmail=data.email_verified===true?data.email:null;
  }catch{return res.status(502).json({error:'mailbox_verification_unavailable'});}
  if(typeof verifiedEmail!=='string'||verifiedEmail.toLowerCase()!==mailbox)return res.status(403).json({error:'wrong_gmail_account'});
  let encrypted;
