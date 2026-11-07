@@ -7,7 +7,7 @@ test('builds Gmail send-only OAuth with state and PKCE',()=>{
  assert.equal(result.ok,true);
  const u=new URL(result.url);
  assert.equal(u.origin,'https://accounts.google.com');
- assert.equal(u.searchParams.get('scope'),GMAIL_OAUTH_SCOPE);
+ assert.equal(u.searchParams.get('scope'),GMAIL_OAUTH_SCOPE+' openid email');
  assert.equal(u.searchParams.get('state'),valid.state);
  assert.equal(u.searchParams.get('code_challenge_method'),'S256');
  assert.equal(u.searchParams.get('access_type'),'offline');
