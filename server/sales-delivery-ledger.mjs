@@ -1,7 +1,7 @@
 // Ledger transition boundary. A network timeout after Gmail send must be
 // marked 'uncertain', not automatically retried.
 import {salesDbRpc} from './sales-supabase-rest.mjs';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function markSalesDelivery({reservationId,state,providerMessageId},rpc=salesDbRpc) {
  if(!UUID.test(reservationId||'')||!['sent','uncertain'].includes(state)||
    (state==='sent'&&(typeof providerMessageId!=='string'||!providerMessageId.trim()))||
