@@ -5,7 +5,10 @@ import {salesDbRequest} from './sales-supabase-rest.mjs';
 const CLIENT='562356358390-quot4mgcatkble05itb85vruhm42fseu.apps.googleusercontent.com';
 const ACCOUNT='nexops2026test@gmail.com';
 export async function refreshSalesGmailAccessToken({env=process.env,fetchImpl=globalThis.fetch,dbRequest=salesDbRequest}={}) {
- // OAuth setup is a short-lived enrollment gate, not the runtime refresh gate.\n // Refresh remains restricted to the pinned mailbox and encrypted stored token.\n if(!env.STOCKWISE_SALES_ENCRYPTION_KEY||!env.STOCKWISE_SALES_GMAIL_CLIENT_SECRET)\n   return {ok:false,error:'gmail_auth_disabled'};
+ // OAuth setup is a short-lived enrollment gate, not the runtime refresh gate.
+ // Refresh remains restricted to the pinned mailbox and encrypted stored token.
+ if(!env.STOCKWISE_SALES_ENCRYPTION_KEY||!env.STOCKWISE_SALES_GMAIL_CLIENT_SECRET)
+   return {ok:false,error:'gmail_auth_disabled'};
  const result=await dbRequest({table:'sales_oauth_credentials',method:'GET',query:'?provider=eq.gmail&select=account_email,encrypted_refresh_token,granted_scope&limit=1'},env,fetchImpl);
  const record=Array.isArray(result.data)?result.data[0]:null;
  if(!result.ok||!record||record.account_email!==ACCOUNT||
