@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {applySalesEvent,canSendToContact} from '../server/sales-suppression-state.mjs';
+const initial={contactId:'c1',suppressed:false,replyReceived:false,history:[{id:'seed',type:'accepted',at:1}]};
+test('unsubscribe suppresses contact',()=>{const r=applySalesEvent(initial,{id:'e1',contactId:'c1',type:'unsubscribe',at:2});assert.equal(r.state.suppressed,true);assert.equal(canSendToContact(r.state),false);});
+test('complaint suppresses contact',()=>assert.equal(applySalesEvent(initial,{id:'e1',contactId:'c1',type:'complaint',at:2}).state.suppressed,true));
+test('hard bounce suppresses contact',()=>assert.equal(applySalesEvent(initial,{id:'e1',contactId:'c1',type:'hard_bounce',at:2}).state.suppressed,true));
+test('reply stops follow-up',()=>assert.equal(canSendToContact(applySalesEvent(initial,{id:'e1',contactId:'c1',type:'reply',at:2}).state),false));
+test('duplicate events are idempotent',()=>{const e={id:'e1',contactId:'c1',type:'unsubscribe',at:2};const s=applySalesEvent(initial,e).state;assert.equal(applySalesEvent(s,e).duplicate,true);});
+test('later delivery cannot reverse suppression',()=>{const s=applySalesEvent(initial,{id:'e1',contactId:'c1',type:'unsubscribe',at:2}).state;assert.equal(applySalesEvent(s,{id:'e2',contactId:'c1',type:'delivered',at:3}).state.suppressed,true);});
+test('unknown state denies send',()=>assert.equal(canSendToContact({}),false));
+test('wrong contact rejects',()=>assert.equal(applySalesEvent(initial,{id:'e1',contactId:'other',type:'unsubscribe',at:2}).ok,false));
