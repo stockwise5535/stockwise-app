@@ -23,7 +23,10 @@ function localClient(db){
  const rows=(await db.query(sql,values)).rows.map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[k,v instanceof Date?(['day','month'].includes(k)?v.toISOString().slice(0,10):v.toISOString()):v])));return {data:rows};}catch(error){return {error};}};
  const q={select(){return q;},eq(k,v){filters.push([k,v]);return q;},order(k,{ascending}){order=[k,ascending];return q;},limit(n){limit=n;return q;},update(v){mode='update';body=v;return q;},insert(v){mode='insert';body=v;return q;},upsert(v){mode='upsert';body=v;return q;},async maybeSingle(){const r=await execute();return {...r,data:r.data?.[0]||null};},then(resolve,reject){return execute().then(resolve,reject);}};return q;}};
 }
-test('real cycle + production SQL + least-privilege store: OFF sync, three checked dispatches, durable no-replay and stop',async()=>{
+test('real cycle + production SQL + least-privilege store: OFF sync, three checked dispatches, durable no-replay and stop',async(t)=>{
+ // Keep the successful-flow test away from the UTC boundary; the real boundary
+ // rejection is exercised separately in social-autopilot.test.js.
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-02T09:00:00Z')});
  const db=new PGlite();let dispatches=0,generations=0,reviews=0;
  const env={VERCEL_ENV:'production',NEXOPS_SOCIAL_ORGANIZATION_ID:O,BUFFER_ORGANIZATION_ID:'fixture-org',BUFFER_LINKEDIN_CHANNEL_ID:'li',BUFFER_THREADS_CHANNEL_ID:'th',BUFFER_X_CHANNEL_ID:'tw',BUFFER_API_KEY:'fixture-buffer',SUPABASE_SERVICE_ROLE_KEY:'fixture-worker',NEXOPS_SOCIAL_AI_KEY:'fixture-ai',NEXOPS_SOCIAL_WRITES_ALLOWED:'true',NEXOPS_SOCIAL_EMERGENCY_STOP:'false',NEXOPS_SOCIAL_AI_PRICING_ACK:'gpt-4.1-mini-input10-output50-per-million-v1',NEXOPS_SOCIAL_ALERT_URL:'https://alerts.example.test/social',NEXOPS_SOCIAL_ALERT_HOST:'alerts.example.test',NEXOPS_SOCIAL_ALERT_SECRET:'fixture-alert'};
  try{

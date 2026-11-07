@@ -20,6 +20,10 @@
 - Existing Buffer adapter read returned HTTP 200 for organization and channels:
   one organization, LinkedIn/Threads/X all queuePaused=false. Production mapping
   and Buffer write entitlement were not independently verified.
+- An initial hosted CI ran at 23:59 UTC and failed in the DB happy-flow test
+  because its two-minute schedule correctly crossed UTC midnight. Freeze only
+  that test's Date clock at 09:00; production boundary rejection remains covered
+  and unchanged. Corrected real DB/server integration passed locally.
 - Only BUFFER_API_KEY is available here; no Vercel/Supabase/AI/scheduler admin
   credentials or management API network access. No live AI request/alert delivery,
   policy ON, gate change, Buffer mutation, production deployment or DB change.
