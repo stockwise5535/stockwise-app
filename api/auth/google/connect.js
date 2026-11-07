@@ -14,7 +14,7 @@ form.addEventListener('submit',async event=>{
  event.preventDefault();const secret=key.value;key.value='';form.querySelector('button').disabled=true;status.textContent='Starting secure connection…';
  try {
   const response=await fetch('/api/auth/google/start',{method:'POST',credentials:'same-origin',headers:{'Authorization':'Bearer '+secret,'Content-Type':'application/json'},body:'{}',cache:'no-store'});
-  if(!response.ok){status.textContent='Could not start connection (HTTP '+response.status+'). Check setup settings and admin key.';return;}
+  if(!response.ok){const info=await response.json().catch(()=>({}));const checks=Array.isArray(info.checks)?info.checks.filter(x=>typeof x==='string'):[];status.textContent='Could not start connection (HTTP '+response.status+', '+(info.error||'unknown_error')+').'+(checks.length?' Missing setup checks: '+checks.join(', '):' Check admin key or setup settings.');return;}
   const data=await response.json();
   const url=new URL(data.authorizationUrl);
   if(url.protocol!=='https:'||url.hostname!=='accounts.google.com')throw Error('Unexpected authorization destination');
