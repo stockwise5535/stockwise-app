@@ -1,5 +1,5 @@
-// Signed, opaque opt-out tokens; no network access. Tokens are valid only
-// when checked against a server-side HMAC key and a durable suppression store.
+// Signed, tamper-resistant opt-out tokens; no network access. Tokens are valid only
+// when checked against a server-side HMAC key and a durable suppression store.\n// Payload is base64url-encoded, NOT encrypted: use random contact IDs only.
 import {createHmac,timingSafeEqual} from 'node:crypto';
 function sign(data,secret) { return createHmac('sha256',secret).update(data).digest('base64url'); }
 export function createUnsubscribeToken({organizationId,contactId,issuedAt},secret) {
