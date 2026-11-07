@@ -2,8 +2,10 @@
 const TABLES=new Set(['sales_oauth_transactions','sales_oauth_credentials']);
 export function salesSupabaseConfig(env=process.env) {
  const base=env.SUPABASE_URL, key=env.SUPABASE_SERVICE_ROLE_KEY;
- if(typeof base!=='string'||!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(base)||typeof key!=='string'||key.length<30) return null;
- return {base,key};
+ if(typeof base!=='string'||!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(base)||typeof key!=='string'||key.length<30) return null;
+ // Vercel may store the official project URL with a trailing slash. Normalize
+ // only that harmless slash; reject paths, ports, queries and other hosts.
+ return {base:base.replace(/\/$/,''),key};
 }
 export async function salesDbRequest({table,method='GET',query='',body,prefer},env=process.env,fetchImpl=globalThis.fetch) {
  const config=salesSupabaseConfig(env);
