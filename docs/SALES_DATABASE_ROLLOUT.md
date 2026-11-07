@@ -24,3 +24,11 @@ Security: RLS enabled without client policies; browser roles revoked. No secrets
 6. Independent test suite, CI and Vercel preview smoke tests, then controlled self-addressed test.
 
 **Production sending stays OFF** until all gates are proven. This migration alone does not start any mail.
+
+## Additional migrations (2026-11-06)
+
+- `202611060003_sales_send_reservation.sql`: service-role-only, atomic contact locking, UTC daily cap (maximum 25), unique idempotency key, conservative quota consumption; **does not send**.
+- `202611060004_sales_atomic_events.sql`: service-role-only event ingestion with atomic contact suppression/reply update; only use after independently verifying the event source.
+- `202611060005_sales_delivery_state.sql`: service-role-only transition from reserved to sent or uncertain; uncertain sends are **not automatically retried**.
+
+Apply migrations in numeric order **only after review and staging validation**. None of these migrations have been executed against the live database. Inbound email/reply verification and Gmail send adapter remain unimplemented. Never infer send success from a network timeout.
