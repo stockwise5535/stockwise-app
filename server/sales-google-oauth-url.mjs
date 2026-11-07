@@ -9,6 +9,6 @@ export function buildGmailAuthorizationUrl({state,codeChallenge,redirectUri=REDI
  if(typeof codeChallenge!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) return {ok:false,error:'invalid_pkce_challenge'};
  if(redirectUri!==REDIRECT||clientId!==CLIENT) return {ok:false,error:'unapproved_oauth_configuration'};
  const u=new URL(AUTH);
- for(const [k,v] of Object.entries({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:GMAIL_OAUTH_SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge,code_challenge_method:'S256'})) u.searchParams.set(k,v);
+ for(const [k,v] of Object.entries({client_id:clientId,redirect_uri:redirectUri,response_type:'code',scope:GMAIL_OAUTH_SCOPE+' openid email',access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge,code_challenge_method:'S256'})) u.searchParams.set(k,v);
  return {ok:true,url:u.toString()};
 }
