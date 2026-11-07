@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluateQueuedSend} from '../server/sales-send-queue-policy.mjs';
+const job={channel:'email',organizationId:'org',campaignId:'camp',contactId:'c1',sourceUrl:'https://example.org',jurisdiction:'US',contactBasis:'verified',contactBasisVerified:true,regionAllowed:true,suppressed:false,duplicate:false,deliveryUncertain:false,replyReceived:false,templateApproved:true,identityVerified:true,unsubscribeReady:true,sourceTermsPermitUse:true,approvedProviderOperation:true,idempotencyKey:'org:camp:c1',gmailOAuthVerified:true,unsubscribeEndpointVerified:true,senderMailboxVerified:true};
+const ledger={contactId:'c1',reserved:false,sent:false,uncertain:false,contactState:{suppressed:false,replyReceived:false,history:[{id:'a',type:'accepted',at:1}]}};
+const policy={globalStop:false,productionEnabled:true,channelEnabled:{email:true},providerAuthorized:{email:true},dailyLimit:{email:5},sentToday:{email:0}};
+test('verified queue job passes pure preflight',()=>assert.equal(evaluateQueuedSend(job,ledger,policy).ready,true));
+test('default OFF',()=>assert.equal(evaluateQueuedSend(job,ledger,{}).ready,false));
+test('missing OAuth blocks',()=>assert.equal(evaluateQueuedSend({...job,gmailOAuthVerified:false},ledger,policy).ready,false));
+test('missing live opt-out blocks',()=>assert.equal(evaluateQueuedSend({...job,unsubscribeEndpointVerified:false},ledger,policy).ready,false));
+test('reserved or unknown send blocks',()=>assert.equal(evaluateQueuedSend(job,{...ledger,reserved:true},policy).ready,false));
+test('suppressed contact blocks',()=>assert.equal(evaluateQueuedSend(job,{...ledger,contactState:{...ledger.contactState,suppressed:true}},policy).ready,false));
