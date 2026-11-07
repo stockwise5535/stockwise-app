@@ -23,7 +23,7 @@ for(const provider of ['openai','anthropic']){
     assert.ok(!opts.body.includes('nexops2026test@gmail.com'));
     return {ok:true,json:async()=>provider==='openai'?
      {output:[{content:[{type:'output_text',text:payload}]}]}:
-     {content:[{type:'text',text:payload}]};
+     {content:[{type:'text',text:payload}]}};
    }
   });
   assert.match(calledUrl,/^https:\/\//);
