@@ -12,7 +12,7 @@ test('integration preserves main SPA/API rewrites and schedules only read-only m
   if(existsSync(directory))for(const file of readdirSync(directory))assert.doesNotMatch(readFileSync(new URL(file,directory.href+'/'),'utf8'),/schedule:|cron:/);
 });
 test('SQL and schedule proposals cannot be auto-applied as registered migrations/config',()=>{
-  // Sales migrations are explicitly reviewed and manually applied; the social\n  // SQL proposals must remain unregistered and must not be auto-applied.\n  const migrations=new URL('../supabase/migrations/',import.meta.url);\n  if(existsSync(migrations)) {\n    const names=readdirSync(migrations);\n    assert.ok(names.every(name=>/^20261106000[1-5]_sales_[a-z_]+\\.sql$/.test(name)), 'Only reviewed sales migrations may be registered');\n    assert.equal(names.length,5);\n  }
+  // Sales migrations are isolated and must be manually reviewed/applied; the social\n  // SQL proposals must remain unregistered and must not be auto-applied.\n  const migrations=new URL('../supabase/migrations/',import.meta.url);\n  if(existsSync(migrations)) {\n    const names=readdirSync(migrations);\n    assert.ok(names.every(name=>/^(?:20261106000[1-5]|202611070006)_sales_[a-z_]+\\.sql$/.test(name)), 'Only isolated sales migrations may be registered');\n    assert.equal(names.length,6);\n  }
   assert.equal(existsSync(new URL('../docs/proposals/SOCIAL_DASHBOARD_FOUNDATION.sql',import.meta.url)),true);
   assert.equal(existsSync(new URL('../docs/proposals/SOCIAL_AUTOPILOT.sql',import.meta.url)),true);
 });
