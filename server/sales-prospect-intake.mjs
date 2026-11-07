@@ -15,6 +15,7 @@ export function normalizeProspect(raw) {
   if (raw.businessVerified !== true) reasons.push('unverified_business');
   if (raw.contactBasisVerified !== true || raw.regionAllowed !== true) reasons.push('contact_basis_not_cleared');
   if (raw.suppressed !== false) reasons.push('suppression_unknown');
+  if (typeof raw.contactBasis !== 'string' || !raw.contactBasis.trim() || typeof raw.jurisdiction !== 'string' || !raw.jurisdiction.trim()) reasons.push('missing_contact_basis_or_jurisdiction');
   const scored = scoreLead(raw);
   reasons.push(...scored.reasons);
   return { accepted:reasons.length===0, reasons:[...new Set(reasons)], score:scored.score,
