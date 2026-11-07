@@ -21,7 +21,6 @@ export function buildGmailDraft({from,to,subject,body,unsubscribeUrl,unsubscribe
    'MIME-Version: 1.0','Content-Type: text/plain; charset=UTF-8',
    'Content-Transfer-Encoding: 8bit',
    'List-Unsubscribe: <'+url+'>, <mailto:'+mailto+'>',
-   'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
    '',safeBody
  ].join(CRLF);
  return {ok:true,raw:b64url(raw),recipient};
