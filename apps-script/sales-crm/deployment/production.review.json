@@ -1,0 +1,13 @@
+{
+  "status": "pending",
+  "target": "production",
+  "bindingHash": "",
+  "remoteDigest": "",
+  "approvedSourceDigest": "",
+  "settingsVerifiedOff": false,
+  "manualEditsReconciled": false,
+  "ownerGmailTestPreserved": false,
+  "testRuntimeVerified": false,
+  "testSourceDigest": "",
+  "testDeploymentRunId": ""
+}

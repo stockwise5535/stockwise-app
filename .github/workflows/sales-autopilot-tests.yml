@@ -8,6 +8,15 @@ on:
       - 'api/auth/google/**'
       - 'supabase/migrations/*sales*'
       - '.github/workflows/sales-autopilot-tests.yml'
+  push:
+    branches: [feat/apps-script-sales-crm-gmail-bridge-20261107]
+    paths:
+      - 'apps-script/sales-crm/**'
+      - 'tools/apps-script/**'
+      - 'server/sales-*.mjs'
+      - 'scripts/sales-daily-research.mjs'
+      - 'tests/sales-*.test.mjs'
+      - '.github/workflows/*'
   workflow_dispatch:
 permissions:
   contents: read

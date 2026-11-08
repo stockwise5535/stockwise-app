@@ -1,7 +1,7 @@
 /* Stockwise Sales CRM - pure logic. No Google APIs here, so it is unit-testable in Node. */
 var SalesCore = (function () {
   var TABLES = {
-    Leads: ['lead_id','company','domain','website','contact_name','contact_email','country','language','segment','source_url','contact_basis','status','eligibility_note','duplicate_of','reply_status','created_at','updated_at','last_contacted_at','owner_notes'],
+    Leads: ['lead_id','company','domain','website','contact_name','contact_email','country','language','segment','source_url','contact_basis','status','eligibility_note','duplicate_of','reply_status','created_at','updated_at','last_contacted_at','owner_notes','industry','custom_opening'],
     EmailQueue: ['queue_id','lead_id','step','send_key','to_email','subject','body','content_hash','language','approval_status','approved_by','approved_at','approved_hash','status','blocked_reason','scheduled_at','sent_at','gmail_thread_id','gmail_message_id','attempts','error'],
     ActivityLog: ['timestamp','event','lead_id','queue_id','detail'],
     Suppression: ['value','type','reason','added_at','source'],
@@ -111,16 +111,17 @@ var SalesCore = (function () {
       EXPRESS_CONSENT: ['ご連絡をご希望いただいたため、ご連絡しました。', 'You asked to hear from us, so I am writing.'],
       EXISTING_RELATIONSHIP: ['これまでのお取引・やり取りに基づきご連絡しました。', 'I am writing based on our previous contact.'],
       INBOUND_REQUEST: ['お問い合わせをいただいたため、ご連絡しました。', 'I am following up on your enquiry.'] }[lead.contact_basis] || ['', ''];
+    var opening = String(lead.custom_opening || '').trim();
     var subject, body;
     if (lang === 'ja') {
       subject = step > 1 ? 'Re: 在庫管理のご案内(' + company + '様)' : '在庫管理のご案内(' + company + '様)';
-      body = (name ? name + ' 様' : company + ' ご担当者様') + '\n\n' + basis[0] + '\n\n' +
+      body = (name ? name + ' 様' : company + ' ご担当者様') + '\n\n' + basis[0] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
         (step > 1 ? '先日お送りしたメールのご確認です。' : '在庫や仕入れの管理で「今日どれを確認すべきか」を整理するツール「Stockwise」を開発しています。') + '\n' +
         (showProduct ? 'デモワークスペースで、確認すべき例外と推奨アクションを試せます(30日間の無料トライアル。現在、登録画面は英語です)。\n' + settings.productUrl + '\n' : '興味をお持ちであれば、このメールにご返信いただければ詳細をご案内します。\n') +
         '\nご不要でしたら、このメールに「配信停止」とご返信ください。以後ご連絡しません。\n\n' + sender + '\n' + settings.senderAddress;
     } else {
       subject = (step > 1 ? 'Re: ' : '') + 'Inventory visibility for ' + company;
-      body = (name ? 'Hi ' + name : 'Hello') + ',\n\n' + basis[1] + '\n\n' +
+      body = (name ? 'Hi ' + name : 'Hello') + ',\n\n' + basis[1] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
         (step > 1 ? 'Following up on my earlier note.' : 'I am building Stockwise, a tool that helps small businesses see which inventory exceptions need attention today.') + '\n' +
         (showProduct ? 'You can try a demo workspace (30-day free trial; the signup screens are currently in English):\n' + settings.productUrl + '\n' : 'If this is relevant, reply and I will send details.\n') +
         '\nIf you do not want to hear from me, reply "unsubscribe" and I will not contact you again.\n\n' + sender + '\n' + settings.senderAddress;
@@ -140,6 +141,7 @@ var SalesCore = (function () {
     if (normalizeEmail(it.to_email) !== normalizeEmail(lead.contact_email)) r.push('RECIPIENT_MISMATCH');
     if (!s.legalReviewCompleted) r.push('LEGAL_REVIEW_PENDING');
     if (!s.senderName || !s.senderAddress) r.push('SENDER_IDENTITY_MISSING');
+    if (s.senderName && String(it.body).indexOf(s.senderName) < 0 || s.senderAddress && String(it.body).indexOf(s.senderAddress) < 0 || s.senderCompany && String(it.body).indexOf(s.senderCompany) < 0) r.push('SENDER_FOOTER_MISMATCH');
     if (!/配信停止|unsubscribe/i.test(it.body)) r.push('NO_OPT_OUT_LINE');
     if (bannedPhrases(it.subject + ' ' + it.body).length) r.push('BANNED_CLAIM');
     var el = leadEligibility(lead, s, ctx.sup).filter(function (x) { return x.indexOf('LEAD_STATUS_') !== 0 || x === 'LEAD_STATUS_DUPLICATE' || x === 'LEAD_STATUS_UNSUBSCRIBED' || x === 'LEAD_STATUS_BOUNCED' || x === 'LEAD_STATUS_REPLIED' || x === 'LEAD_STATUS_DO_NOT_CONTACT'; });
@@ -153,6 +155,7 @@ var SalesCore = (function () {
     if (recent) r.push('DOMAIN_COOLDOWN');
     var lp = ctx.localNow; // {day, hour, dow}
     if (lp.dow === 0 || lp.dow === 6 || lp.hour < s.windowStart || lp.hour >= s.windowEnd) r.push('OUTSIDE_SEND_WINDOW');
+    if (!isFinite(s.dailyLimit) || !isFinite(s.runLimit) || s.dailyLimit < 1 || s.dailyLimit > 10 || s.runLimit < 1 || s.runLimit > 5) r.push('SEND_LIMIT_CONFIGURATION_INVALID');
     if (ctx.sentToday >= s.dailyLimit) r.push('DAILY_LIMIT_REACHED');
     if (ctx.sentThisRun >= s.runLimit) r.push('RUN_LIMIT_REACHED');
     return r;

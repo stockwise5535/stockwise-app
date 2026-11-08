@@ -1,0 +1,13 @@
+{
+  "name": "stockwise-apps-script-delivery",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clasp": "clasp",
+    "test": "node --test *.test.mjs"
+  },
+  "devDependencies": {
+    "@google/clasp": "3.4.1",
+    "googleapis": "176.0.0"
+  }
+}

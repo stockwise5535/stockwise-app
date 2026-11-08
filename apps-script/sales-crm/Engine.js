@@ -63,8 +63,19 @@ var SalesEngine = (function () {
     var queue = deps.store.rows('EmailQueue'), leads = deps.store.rows('Leads');
     var sentToday = queue.filter(function (q) { return q.status === 'SENT' && q.sent_at && deps.localParts(new Date(q.sent_at)).day === lp.day; }).length;
     var pending = queue.filter(function (q) { return q.approval_status === 'APPROVED' && ['QUEUED', 'DRY_RUN_OK', ''].indexOf(String(q.status)) >= 0 && (!q.scheduled_at || Date.parse(q.scheduled_at) <= nowD.getTime()); });
-    var sentThisRun = 0;
+    var sentThisRun = 0, halted = false;
+    // Real Apps Script supplies a persistent, separately armed send controller.
+    if (s.liveSending && (!deps.safety || deps.safety.isStopped())) { res.stopped = true; return res; }
+    if (s.liveSending && queue.some(function (q, i) { return !q.queue_id || queue.some(function (other, j) { return i !== j && other.queue_id === q.queue_id; }); })) {
+      deps.safety.stop('AMBIGUOUS_QUEUE_ID'); res.stopped = true; return res;
+    }
+    // An unresolved previous attempt blocks the whole live run, not just one row.
+    if (s.liveSending && queue.some(function (q) { return ['SENDING','FAILED'].indexOf(q.status) >= 0; })) {
+      deps.safety.stop('UNRESOLVED_DELIVERY'); res.stopped = true; return res;
+    }
     pending.forEach(function (q) {
+      if (halted) { res.deferred++; return; }
+      if (s.liveSending && (deps.safety.isStopped() || !deps.safety.isAllowed(q))) { res.deferred++; return; }
       var lead = byId(leads, 'lead_id', q.lead_id);
       var reasons = core.preSendChecks({ item: q, lead: lead, settings: s, sup: sup, queue: queue, localNow: lp, sentToday: sentToday, sentThisRun: sentThisRun, nowMs: nowD.getTime() });
       var hard = reasons.filter(function (r) { return core.TRANSIENT.indexOf(r) < 0; });
@@ -75,13 +86,16 @@ var SalesEngine = (function () {
       deps.store.update('EmailQueue', q._row, { status: 'SENDING', attempts: Number(q.attempts || 0) + 1, blocked_reason: '' }); q.status = 'SENDING';
       try {
         var out = deps.mail.send({ to: q.to_email, subject: q.subject, body: q.body, name: s.senderName, replyTo: s.replyTo });
+        if (!out || !out.threadId || !out.messageId) throw new Error('GMAIL_RECEIPT_MISSING');
         var t = iso(deps.now());
         deps.store.update('EmailQueue', q._row, { status: 'SENT', sent_at: t, gmail_thread_id: out.threadId, gmail_message_id: out.messageId, error: '' }); q.status = 'SENT'; q.sent_at = t;
         if (lead) deps.store.update('Leads', lead._row, { status: 'CONTACTED', last_contacted_at: t, updated_at: t });
         log(deps, 'SENT', q.lead_id, q.queue_id, 'step ' + q.step); sentToday++; sentThisRun++; res.sent++;
       } catch (e) {
-        deps.store.update('EmailQueue', q._row, { status: 'FAILED', error: String(e && e.message || e).slice(0, 300) }); q.status = 'FAILED';
-        log(deps, 'SEND_FAILED', q.lead_id, q.queue_id, String(e && e.message || e)); res.failed++;
+        deps.store.update('EmailQueue', q._row, { status: 'FAILED', error: 'DELIVERY_RESULT_REQUIRES_MANUAL_REVIEW' }); q.status = 'FAILED';
+        log(deps, 'SEND_FAILED', q.lead_id, q.queue_id, 'DELIVERY_RESULT_REQUIRES_MANUAL_REVIEW'); res.failed++;
+        halted = true; res.stopped = true;
+        if (deps.safety) deps.safety.stop('SEND_FAILED_OR_UNKNOWN');
       }
     });
     return res;
@@ -141,6 +155,20 @@ var SalesEngine = (function () {
     return { drafts: made };
   }
 
+  function dailySummary(deps) {
+    var day = deps.localParts(deps.now()).day, counts = {};
+    deps.store.rows('ActivityLog').forEach(function (row) {
+      var date = new Date(row.timestamp);
+      if (!isNaN(date.getTime()) && deps.localParts(date).day === day) counts[row.event] = (counts[row.event] || 0) + 1;
+    });
+    var queue = deps.store.rows('EmailQueue');
+    return { day: day, sent: counts.SENT || 0, drafts: counts.DRAFT_CREATED || 0,
+      replies: counts.REPLIED || 0, unsubscribes: counts.UNSUBSCRIBED || 0, bounces: counts.BOUNCED || 0,
+      failures: counts.SEND_FAILED || 0, blocked: counts.BLOCKED || 0,
+      unresolved: queue.filter(function (q) { return ['SENDING','FAILED'].indexOf(q.status) >= 0; }).length,
+      awaitingApproval: queue.filter(function (q) { return q.approval_status === 'DRAFT' && q.status === 'QUEUED'; }).length };
+  }
+
   /* Read-only go-live checklist. Never prints secrets. */
   function safetyReport(deps) {
     var s = loadSettings(deps), items = [
@@ -149,6 +177,6 @@ var SalesEngine = (function () {
       ['Signup journey verified (product link)', s.signupVerified ? 'yes' : 'no (emails omit product link)'], ['Daily limit', String(s.dailyLimit)]];
     return items.map(function (i) { return i[0] + ': ' + i[1]; }).join('\n');
   }
-  return { dedupeLeads: dedupeLeads, generateDrafts: generateDrafts, snapshotApprovals: snapshotApprovals, processQueue: processQueue, checkReplies: checkReplies, scheduleFollowUps: scheduleFollowUps, safetyReport: safetyReport, loadSettings: loadSettings };
+  return { dedupeLeads: dedupeLeads, generateDrafts: generateDrafts, snapshotApprovals: snapshotApprovals, processQueue: processQueue, checkReplies: checkReplies, scheduleFollowUps: scheduleFollowUps, safetyReport: safetyReport, dailySummary: dailySummary, loadSettings: loadSettings };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SalesEngine;

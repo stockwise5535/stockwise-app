@@ -45,13 +45,29 @@ function gmailAdapter_() {
 function deps_() {
   var tz = Session.getScriptTimeZone();
   return {
-    store: sheetsStore_(), mail: gmailAdapter_(),
+    store: sheetsStore_(), mail: gmailAdapter_(), safety: sendController_(),
     now: function () { return new Date(); },
     localParts: function (d) { return { day: Utilities.formatDate(d, tz, 'yyyy-MM-dd'), hour: Number(Utilities.formatDate(d, tz, 'H')), dow: Number(Utilities.formatDate(d, tz, 'u')) % 7 }; },
     id: function () { return Utilities.getUuid().slice(0, 8); }
   };
 }
+var SALES_CRM_VERSION = '2026-11-08-clasp';
+function ensureLoaded_() {
+  if (typeof SalesCore === 'undefined' || typeof SalesCore.buildEmail !== 'function' ||
+      typeof SalesEngine === 'undefined' || typeof SalesEngine.processQueue !== 'function') {
+    throw new Error('INCOMPLETE_SALES_CRM: Core.js, Engine.js and Main.js must all be loaded. Use the reviewed clasp deployment; do not combine old bundles with these files.');
+  }
+}
+function compatibleHeaders_(name, headers) {
+  var required = SalesCore.TABLES[name];
+  // Only these two newly optional trailing columns may be absent in an existing CRM.
+  var minimum = name === 'Leads' ? required.length - 2 : required.length;
+  return headers.length >= minimum && required.every(function (col, i) {
+    return i >= headers.length || headers[i] === col;
+  });
+}
 function locked_(fn) {
+  ensureLoaded_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) { Logger.log('Another run is in progress; skipped.'); return { skipped: 'LOCKED' }; }
   try { return fn(); } finally { lock.releaseLock(); }
@@ -63,6 +79,10 @@ function onOpen() {
     .addItem('1. Setup sheets (safe, keeps data)', 'setupSheets')
     .addItem('TEST CRM: fill empty sender defaults', 'applyNexOpsSenderDefaultsToTestCrm')
     .addItem('2. Safety report', 'showSafetyReport')
+    .addItem('STOP prospect sending', 'stopSalesSending')
+    .addItem('Arm reviewed pilot (max 3)', 'armReviewedSalesPilot')
+    .addItem('Approve recurring after pilot', 'armReviewedRecurringSales')
+    .addItem('Daily sales summary', 'runDailySalesReport')
     .addItem('3. Normalize + dedupe leads', 'runDedupe')
     .addItem('4. Generate drafts', 'runGenerateDrafts')
     .addItem('5. Record reviewed approvals', 'recordReviewedApprovals')
@@ -81,7 +101,7 @@ function setupSheets() {
       var old = ss.getSheetByName(name);
       if (old && old.getLastRow() >= 1) {
         var existingHeaders = old.getRange(1, 1, 1, old.getLastColumn()).getValues()[0].map(String);
-        if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && (existingHeaders.length < T[name].length || T[name].some(function (col, i) { return existingHeaders[i] !== col; }))) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
+        if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && !compatibleHeaders_(name, existingHeaders)) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
       }
       var s = ss.getSheetByName(name) || ss.insertSheet(name), cols = T[name];
       var have = s.getLastColumn() ? s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String) : [];
@@ -161,13 +181,13 @@ function recordReviewedApprovals() { var r = locked_(function () { return SalesE
 function runProcessQueue() { var r = locked_(function () { return SalesEngine.processQueue(deps_()); }); toast_('Queue: ' + JSON.stringify(r)); return r; }
 function runCheckReplies() { var r = locked_(function () { return SalesEngine.checkReplies(deps_()); }); toast_('Replies: ' + JSON.stringify(r)); return r; }
 function runFollowUps() { return locked_(function () { return SalesEngine.scheduleFollowUps(deps_()); }); }
-function showSafetyReport() { var t = SalesEngine.safetyReport(deps_()); try { SpreadsheetApp.getUi().alert(t); } catch (e) { Logger.log(t); } return t; }
+function showSafetyReport() { ensureLoaded_(); var t = SalesEngine.safetyReport(deps_()); try { SpreadsheetApp.getUi().alert(t); } catch (e) { Logger.log(t); } return t; }
 
 /* Hourly: replies first (so a reply/unsubscribe is always seen before the next send), then queue. */
 function hourlyRun() {
-  locked_(function () { var d = deps_(); SalesEngine.checkReplies(d); SalesEngine.processQueue(d); });
+  return locked_(function () { var d = deps_(); try { SalesEngine.checkReplies(d); return SalesEngine.processQueue(d); } catch (e) { d.safety.stop('MAINTENANCE_FAILED'); throw new Error('SALES_MAINTENANCE_FAILED_CHECK_EXECUTIONS'); } });
 }
-function dailyRun() { locked_(function () { var d = deps_(); SalesEngine.dedupeLeads(d); SalesEngine.generateDrafts(d); SalesEngine.scheduleFollowUps(d); }); }
+function dailyRun() { return locked_(function () { var d = deps_(); SalesEngine.dedupeLeads(d); SalesEngine.generateDrafts(d); SalesEngine.scheduleFollowUps(d); return dailySalesReport_(d); }); }
 function installTriggers() {
   removeTriggers();
   ScriptApp.newTrigger('hourlyRun').timeBased().everyHours(1).create();
@@ -178,9 +198,138 @@ function removeTriggers() { ScriptApp.getProjectTriggers().forEach(function (t) 
 
 /* Always allowed, even with LIVE_SENDING=FALSE, because the recipient is hard-wired to the script owner. */
 function sendTestToOwner() {
+  ensureLoaded_();
   var me = Session.getEffectiveUser().getEmail(), s = SalesEngine.loadSettings(deps_());
   var sample = SalesCore.buildEmail({ company: 'Sample Co', contact_name: 'Test', country: 'JP', contact_basis: 'PUBLISHED_BUSINESS_CONTACT', source_url: 'https://example.com' }, s, 1);
   GmailApp.sendEmail(me, '[TEST] ' + sample.subject, sample.body, { name: s.senderName || undefined });
   deps_().store.append('ActivityLog', { timestamp: new Date().toISOString(), event: 'TEST_SENT_TO_OWNER', lead_id: '', queue_id: '', detail: 'owner only' });
   toast_('Test sent to ' + me);
 }
+
+/* Compatibility with the launch-prep patch; retains ed33fdc's TEST-only, empty-only guard. */
+function setSenderIdentityNexOps() { return applyNexOpsSenderDefaultsToTestCrm(); }
+
+/* Read-only post-deployment check. Does not initialize sheets, send mail or install triggers. */
+function verifyTestCrmDeployment() {
+  ensureLoaded_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var configured = PropertiesService.getScriptProperties().getProperty('STOCKWISE_CRM_ID');
+  var testConfigured = PropertiesService.getScriptProperties().getProperty('STOCKWISE_TEST_CRM_ID');
+  if (!ss || ss.getId() !== SALES_TEST_CRM_ID || (configured && configured !== SALES_TEST_CRM_ID) ||
+      (testConfigured && testConfigured !== SALES_TEST_CRM_ID)) throw new Error('TEST_CRM_ONLY');
+  var sheet = ss.getSheetByName('Settings');
+  if (!sheet) throw new Error('SETTINGS_SHEET_MISSING');
+  var rows = sheet.getDataRange().getValues();
+  if (!compatibleHeaders_('Settings', rows[0].map(String))) throw new Error('INCOMPATIBLE_SETTINGS_SCHEMA');
+  function explicitlyOff(key) {
+    var found = rows.slice(1).filter(function (r) { return String(r[0]).trim() === key; });
+    return found.length === 1 && (found[0][1] === false || String(found[0][1]).trim().toUpperCase() === 'FALSE');
+  }
+  var result = { version: SALES_CRM_VERSION, modulesLoaded: true, testCrm: true,
+    liveSendingOff: explicitlyOff('LIVE_SENDING'), followUpOff: explicitlyOff('FOLLOW_UP_ENABLED') };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+/* Sending authorization is independent from code delivery and the legacy Settings switches.
+   No deployment or scheduled function arms sending or changes any legacy switch. */
+function salesPropertyJson_(key) {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(key) || '{}'); }
+  catch (e) { return {}; }
+}
+function legalLaunchReviewed_(lead) {
+  var review = salesPropertyJson_('STOCKWISE_SALES_LAUNCH_REVIEW');
+  var reviewedAt = Date.parse(review.reviewedAt || '');
+  var bases = review.countries && review.countries[String(lead.country || '').trim().toUpperCase()];
+  return review.senderAddressVerified === true && review.unsubscribeTestVerified === true &&
+    typeof review.reviewedBy === 'string' && review.reviewedBy.trim() !== '' &&
+    typeof review.evidenceReference === 'string' && review.evidenceReference.trim() !== '' &&
+    !isNaN(reviewedAt) && reviewedAt <= Date.now() && Date.now() - reviewedAt < 180 * 86400000 &&
+    Array.isArray(bases) && bases.indexOf(lead.contact_basis) >= 0;
+}
+function notifySalesOwner_(code) {
+  var props = PropertiesService.getScriptProperties();
+  Logger.log('SALES_ALERT: ' + code);
+  if (props.getProperty('STOCKWISE_SALES_ALERTS_ENABLED') !== 'true') return;
+  // Record the attempt before sending; an unknown mail result is never retried automatically.
+  var key = 'STOCKWISE_SALES_ALERT_ATTEMPT_' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  if (props.getProperty(key)) return;
+  props.setProperty(key, 'ATTEMPTED');
+  try { GmailApp.sendEmail(Session.getEffectiveUser().getEmail(), '[Stockwise] Sales automation stopped',
+    'Prospect sending is stopped. Code: ' + code + '. Review Apps Script executions and unresolved queue rows. No automatic resend.'); }
+  catch (e) { Logger.log('SALES_ALERT_EMAIL_RESULT_UNCONFIRMED'); }
+}
+function sendController_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    isStopped: function () {
+      var grant = salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');
+      return props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP') !== 'false' || ['pilot','recurring'].indexOf(grant.mode) < 0;
+    },
+    isAllowed: function (queue) {
+      var grant = salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');
+      var lead = sheetsStore_().rows('Leads').filter(function (l) { return l.lead_id === queue.lead_id; })[0];
+      if (!lead || !legalLaunchReviewed_(lead)) return false;
+      return grant.mode === 'recurring' || (grant.mode === 'pilot' && grant.queue && Object.keys(grant.queue).length <= 3 &&
+        grant.queue[queue.queue_id] === SalesCore.contentHash(queue.subject, queue.body, queue.to_email));
+    },
+    stop: function (code) { props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'true'); notifySalesOwner_(code); }
+  };
+}
+function stopSalesSending() { PropertiesService.getScriptProperties().setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'true'); Logger.log('SALES_SENDING_STOPPED'); }
+function confirmedSalesOperation_(message) {
+  var ui = SpreadsheetApp.getUi();
+  if (ui.alert('Stockwise sales approval', message, ui.ButtonSet.YES_NO) !== ui.Button.YES) throw new Error('OWNER_CONFIRMATION_REQUIRED');
+}
+function armReviewedSalesPilot() {
+  return locked_(function () {
+    var d = deps_(), s = SalesEngine.loadSettings(d), ids = salesPropertyJson_('STOCKWISE_SALES_PILOT_QUEUE_IDS');
+    if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 || ids.some(function (id, i) { return typeof id !== 'string' || ids.indexOf(id) !== i; })) throw new Error('PILOT_REQUIRES_1_TO_3_UNIQUE_QUEUE_IDS');
+    var queue = d.store.rows('EmailQueue'), leads = d.store.rows('Leads'), grant = { mode: 'pilot', queue: {} };
+    if (queue.some(function (q) { return ['FAILED','SENDING'].indexOf(q.status) >= 0; })) throw new Error('UNRESOLVED_DELIVERY');
+    ids.forEach(function (id) {
+      var matches = queue.filter(function (q) { return q.queue_id === id; });
+      if (matches.length !== 1 || ['QUEUED','DRY_RUN_OK'].indexOf(matches[0].status) < 0) throw new Error('PILOT_QUEUE_NOT_READY');
+      var q = matches[0], lead = leads.filter(function (l) { return l.lead_id === q.lead_id; })[0];
+      if (!lead || !legalLaunchReviewed_(lead)) throw new Error('COUNTRY_AND_LAUNCH_REVIEW_REQUIRED');
+      var reasons = SalesCore.preSendChecks({item:q, lead:lead, settings:s, sup:SalesCore.suppressionSet(d.store.rows('Suppression')), queue:queue,
+        localNow:d.localParts(d.now()),sentToday:0,sentThisRun:0,nowMs:d.now().getTime()});
+      if (reasons.some(function (r) { return SalesCore.TRANSIENT.indexOf(r) < 0; })) throw new Error('PILOT_PRE_SEND_CHECK_FAILED');
+      grant.queue[id] = SalesCore.contentHash(q.subject,q.body,q.to_email);
+    });
+    confirmedSalesOperation_('Arm only the selected 1–3 reviewed messages? This does not enable LIVE_SENDING, FOLLOW_UP_ENABLED or LEGAL_REVIEW_COMPLETED.');
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty('STOCKWISE_SALES_SEND_GRANT', JSON.stringify(grant));
+    props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'false');
+    return { mode:'pilot', count:ids.length };
+  });
+}
+function armReviewedRecurringSales() {
+  return locked_(function () {
+    var props = PropertiesService.getScriptProperties(), grant = salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');
+    var ids = grant.queue && Object.keys(grant.queue), queue = sheetsStore_().rows('EmailQueue');
+    if (grant.mode !== 'pilot' || !ids || ids.length < 1 || ids.length > 3 || props.getProperty('STOCKWISE_SALES_PILOT_DELIVERY_VERIFIED') !== 'true' ||
+      queue.some(function (q) { return ['FAILED','SENDING'].indexOf(q.status) >= 0; }) || ids.some(function (id) {
+        var rows = queue.filter(function (q) { return q.queue_id === id; });
+        return rows.length !== 1 || rows[0].status !== 'SENT' || !rows[0].gmail_message_id || !rows[0].gmail_thread_id ||
+          grant.queue[id] !== SalesCore.contentHash(rows[0].subject,rows[0].body,rows[0].to_email);
+      })) throw new Error('PILOT_DELIVERY_VERIFICATION_REQUIRED');
+    confirmedSalesOperation_('Confirm actual pilot delivery and unsubscribe handling were checked. Arm recurring processing of approved messages only? Sending switches stay unchanged.');
+    grant.mode = 'recurring'; props.setProperty('STOCKWISE_SALES_SEND_GRANT', JSON.stringify(grant));
+    props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'false');
+    return {mode:'recurring'};
+  });
+}
+function dailySalesReport_(d) {
+  var report = SalesEngine.dailySummary(d), props = PropertiesService.getScriptProperties();
+  var key = 'STOCKWISE_SALES_REPORT_' + report.day;
+  if (props.getProperty(key)) return {day:report.day,skipped:'ALREADY_REPORTED_OR_ATTEMPTED'};
+  props.setProperty(key,'ATTEMPTED');
+  d.store.append('ActivityLog',{timestamp:new Date().toISOString(),event:'DAILY_SUMMARY',lead_id:'',queue_id:'',detail:JSON.stringify(report)});
+  if (props.getProperty('STOCKWISE_SALES_REPORT_EMAIL_ENABLED') === 'true') {
+    try { GmailApp.sendEmail(Session.getEffectiveUser().getEmail(),'[Stockwise] Daily sales summary '+report.day,JSON.stringify(report,null,2)); }
+    catch (e) { Logger.log('DAILY_REPORT_EMAIL_RESULT_UNCONFIRMED'); }
+  }
+  Logger.log(JSON.stringify(report)); return report;
+}
+function runDailySalesReport() { return locked_(function () { return dailySalesReport_(deps_()); }); }

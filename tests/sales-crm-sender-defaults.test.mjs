@@ -25,7 +25,7 @@ function world(settings,options={}){
  }
  if(settings!==null)sheet('Settings',[['key','value','description'],...(settings||[])]);
  const ss={getId:()=>options.activeId||TEST_ID,getSheetByName:n=>sheets.get(n)||null,insertSheet:n=>sheet(n),toast(){}};
- const ctx={SalesCore:Core,SpreadsheetApp:{getActiveSpreadsheet:()=>options.noActive?null:ss,
+ const ctx={SalesCore:Core,SalesEngine:require('../apps-script/sales-crm/Engine.js'),SpreadsheetApp:{getActiveSpreadsheet:()=>options.noActive?null:ss,
   openById(id){opened.push(id);if(id!==TEST_ID)throw Error('PRODUCTION_OPEN_FORBIDDEN');return ss;},
   newDataValidation:()=>({requireValueInList(){return this;},build(){return {};}})},
  PropertiesService:{getScriptProperties:()=>({getProperty:()=>options.configuredId||null})},
@@ -78,4 +78,44 @@ test('incompatible/missing settings and duplicate sender keys fail without parti
 });
 test('TEST function respects the shared script lock and does not mutate when another job is active',()=>{
  const w=world([],{locked:true});const r=w.ctx.applyNexOpsSenderDefaultsToTestCrm();assert.equal(r.skipped,'LOCKED');assert.equal(w.writes.length,0);
+});
+
+test('launch-prep identity alias remains TEST-only and preserves existing settings',()=>{
+ const w=world([['SENDER_NAME','Existing name',''],['SENDER_COMPANY','Existing company',''],['SENDER_ADDRESS','',''],['LIVE_SENDING','FALSE',''],['FOLLOW_UP_ENABLED','FALSE','']]);
+ w.ctx.setSenderIdentityNexOps();assert.equal(w.writes.length,0);
+ const p=world([],{activeId:'production'});assert.throws(()=>p.ctx.setSenderIdentityNexOps(),/TEST_CRM_ONLY/);assert.equal(p.writes.length,0);
+});
+test('deployment verification reads settings without touching CRM, Gmail or triggers',()=>{
+ const w=world([['LIVE_SENDING','FALSE',''],['FOLLOW_UP_ENABLED',false,'']]);
+ const result=w.ctx.verifyTestCrmDeployment();assert.equal(result.modulesLoaded,true);assert.equal(result.liveSendingOff,true);assert.equal(result.followUpOff,true);
+ assert.equal(w.writes.length,0);assert.deepEqual(w.opened,[]);
+ const unsafe=world([['LIVE_SENDING','TRUE',''],['FOLLOW_UP_ENABLED','FALSE','']]);assert.equal(unsafe.ctx.verifyTestCrmDeployment().liveSendingOff,false);assert.equal(unsafe.writes.length,0);
+ const duplicate=world([['LIVE_SENDING','FALSE',''],['LIVE_SENDING','FALSE','']]);assert.equal(duplicate.ctx.verifyTestCrmDeployment().liveSendingOff,false);
+});
+test('optional lead headers accept exact legacy prefix and reject incompatible schemas',()=>{
+ const w=world([]),headers=[...Core.TABLES.Leads];
+ assert.equal(w.ctx.compatibleHeaders_('Leads',headers.slice(0,-2)),true);
+ assert.equal(w.ctx.compatibleHeaders_('Leads',headers.slice(0,-1)),true);
+ assert.equal(w.ctx.compatibleHeaders_('Leads',headers.slice(0,-3)),false);
+ assert.equal(w.ctx.compatibleHeaders_('Leads',['Company',...headers.slice(1)]),false);
+ assert.equal(w.ctx.compatibleHeaders_('Leads',[...headers.slice(0,-2),'unexpected']),false);
+});
+test('personal opening is used in first drafts only without changing default identity or safety flags',()=>{
+ const settings=Core.settingsFrom([]);
+ for(const language of ['ja','en']){
+  const lead={company:'Sample',language,contact_basis:'INBOUND_REQUEST',custom_opening:'Reviewed personal opening'};
+  assert.match(Core.buildEmail(lead,settings,1).body,/Reviewed personal opening/);
+  assert.doesNotMatch(Core.buildEmail(lead,settings,2).body,/Reviewed personal opening/);
+ }
+ assert.equal(Core.DEFAULT_SETTINGS.SENDER_ADDRESS[0],'');
+ assert.equal(Core.isTrue(Core.DEFAULT_SETTINGS.LIVE_SENDING[0]),false);
+ assert.equal(Core.isTrue(Core.DEFAULT_SETTINGS.FOLLOW_UP_ENABLED[0]),false);
+});
+test('manual setup can extend legacy Leads headers without modifying existing lead data',()=>{
+ const w=world([['SENDER_NAME','Owner',''],['SENDER_COMPANY','Company',''],['SENDER_ADDRESS','',''],['LIVE_SENDING','FALSE',''],['FOLLOW_UP_ENABLED','FALSE','']]);
+ const oldHeaders=[...Core.TABLES.Leads].slice(0,-2),lead=oldHeaders.map((_,i)=>i===0?'existing-lead':'');
+ w.sheet('Leads',[oldHeaders,lead]);w.ctx.setupSheets();
+ assert.deepEqual(w.sheets.get('Leads').rows[1],lead);
+ assert.deepEqual(w.sheets.get('Leads').rows[0],[...Core.TABLES.Leads]);
+ assert.equal(value(w,'SENDER_NAME'),'Owner');assert.equal(value(w,'SENDER_ADDRESS'),'');assert.equal(value(w,'LIVE_SENDING'),'FALSE');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'FALSE');
 });

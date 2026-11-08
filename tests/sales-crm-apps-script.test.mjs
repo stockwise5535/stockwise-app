@@ -19,7 +19,9 @@ function world(over={}, opts={}){
  const mail={self:()=>'owner@stockwise.test',
   send:m=>{ if(opts.failSend)throw new Error('Gmail quota exceeded'); sent.push(m); const id='T'+sent.length; threads[id]=[{id:'M'+sent.length,from:'Owner <owner@stockwise.test>',date:clock.toISOString(),subject:m.subject,body:m.body}]; return {threadId:id,messageId:'M'+sent.length}; },
   threadMessages:id=>threads[id]||[]};
- const deps={store,mail,now:()=>clock,id:()=>String(++seq),
+ let stopped=false;
+ const safety={isStopped:()=>stopped,isAllowed:()=>true,stop:()=>{stopped=true;}};
+ const deps={store,mail,safety,now:()=>clock,id:()=>String(++seq),
   localParts:d=>{const j=new Date(d.getTime()+9*3600e3);return {day:j.toISOString().slice(0,10),hour:j.getUTCHours(),dow:j.getUTCDay()};}};
  return {tables,deps,sent,threads,setNow:s=>{clock=new Date(s);},reply:(id,from,subject,body,date)=>threads[id].push({id:'R'+Math.random(),from,subject,body,date:date||new Date(clock.getTime()+1000).toISOString()})};
 }
@@ -150,7 +152,7 @@ test('one contact per company domain within the cooldown',()=>{
 test('send failure is recorded, never auto-retried; a stuck SENDING row is never resent',()=>{
  const w=world(LIVE,{failSend:true});ready(w);approveAll(w);
  assert.equal(Engine.processQueue(w.deps).failed,1);Engine.processQueue(w.deps);Engine.processQueue(w.deps);
- const q=w.tables.EmailQueue[0];assert.equal(q.status,'FAILED');assert.equal(q.attempts,1);assert.match(q.error,/quota/);
+ const q=w.tables.EmailQueue[0];assert.equal(q.status,'FAILED');assert.equal(q.attempts,1);assert.match(q.error,/MANUAL_REVIEW/);
  const w2=world(LIVE);ready(w2);approveAll(w2);w2.tables.EmailQueue[0].status='SENDING';
  Engine.processQueue(w2.deps);assert.equal(w2.sent.length,0);
 });
@@ -227,4 +229,40 @@ test('marking APPROVED alone does not bypass explicit content approval recording
  const w=world(LIVE);ready(w);
  const q=w.tables.EmailQueue[0];q.approval_status='APPROVED';q.approved_by='owner';
  Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.match(q.blocked_reason,/EDITED_AFTER_APPROVAL/);
+});
+
+test('first delivery failure stops the batch, persists stop and never sends later queued mail',()=>{
+ const w=world(LIVE,{failSend:true});ready(w,[lead(),lead({company:'Other',contact_email:'contact@other.example'})]);approveAll(w);
+ const result=Engine.processQueue(w.deps);
+ assert.equal(result.failed,1);assert.equal(result.stopped,true);assert.equal(w.deps.safety.isStopped(),true);
+ assert.equal(w.tables.EmailQueue[1].status,'QUEUED');assert.equal(w.tables.EmailQueue[1].attempts,0);
+ assert.equal(Engine.processQueue(w.deps).stopped,true);
+});
+test('unresolved previous delivery stops other queue entries even after a manual switch reset',()=>{
+ const w=world(LIVE);ready(w,[lead(),lead({company:'Other',contact_email:'contact@other.example'})]);approveAll(w);
+ w.tables.EmailQueue[0].status='SENDING';const result=Engine.processQueue(w.deps);
+ assert.equal(result.stopped,true);assert.equal(w.sent.length,0);assert.equal(w.deps.safety.isStopped(),true);
+});
+test('live sender without independently armed safety controller cannot send',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);delete w.deps.safety;
+ assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
+});
+test('approved copy still requires the current sender address and company in its footer',()=>{
+ const w=world(LIVE);ready(w);w.tables.EmailQueue[0].body='Hi, unsubscribe';approveAll(w);
+ Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/SENDER_FOOTER_MISMATCH/);
+});
+test('daily summary reports counts without exposing recipients or message text',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);Engine.processQueue(w.deps);
+ const summary=Engine.dailySummary(w.deps);assert.equal(summary.sent,1);assert.equal(summary.drafts,1);
+ assert.equal(summary.unresolved,0);assert.ok(!JSON.stringify(summary).includes('acme.example'));
+});
+test('duplicate queue IDs cannot bypass pilot scope or duplicate-key safety',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);w.tables.EmailQueue.push({...w.tables.EmailQueue[0]});
+ assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
+});
+test('live sending has hard daily and per-run limits even if Settings is changed',()=>{
+ for(const config of [{DAILY_SEND_LIMIT:'11'},{RUN_SEND_LIMIT:'6'},{DAILY_SEND_LIMIT:'Infinity'}]){
+  const w=world({...LIVE,...config});ready(w);approveAll(w);Engine.processQueue(w.deps);
+  assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/SEND_LIMIT_CONFIGURATION_INVALID/);
+ }
 });

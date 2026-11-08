@@ -1,0 +1,115 @@
+name: Apps Script reviewed delivery
+on:
+  pull_request:
+    paths:
+      - 'apps-script/sales-crm/**'
+      - 'tools/apps-script/**'
+      - 'server/sales-*.mjs'
+      - 'scripts/sales-daily-research.mjs'
+      - 'tests/sales-*.test.mjs'
+      - '.github/workflows/apps-script-delivery.yml'
+  push:
+    branches: [main, feat/apps-script-sales-crm-gmail-bridge-20261107]
+    paths:
+      - 'apps-script/sales-crm/**'
+      - 'tools/apps-script/**'
+      - 'server/sales-*.mjs'
+      - 'scripts/sales-daily-research.mjs'
+      - 'tests/sales-*.test.mjs'
+      - '.github/workflows/apps-script-delivery.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [test, production]
+        default: test
+        required: true
+      operation:
+        type: choice
+        options: [inspect, bootstrap, deploy]
+        default: inspect
+        required: true
+      confirm_sha:
+        description: 'For writes: full main commit SHA explicitly approved for this target'
+        type: string
+        required: false
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm run test:sales
+      - run: node --test tools/apps-script/*.test.mjs
+      - run: node --check tools/apps-script/deliver.mjs
+  deliver:
+    needs: validate
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && vars.APPS_SCRIPT_TEST_AUTO_DEPLOY == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.target == 'production' && 'apps-script-production' || inputs.operation == 'bootstrap' && 'apps-script-test-bootstrap' || 'apps-script-test' }}
+    concurrency:
+      group: apps-script-delivery-${{ inputs.target || 'test' }}
+      cancel-in-progress: false
+    env:
+      DELIVERY_TARGET: ${{ inputs.target || 'test' }}
+      DELIVERY_OPERATION: ${{ inputs.operation || 'deploy' }}
+      CONFIRM_SHA: ${{ inputs.confirm_sha }}
+      APPS_SCRIPT_TEST_SCRIPT_ID: ${{ vars.APPS_SCRIPT_TEST_SCRIPT_ID }}
+      APPS_SCRIPT_PRODUCTION_SCRIPT_ID: ${{ vars.APPS_SCRIPT_PRODUCTION_SCRIPT_ID }}
+      STOCKWISE_TEST_CRM_ID: ${{ vars.STOCKWISE_TEST_CRM_ID }}
+      STOCKWISE_CRM_ID: ${{ vars.STOCKWISE_CRM_ID }}
+      DELIVERY_OUTPUT: ${{ runner.temp }}/apps-script-delivery-output
+      CLASP_AUTH_FILE: ${{ runner.temp }}/stockwise-clasp-auth.json
+      APPS_SCRIPT_BACKUP_KEY: ${{ secrets.APPS_SCRIPT_BACKUP_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci --prefix tools/apps-script --ignore-scripts
+      - name: Require GitHub production approval protection
+        if: env.DELIVERY_TARGET == 'production' && env.DELIVERY_OPERATION != 'inspect'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          gh api "repos/$GITHUB_REPOSITORY/environments/apps-script-production" > "$RUNNER_TEMP/apps-script-environment.json"
+          node --input-type=module -e "import fs from 'node:fs'; import {requireProductionProtection} from './tools/apps-script/safety.mjs'; requireProductionProtection(JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/apps-script-environment.json','utf8')));"
+      - name: Write private OAuth file outside checkout
+        env:
+          CLASP_AUTH_JSON: ${{ secrets.CLASP_AUTH_JSON }}
+        shell: bash
+        run: |
+          umask 077
+          node --input-type=module -e "import fs from 'node:fs'; if (!process.env.CLASP_AUTH_JSON) process.exit(1); try { JSON.parse(process.env.CLASP_AUTH_JSON); } catch { console.error('Invalid OAuth credential JSON; content withheld.'); process.exit(1); } fs.writeFileSync(process.env.CLASP_AUTH_FILE, process.env.CLASP_AUTH_JSON, {mode:0o600});"
+      - name: Back up, check manual edits, deliver reviewed sources only
+        run: node tools/apps-script/deliver.mjs
+      - name: Save encrypted backup and non-secret digest report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: apps-script-${{ env.DELIVERY_TARGET }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/apps-script-delivery-output/backup.enc.json
+            ${{ runner.temp }}/apps-script-delivery-output/report.json
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Remove private OAuth file
+        if: always()
+        shell: bash
+        run: rm -f -- "$CLASP_AUTH_FILE"

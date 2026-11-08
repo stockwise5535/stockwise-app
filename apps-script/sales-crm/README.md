@@ -89,3 +89,9 @@ Until `SIGNUP_JOURNEY_VERIFIED=TRUE`, emails contain **no product link and no tr
 
 ## Existing CRM compatibility
 The previously created Stockwise Sales CRM uses human-readable headers (e.g. `Lead ID`) while this implementation requires snake_case (`lead_id`). The Setup command now **fails without modifying existing rows** when it detects populated incompatible tabs. Do not run this on the original CRM until a reviewed migration is available. Use a separate blank test spreadsheet for the first Apps Script smoke test. Do not copy personal contact data into the test sheet.
+
+## GitHubからの安全な更新
+
+[DEPLOYMENT.md](DEPLOYMENT.md) を参照。公式clasp、手修正の事前照合、暗号化バックアップ、初回TESTの手動承認、以後のTEST自動更新、本番の個別承認を用意しています。
+初期状態は反映不可。設定・Googleコードの照合と手動承認が終わるまで、既存Apps Scriptを上書きしません。
+`setSenderIdentityNexOps` はTEST CRMの空欄補完専用です。`verifyTestCrmDeployment` は読み取り確認専用で、メール送信やトリガー作成をしません。

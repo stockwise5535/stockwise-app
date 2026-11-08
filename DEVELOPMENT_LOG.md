@@ -161,3 +161,11 @@ Final checks: source/dist secret scan PASS (85 files), git diff --check PASS,
 remote main unchanged at 69e5474. Three browser suites passed after harness fix.
 Local code is prepared for release review; hosted configuration/authorization
 and approved SQL/deployment steps remain outstanding.
+
+
+## 2026-11-08 — Apps Script delivery and staged sales operations
+
+Inherited ed33fdc and reconciled uploaded launch-prep patch (digest recorded in deployment/patch-review.json). Added pinned official clasp, encrypted remote-source backup, drift/binding guards, initial manual TEST bootstrap and required-reviewer-protected production delivery of the same runtime-verified TEST source. No Google write has occurred.
+Added separately armed max-three-message pilot, manual transition to recurring, country/address/unsubscribe review gates, sender-footer verification, persistent failure stop, no retry for unresolved Gmail receipts, and optional owner alerts/daily summaries. Existing LIVE_SENDING/FOLLOW_UP_ENABLED/LEGAL_REVIEW_COMPLETED values are untouched.
+Added opt-in daily research of explicitly reviewed free JSON sources using the existing Phase 2 candidate validator. No source configured; no paid AI calls; no candidates become approved recipients. Existing Buffer and Phase 2 modules remain unchanged.
+Local Sales suites, delivery safety tests, Unit, Build and secret boundary checks passed. Google auth/API enablement on Mac and TEST script ID were reported by user; cloud OAuth/remote backup/TEST execution remain unverified. GitHub API currently blocked by network policy; network additions saved only as a draft, not applied/published. Actual Git push/CI results are recorded after execution below.
