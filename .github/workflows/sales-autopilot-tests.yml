@@ -4,6 +4,7 @@ on:
     paths:
       - 'server/sales-*.mjs'
       - 'tests/sales-*.test.mjs'
+      - 'apps-script/sales-crm/**'
       - 'api/auth/google/**'
       - 'supabase/migrations/*sales*'
       - '.github/workflows/sales-autopilot-tests.yml'
