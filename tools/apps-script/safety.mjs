@@ -57,6 +57,7 @@ export function authorizeWrite({operation, target, event, ref, confirmedSha, hea
   }
 }
 export function encryptBackup(value, keyText) {
+  keyText = typeof keyText === 'string' ? keyText.trim() : '';
   const key = Buffer.from(keyText || '', 'base64');
   requireSafe(key.length === 32 && key.toString('base64') === keyText, 'BACKUP_KEY_MUST_BE_32_BYTES_BASE64');
   const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, iv);

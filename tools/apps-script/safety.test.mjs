@@ -45,6 +45,7 @@ test('TEST auto updates require a known reviewed Git lineage; unexpected manual 
 });
 test('full source backup encrypts, round trips and rejects tampering/wrong key',()=>{
  const key=Buffer.alloc(32,12).toString('base64'),data={content:source,secret:'do-not-log'};
+ assert.deepEqual(decryptBackup(encryptBackup(data,key+'\n'),key),data);
  const backup=encryptBackup(data,key);assert.ok(!backup.includes('do-not-log'));assert.deepEqual(decryptBackup(backup,key),data);
  assert.throws(()=>decryptBackup(backup,Buffer.alloc(32,13).toString('base64')));
  const tampered=JSON.parse(backup);tampered.tag=Buffer.alloc(16).toString('base64');assert.throws(()=>decryptBackup(JSON.stringify(tampered),key));

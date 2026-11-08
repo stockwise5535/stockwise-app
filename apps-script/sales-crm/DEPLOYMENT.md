@@ -37,7 +37,7 @@ Repository Settings → Secrets and variables → Actions → Variables に以�
 | STOCKWISE_CRM_ID | 本番CRMのSpreadsheet ID（TESTとは別） |
 | APPS_SCRIPT_TEST_AUTO_DEPLOY | 初期は未登録または `false`。初回手動反映成功後だけ `true` |
 
-TESTの初回確認はTESTの2変数だけで可能。本番IDが未登録なら本番操作は拒否される。Google APIのparentIdで固定TEST CRMへの結び付きを必ず確認する。本番準備時には4変数すべてを設定し、重複を拒否する。
+TESTの2 IDはユーザー確認済みの値をworkflowの既定値に設定済み。Variablesで上書きする場合もGoogle APIのバインド先照合を必須とする。本番IDが未登録なら本番操作は拒否される。Google APIのparentIdで固定TEST CRMへの結び付きを必ず確認する。本番準備時には4変数すべてを設定し、重複を拒否する。
 
 これらはデプロイ先の識別用で、**Script Propertiesへ転記する処理はない**。
 既存コードの `STOCKWISE_CRM_ID` Script Property は旧来の実行対象設定であり、TEST側では未設定またはTEST IDであることを確認する。

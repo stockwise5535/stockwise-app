@@ -65,12 +65,10 @@ jobs:
       DELIVERY_TARGET: ${{ inputs.target || 'test' }}
       DELIVERY_OPERATION: ${{ inputs.operation || 'deploy' }}
       CONFIRM_SHA: ${{ inputs.confirm_sha }}
-      APPS_SCRIPT_TEST_SCRIPT_ID: ${{ vars.APPS_SCRIPT_TEST_SCRIPT_ID }}
+      APPS_SCRIPT_TEST_SCRIPT_ID: ${{ vars.APPS_SCRIPT_TEST_SCRIPT_ID || '10-3xUUzlKVCXZItlI4d1vaOknJ-VfAAqPre-0Gz5Pzl5lvFQChPIikXA' }}
       APPS_SCRIPT_PRODUCTION_SCRIPT_ID: ${{ vars.APPS_SCRIPT_PRODUCTION_SCRIPT_ID }}
-      STOCKWISE_TEST_CRM_ID: ${{ vars.STOCKWISE_TEST_CRM_ID }}
+      STOCKWISE_TEST_CRM_ID: ${{ vars.STOCKWISE_TEST_CRM_ID || '12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk' }}
       STOCKWISE_CRM_ID: ${{ vars.STOCKWISE_CRM_ID }}
-      DELIVERY_OUTPUT: ${{ runner.temp }}/apps-script-delivery-output
-      CLASP_AUTH_FILE: ${{ runner.temp }}/stockwise-clasp-auth.json
       APPS_SCRIPT_BACKUP_KEY: ${{ secrets.APPS_SCRIPT_BACKUP_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -80,6 +78,11 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
+      - name: Configure private paths on the selected runner
+        shell: bash
+        run: |
+          printf 'DELIVERY_OUTPUT=%s/apps-script-delivery-output\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'CLASP_AUTH_FILE=%s/stockwise-clasp-auth.json\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - run: npm ci --prefix tools/apps-script --ignore-scripts
       - name: Require GitHub production approval protection
         if: env.DELIVERY_TARGET == 'production' && env.DELIVERY_OPERATION != 'inspect'
