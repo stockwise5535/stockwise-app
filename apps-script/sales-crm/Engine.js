@@ -47,7 +47,7 @@ var SalesEngine = (function () {
   function snapshotApprovals(deps) {
     var core = C(), n = 0, now = iso(deps.now());
     deps.store.rows('EmailQueue').forEach(function (q) {
-      if (q.approval_status === 'APPROVED' && String(q.approved_by || '').trim() && !q.approved_hash) {
+      if (q.approval_status === 'APPROVED' && String(q.approved_by || '').trim() && !q.approved_hash && !q.sent_at && ['QUEUED','DRY_RUN_OK'].indexOf(String(q.status)) >= 0) {
         deps.store.update('EmailQueue', q._row, { approved_hash: core.contentHash(q.subject, q.body, q.to_email), approved_at: q.approved_at || now }); n++;
         log(deps, 'APPROVAL_RECORDED', q.lead_id, q.queue_id, 'by ' + q.approved_by);
       }
@@ -57,7 +57,8 @@ var SalesEngine = (function () {
 
   function processQueue(deps) {
     var core = C(), s = loadSettings(deps), res = { mode: s.liveSending ? 'LIVE' : 'DRY_RUN', sent: 0, dryRunOk: 0, blocked: 0, failed: 0, deferred: 0 };
-    snapshotApprovals(deps);
+    // Approval hashes must be recorded explicitly during a separate review action.
+    // Never auto-snapshot during a live send run: an edited email could otherwise gain approval.
     var nowD = deps.now(), lp = deps.localParts(nowD), sup = core.suppressionSet(deps.store.rows('Suppression'));
     var queue = deps.store.rows('EmailQueue'), leads = deps.store.rows('Leads');
     var sentToday = queue.filter(function (q) { return q.status === 'SENT' && q.sent_at && deps.localParts(new Date(q.sent_at)).day === lp.day; }).length;
