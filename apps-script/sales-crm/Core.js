@@ -21,8 +21,8 @@ var SalesCore = (function () {
     DOMAIN_COOLDOWN_DAYS: ['90', 'No second outreach to the same company domain within this many days.'],
     FOLLOW_UP_DELAY_DAYS: ['5', 'Days after step 1 before a follow-up draft may be created.'],
     MAX_FOLLOW_UPS: ['1', 'Maximum follow-ups per lead.'],
-    SENDER_NAME: ['', 'Real sender name shown in the email.'],
-    SENDER_COMPANY: ['', 'Legal/trading name of the sender.'],
+    SENDER_NAME: ['NexOps', 'Real sender name shown in the email.'],
+    SENDER_COMPANY: ['NexOps', 'Legal/trading name of the sender.'],
     SENDER_ADDRESS: ['', 'Postal address or contact details required in the footer.'],
     REPLY_TO: ['', 'Optional reply-to address. Blank = the sending Gmail account.'],
     PRODUCT_URL: ['', 'Landing/demo URL. Used only when SIGNUP_JOURNEY_VERIFIED=TRUE.']

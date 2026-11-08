@@ -19,9 +19,39 @@ Ships with `LIVE_SENDING=FALSE` and `FOLLOW_UP_ENABLED=FALSE`. Nothing is sent t
    (Or use `clasp` if you prefer; the repo copy is the source of truth.)
 3. Reload the spreadsheet. Run **Stockwise Sales → 1. Setup sheets** and accept the permissions prompt (Sheets of this file, Gmail, triggers).
    Setup only adds missing headers/settings; it never deletes data or overwrites existing setting values.
-4. In **Settings** fill `SENDER_NAME`, `SENDER_COMPANY`, `SENDER_ADDRESS` (and optionally `REPLY_TO`).
+4. New/missing `SENDER_NAME` and `SENDER_COMPANY` default to `NexOps`. Existing values are kept; `SENDER_ADDRESS` stays blank until independently confirmed. Fill the address only after confirmation (and optionally `REPLY_TO`).
 5. Run **Send test email to myself only** (recipient is hard-wired to your account).
 6. Run **Safety report** to confirm LIVE_SENDING is off.
+
+## Apply sender defaults to the existing TEST CRM only
+
+1. Open the [specified TEST CRM](https://docs.google.com/spreadsheets/d/12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk/edit), then **Extensions → Apps Script**. Do not open the production CRM's editor.
+2. Replace only the existing `Core` and `Main` file contents with this branch's
+   `Core.js` and `Main.js`, then save. `Engine.js` and `appsscript.json` are unchanged;
+   no additional OAuth scope or web-app deployment is required.
+3. If script property `STOCKWISE_CRM_ID` is set, confirm it equals the TEST CRM ID
+   above. The TEST function rejects any other ID/binding before a Sheets write.
+   It uses the bound active spreadsheet, never opens a configured production file.
+4. Run **`applyNexOpsSenderDefaultsToTestCrm`** from the editor. Alternatively reload
+   the TEST spreadsheet and select **Stockwise Sales → TEST CRM: fill empty sender defaults**.
+5. In TEST Settings confirm missing/empty `SENDER_NAME` / `SENDER_COMPANY` now show
+   `NexOps`. Existing non-empty values and descriptions, address, `LIVE_SENDING`,
+   `FOLLOW_UP_ENABLED` and every other row/tab must retain their prior values.
+   Running again makes no further changes. The function returns added/filled key
+   names only; no customer or sender values are logged.
+
+Only genuinely empty cells or missing keys are filled. Formulas (even displaying
+empty text), whitespace strings, numeric zero and false are retained. Duplicate
+sender keys or incompatible Settings headers fail before any sender update. The
+TEST-only function does not add missing address/switch rows, reset sheets, touch
+queue/leads, install triggers or call Gmail. There is no need to run full setup,
+queue processing or an email test for this change. Keep the existing sending flags
+as they are; this utility does not toggle them.
+
+Validation: Node VM tests exercise actual `Main.js` entry points with an in-memory
+copy of the TEST spreadsheet schema, including wrong-production-ID refusal,
+formula/value preservation and repeatability. They are not proof of execution in
+the live Google TEST CRM; live confirmation is completed by steps 1–5 above.
 
 ## Sheet columns
 Headers are created by Setup (see `Core.js` → `TABLES`). To add leads, fill at least: `company`, `contact_email`, `country` (JP/SG/AU), `contact_basis`, and `source_url` when the basis is `PUBLISHED_BUSINESS_CONTACT`. Leave `status` blank (becomes `NEW`).

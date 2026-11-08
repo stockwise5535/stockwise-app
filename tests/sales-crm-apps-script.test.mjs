@@ -25,7 +25,7 @@ function world(over={}, opts={}){
 }
 const lead=(o={})=>({company:'Acme Trading',domain:'',contact_name:'Sato',contact_email:'sato@acme.example',country:'JP',source_url:'https://acme.example/contact',contact_basis:'PUBLISHED_BUSINESS_CONTACT',status:'NEW',...o});
 const LIVE={LIVE_SENDING:'TRUE',LEGAL_REVIEW_COMPLETED:'TRUE'};
-function approveAll(w,who='owner'){for(const q of w.tables.EmailQueue){q.approval_status='APPROVED';q.approved_by=who;}}
+function approveAll(w,who='owner'){for(const q of w.tables.EmailQueue){q.approval_status='APPROVED';q.approved_by=who;}Engine.snapshotApprovals(w.deps);}
 function ready(w,leads=[lead()]){leads.forEach(l=>w.tables.Leads.push(l));Engine.dedupeLeads(w.deps);Engine.generateDrafts(w.deps);}
 
 test('safe defaults: nothing is live, follow-ups off, legal review pending',()=>{
@@ -197,7 +197,7 @@ test('follow-ups are off by default; when on they are drafts that need approval,
  const f=w2.tables.EmailQueue[1];assert.equal(f.step,2);assert.equal(f.approval_status,'DRAFT');
  Engine.processQueue(w2.deps);assert.equal(w2.sent.length,1); // follow-up not sent without approval
  assert.equal(Engine.scheduleFollowUps(w2.deps).drafts,0); // no duplicate step-2
- f.approval_status='APPROVED';f.approved_by='owner';Engine.processQueue(w2.deps);assert.equal(w2.sent.length,2);
+ f.approval_status='APPROVED';f.approved_by='owner';Engine.snapshotApprovals(w2.deps);Engine.processQueue(w2.deps);assert.equal(w2.sent.length,2);
  w2.setNow('2026-11-30T01:00:00Z');assert.equal(Engine.scheduleFollowUps(w2.deps).drafts,0); // MAX_FOLLOW_UPS=1
 });
 test('safety report and logs never contain secrets or email bodies',()=>{
@@ -221,4 +221,10 @@ test('row is marked SENDING before Gmail is called (crash-safe against double se
  w2.deps.mail.send=()=>{throw new Error('process killed');};Engine.processQueue(w2.deps);
  w2.deps.mail.send=()=>{throw new Error('must not be called');};
  w2.tables.EmailQueue[0].status='SENDING';Engine.processQueue(w2.deps);assert.equal(w2.tables.EmailQueue[0].status,'SENDING');
+});
+
+test('marking APPROVED alone does not bypass explicit content approval recording',()=>{
+ const w=world(LIVE);ready(w);
+ const q=w.tables.EmailQueue[0];q.approval_status='APPROVED';q.approved_by='owner';
+ Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.match(q.blocked_reason,/EDITED_AFTER_APPROVAL/);
 });

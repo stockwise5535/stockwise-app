@@ -1,5 +1,6 @@
 /* Stockwise Sales CRM - Apps Script entry points (container-bound to the "Stockwise Sales CRM" spreadsheet).
    Defaults are safe: LIVE_SENDING=false and FOLLOW_UP_ENABLED=false. See README.md. */
+var SALES_TEST_CRM_ID = '12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
 var DATE_COLS = ['created_at', 'updated_at', 'last_contacted_at', 'approved_at', 'scheduled_at', 'sent_at', 'timestamp', 'added_at'];
 
 function sheetsStore_() {
@@ -60,6 +61,7 @@ function toast_(msg) { try { SpreadsheetApp.getActiveSpreadsheet().toast(String(
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Stockwise Sales')
     .addItem('1. Setup sheets (safe, keeps data)', 'setupSheets')
+    .addItem('TEST CRM: fill empty sender defaults', 'applyNexOpsSenderDefaultsToTestCrm')
     .addItem('2. Safety report', 'showSafetyReport')
     .addItem('3. Normalize + dedupe leads', 'runDedupe')
     .addItem('4. Generate drafts', 'runGenerateDrafts')
@@ -72,29 +74,70 @@ function onOpen() {
 
 /* Creates missing sheets/headers/settings. Never deletes or overwrites existing data or setting values. */
 function setupSheets() {
-  var ss = sheetsStore_().spreadsheet, T = SalesCore.TABLES;
-  // Existing 2026 CRM uses display-name headers, not this schema. Never append incompatible headers into populated sheets.
-  Object.keys(T).forEach(function (name) {
-    var old = ss.getSheetByName(name);
-    if (old && old.getLastRow() >= 1) {
-      var existingHeaders = old.getRange(1, 1, 1, old.getLastColumn()).getValues()[0].map(String);
-      if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && (existingHeaders.length < T[name].length || T[name].some(function (col, i) { return existingHeaders[i] !== col; }))) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
-    }
-    var s = ss.getSheetByName(name) || ss.insertSheet(name), cols = T[name];
-    var have = s.getLastColumn() ? s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String) : [];
-    cols.forEach(function (c) { if (have.indexOf(c) < 0) { s.getRange(1, have.length + 1).setValue(c); have.push(c); } });
-    s.setFrozenRows(1); s.getRange(1, 1, 1, have.length).setFontWeight('bold');
-    have.forEach(function (c, i) { if (DATE_COLS.indexOf(c) >= 0) s.getRange(2, i + 1, 2000, 1).setNumberFormat('@'); });
+  return locked_(function () {
+    var ss = sheetsStore_().spreadsheet, T = SalesCore.TABLES;
+    // Existing 2026 CRM uses display-name headers, not this schema. Never append incompatible headers into populated sheets.
+    Object.keys(T).forEach(function (name) {
+      var old = ss.getSheetByName(name);
+      if (old && old.getLastRow() >= 1) {
+        var existingHeaders = old.getRange(1, 1, 1, old.getLastColumn()).getValues()[0].map(String);
+        if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && (existingHeaders.length < T[name].length || T[name].some(function (col, i) { return existingHeaders[i] !== col; }))) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
+      }
+      var s = ss.getSheetByName(name) || ss.insertSheet(name), cols = T[name];
+      var have = s.getLastColumn() ? s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String) : [];
+      cols.forEach(function (c) { if (have.indexOf(c) < 0) { s.getRange(1, have.length + 1).setValue(c); have.push(c); } });
+      s.setFrozenRows(1); s.getRange(1, 1, 1, have.length).setFontWeight('bold');
+      have.forEach(function (c, i) { if (DATE_COLS.indexOf(c) >= 0) s.getRange(2, i + 1, 2000, 1).setNumberFormat('@'); });
+    });
+    var st = ss.getSheetByName('Settings'), existing = {};
+    st.getDataRange().getValues().slice(1).forEach(function (r) { existing[String(r[0]).trim()] = true; });
+    Object.keys(SalesCore.DEFAULT_SETTINGS).forEach(function (k) { if (!existing[k]) st.appendRow([k, SalesCore.DEFAULT_SETTINGS[k][0], SalesCore.DEFAULT_SETTINGS[k][1]]); });
+    fillMissingSenderDefaults_(st);
+    var qs = ss.getSheetByName('EmailQueue'), qh = qs.getRange(1, 1, 1, qs.getLastColumn()).getValues()[0];
+    var ac = qh.indexOf('approval_status') + 1; // dropdown so approval is a deliberate choice
+    qs.getRange(2, ac, 2000, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['DRAFT', 'APPROVED', 'REJECTED'], true).build());
+    buildDashboard_(ss);
+    toast_('Setup complete. Existing values and sending/follow-up switches were preserved.');
   });
-  var st = ss.getSheetByName('Settings'), existing = {};
-  st.getDataRange().getValues().slice(1).forEach(function (r) { existing[String(r[0])] = true; });
-  Object.keys(SalesCore.DEFAULT_SETTINGS).forEach(function (k) { if (!existing[k]) st.appendRow([k, SalesCore.DEFAULT_SETTINGS[k][0], SalesCore.DEFAULT_SETTINGS[k][1]]); });
-  var qs = ss.getSheetByName('EmailQueue'), qh = qs.getRange(1, 1, 1, qs.getLastColumn()).getValues()[0];
-  var ac = qh.indexOf('approval_status') + 1; // dropdown so approval is a deliberate choice
-  qs.getRange(2, ac, 2000, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['DRAFT', 'APPROVED', 'REJECTED'], true).build());
-  buildDashboard_(ss);
-  toast_('Setup complete. LIVE_SENDING and FOLLOW_UP_ENABLED remain FALSE.');
 }
+
+/* Only sender name/company are eligible. Empty formula results are existing values.
+   Build and validate the full plan before any write; ambiguous duplicates fail closed. */
+function fillMissingSenderDefaults_(sheet) {
+  if (!sheet) throw new Error('SETTINGS_SHEET_MISSING: run Setup on the TEST CRM first');
+  var data = sheet.getDataRange(), values = data.getValues(), formulas = data.getFormulas();
+  var header = values[0] || [], required = SalesCore.TABLES.Settings;
+  if (required.some(function (name, i) { return String(header[i] || '') !== name; })) throw new Error('INCOMPATIBLE_SETTINGS_SCHEMA: existing data preserved');
+  var keys = ['SENDER_NAME', 'SENDER_COMPANY'], rows = { SENDER_NAME: [], SENDER_COMPANY: [] }, plan = [];
+  values.slice(1).forEach(function (r, i) { var k = String(r[0]).trim(); if (keys.indexOf(k) >= 0) rows[k].push(i + 1); });
+  keys.forEach(function (key) {
+    if (rows[key].length > 1) throw new Error('DUPLICATE_SENDER_SETTING: ' + key + '. Existing data preserved');
+    if (!rows[key].length) { plan.push({ key: key, row: null }); return; }
+    var i = rows[key][0], value = values[i][1], formula = formulas[i] && formulas[i][1];
+    if ((value === '' || value === null || value === undefined) && !formula) plan.push({ key: key, row: i + 1 });
+  });
+  var result = { added: [], filled: [] };
+  plan.forEach(function (p) {
+    if (p.row === null) { sheet.appendRow([p.key, SalesCore.DEFAULT_SETTINGS[p.key][0], SalesCore.DEFAULT_SETTINGS[p.key][1]]); result.added.push(p.key); }
+    else { sheet.getRange(p.row, 2).setValue(SalesCore.DEFAULT_SETTINGS[p.key][0]); result.filled.push(p.key); }
+  });
+  return result;
+}
+
+/* Run from the script bound to the exact TEST CRM. Never opens another file,
+   creates triggers, processes queues, or calls Gmail. Production IDs are refused. */
+function applyNexOpsSenderDefaultsToTestCrm() {
+  return locked_(function () {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss || ss.getId() !== SALES_TEST_CRM_ID) throw new Error('TEST_CRM_ONLY: open Apps Script from the specified TEST CRM');
+    var configuredId = PropertiesService.getScriptProperties().getProperty('STOCKWISE_CRM_ID');
+    if (configuredId && configuredId !== SALES_TEST_CRM_ID) throw new Error('TEST_CRM_ONLY: STOCKWISE_CRM_ID points elsewhere; no changes made');
+    var result = fillMissingSenderDefaults_(ss.getSheetByName('Settings'));
+    ss.toast('Missing sender defaults updated. Address and sending/follow-up switches were not changed.', 'Stockwise Sales TEST', 8);
+    return result;
+  });
+}
+
 function col_(name, field) { var i = SalesCore.TABLES[name].indexOf(field); var n = i + 1, s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
 function buildDashboard_(ss) {
   var d = ss.getSheetByName('Dashboard') || ss.insertSheet('Dashboard');
