@@ -59,7 +59,8 @@ function onOpen() {
     .addItem('2. Safety report', 'showSafetyReport')
     .addItem('3. Normalize + dedupe leads', 'runDedupe')
     .addItem('4. Generate drafts', 'runGenerateDrafts')
-    .addItem('5. Process queue (dry run unless LIVE_SENDING=TRUE)', 'runProcessQueue')
+    .addItem('5. Record reviewed approvals', 'recordReviewedApprovals')
+    .addItem('6. Process queue (dry run unless LIVE_SENDING=TRUE)', 'runProcessQueue')
     .addItem('6. Check replies / unsubscribes', 'runCheckReplies')
     .addSeparator().addItem('Send test email to myself only', 'sendTestToOwner')
     .addItem('Install hourly triggers', 'installTriggers').addItem('Remove triggers', 'removeTriggers').addToUi();
@@ -109,6 +110,7 @@ function buildDashboard_(ss) {
 
 function runDedupe() { var r = locked_(function () { return SalesEngine.dedupeLeads(deps_()); }); toast_('Dedupe: ' + JSON.stringify(r)); return r; }
 function runGenerateDrafts() { var r = locked_(function () { return SalesEngine.generateDrafts(deps_()); }); toast_('Drafts: ' + JSON.stringify(r)); return r; }
+function recordReviewedApprovals() { var r = locked_(function () { return SalesEngine.snapshotApprovals(deps_()); }); toast_('Approvals recorded: ' + r); return r; }
 function runProcessQueue() { var r = locked_(function () { return SalesEngine.processQueue(deps_()); }); toast_('Queue: ' + JSON.stringify(r)); return r; }
 function runCheckReplies() { var r = locked_(function () { return SalesEngine.checkReplies(deps_()); }); toast_('Replies: ' + JSON.stringify(r)); return r; }
 function runFollowUps() { return locked_(function () { return SalesEngine.scheduleFollowUps(deps_()); }); }
@@ -116,7 +118,7 @@ function showSafetyReport() { var t = SalesEngine.safetyReport(deps_()); try { S
 
 /* Hourly: replies first (so a reply/unsubscribe is always seen before the next send), then queue. */
 function hourlyRun() {
-  locked_(function () { var d = deps_(); SalesEngine.checkReplies(d); SalesEngine.snapshotApprovals(d); SalesEngine.processQueue(d); });
+  locked_(function () { var d = deps_(); SalesEngine.checkReplies(d); SalesEngine.processQueue(d); });
 }
 function dailyRun() { locked_(function () { var d = deps_(); SalesEngine.dedupeLeads(d); SalesEngine.generateDrafts(d); SalesEngine.scheduleFollowUps(d); }); }
 function installTriggers() {
