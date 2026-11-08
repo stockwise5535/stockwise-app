@@ -3,10 +3,14 @@
 var DATE_COLS = ['created_at', 'updated_at', 'last_contacted_at', 'approved_at', 'scheduled_at', 'sent_at', 'timestamp', 'added_at'];
 
 function sheetsStore_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // A bound script can use its active spreadsheet; a standalone copy must specify an ID.
+  var configuredId = PropertiesService.getScriptProperties().getProperty('STOCKWISE_CRM_ID');
+  var ss = configuredId ? SpreadsheetApp.openById(configuredId) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('CRM_SPREADSHEET_NOT_CONFIGURED: set STOCKWISE_CRM_ID or bind this script to the intended test spreadsheet');
   function sh(t) { var s = ss.getSheetByName(t); if (!s) throw new Error('Missing sheet: ' + t + ' (run Setup first)'); return s; }
   function headers(s) { return s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String); }
   return {
+    spreadsheet: ss,
     rows: function (t) {
       var s = sh(t), n = s.getLastRow(); if (n < 2) return [];
       var h = headers(s), vals = s.getRange(2, 1, n - 1, h.length).getValues();
@@ -68,13 +72,13 @@ function onOpen() {
 
 /* Creates missing sheets/headers/settings. Never deletes or overwrites existing data or setting values. */
 function setupSheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet(), T = SalesCore.TABLES;
+  var ss = sheetsStore_().spreadsheet, T = SalesCore.TABLES;
   // Existing 2026 CRM uses display-name headers, not this schema. Never append incompatible headers into populated sheets.
   Object.keys(T).forEach(function (name) {
     var old = ss.getSheetByName(name);
-    if (old && old.getLastRow() > 1) {
+    if (old && old.getLastRow() >= 1) {
       var existingHeaders = old.getRange(1, 1, 1, old.getLastColumn()).getValues()[0].map(String);
-      if (existingHeaders[0] !== T[name][0]) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Run migration before setup.');
+      if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && (existingHeaders.length < T[name].length || T[name].some(function (col, i) { return existingHeaders[i] !== col; }))) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
     }
     var s = ss.getSheetByName(name) || ss.insertSheet(name), cols = T[name];
     var have = s.getLastColumn() ? s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String) : [];
