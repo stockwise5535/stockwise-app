@@ -119,3 +119,17 @@ test('manual setup can extend legacy Leads headers without modifying existing le
  assert.deepEqual(w.sheets.get('Leads').rows[0],[...Core.TABLES.Leads]);
  assert.equal(value(w,'SENDER_NAME'),'Owner');assert.equal(value(w,'SENDER_ADDRESS'),'');assert.equal(value(w,'LIVE_SENDING'),'FALSE');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'FALSE');
 });
+test('initialization is TEST-only and initializes missing gates OFF without Gmail or triggers',()=>{
+ const w=world(null);const result=w.ctx.initializeAndVerifyTestCrm();
+ assert.equal(result.modulesLoaded,true);assert.equal(result.liveSendingOff,true);assert.equal(result.followUpOff,true);assert.equal(result.legalReviewOff,true);
+ assert.equal(value(w,'SENDER_ADDRESS'),'');
+ const p=world(null,{activeId:'production'});assert.throws(()=>p.ctx.initializeAndVerifyTestCrm(),/TEST_CRM_ONLY/);assert.equal(p.writes.length,0);
+ const configured=world(null,{configuredId:'production'});assert.throws(()=>configured.ctx.initializeAndVerifyTestCrm(),/TEST_CRM_ONLY/);assert.equal(configured.writes.length,0);
+});
+test('all legacy tables and dashboard are checked before the first initial setup write',()=>{
+ for(const name of ['Settings','Dashboard']){
+  const w=world(null);w.sheet(name,[['Legacy schema','keep'],['existing','data']]);
+  assert.throws(()=>w.ctx.initializeAndVerifyTestCrm(),/INCOMPATIBLE/);
+  assert.equal(w.writes.length,0);assert.equal(w.sheets.has('Leads'),false);
+ }
+});

@@ -1,10 +1,19 @@
 {
-  "status": "pending",
+  "status": "reviewed",
   "target": "test",
-  "bindingHash": "",
-  "remoteDigest": "",
-  "approvedSourceDigest": "",
-  "settingsVerifiedOff": false,
-  "manualEditsReconciled": false,
-  "ownerGmailTestPreserved": false
+  "bindingHash": "d9d851590594965c6e0d27acc4f75b98628f3ae9032340a8121a0b49588f61a1",
+  "remoteDigest": "efcacc1d8cca4285ac61b4ed853251490f1d7bbd48f0d2f5620b8190e6c66e2a",
+  "approvedSourceDigest": "659775db0b7a2da685621c33070a3ad8119e0dc376266802612b965e03a75c6d",
+  "settingsVerifiedOff": true,
+  "manualEditsReconciled": true,
+  "ownerGmailTestPreserved": true,
+  "evidence": {
+    "source": "user-export-matches-inspect-42545311161",
+    "legacyEntryPointUnchanged": true,
+    "manifestUnchanged": true,
+    "existingOwnerGmailTestPresent": false,
+    "settingsObservation": "User reports send gates not configured; existing default values are false; no sending grant or switch is enabled by delivery.",
+    "googleRuntimeExecution": "NOT_VERIFIED",
+    "initializationFunction": "initializeAndVerifyTestCrm"
+  }
 }

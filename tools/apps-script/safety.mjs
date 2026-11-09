@@ -1,6 +1,6 @@
 import {createHash, randomBytes, createCipheriv, createDecipheriv} from 'node:crypto';
 import vm from 'node:vm';
-export const FILES = ['Core.js', 'Engine.js', 'Main.js', 'appsscript.json'];
+export const FILES = ['Core.js', 'Engine.js', 'Main.js', 'コード.js', 'appsscript.json'];
 export const TEST_CRM = '12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
 export function requireSafe(condition, code) { if (!condition) throw new Error(code); }
 export const hash = text => createHash('sha256').update(text).digest('hex');
@@ -72,4 +72,11 @@ export function decryptBackup(text, keyText) {
 
 export function requireProductionProtection(environment) {
   requireSafe(environment && Array.isArray(environment.protection_rules) && environment.protection_rules.some(rule => rule.type === 'required_reviewers' && Array.isArray(rule.reviewers) && rule.reviewers.length > 0), 'GITHUB_REQUIRED_REVIEWER_PROTECTION_MISSING');
+}
+
+export function validateRemoteFileSet(remote, source, operation) {
+  // Every remote file must be kept. A reviewed initial bootstrap may ADD files.
+  requireSafe(Object.keys(remote).every(name => Object.hasOwn(source, name)), 'REMOTE_FILES_REQUIRE_RECONCILIATION');
+  if (operation !== 'bootstrap') requireSafe(Object.keys(remote).length === Object.keys(source).length, 'REMOTE_FILES_REQUIRE_RECONCILIATION');
+  requireSafe(remote['コード.js'] === source['コード.js'], 'RETAINED_GOOGLE_ENTRY_POINT_CHANGED');
 }

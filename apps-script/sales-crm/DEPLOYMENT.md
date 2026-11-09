@@ -45,12 +45,11 @@ TESTに本番IDが入っていたら実行を止める。今回のワークフ�
 
 Settings → Environmentsで先に以下を作成する。
 
-- `apps-script-test-bootstrap`: required reviewersに所有者を設定、mainだけを許可。初回TEST承認用。
 - `apps-script-test`: mainだけを許可。初回成功後のTEST自動更新用。毎回のreviewerは不要。
 - `apps-script-production`: required reviewersに所有者を設定、mainだけを許可。本人承認が必要なら prevent self-review はOFFにする。
 
 各EnvironmentのSecretsに `CLASP_AUTH_JSON`（公式認証JSON全文）と `APPS_SCRIPT_BACKUP_KEY` を登録する。
-TESTの2 EnvironmentはTEST所有者の認証。本番は本番所有者の認証。可能ならアカウント権限も分離する。
+TEST EnvironmentはTEST所有者の認証。本番は本番所有者の認証。可能ならアカウント権限も分離する。
 環境保護ルールの利用可否はGitHubプラン・リポジトリ可視性に依存する。利用不可なら本番への反映は停止する。手動起動だけでrequired reviewersを代替しない。
 **本番は常に手動workflow_dispatch＋mainの完全SHA一致が必要**。
 
@@ -94,7 +93,7 @@ unset APPS_SCRIPT_BACKUP_KEY
 秘密情報がハードコードされていたらGitにコピーせず、保管方法を別途修正してから進める。
 パッチ照合記録はdeployment/patch-review.json。添付CSVやメール原稿は取り込んでいない。
 
-反映対象はCore.js、Engine.js、Main.js、appsscript.jsonの4ファイルだけ。
+反映対象はCore.js、Engine.js、Main.js、既存のコード.js、appsscript.jsonの5ファイル。既存コード.jsはそのまま保持する。
 Google側にCode.gs、古いbundle、HTMLなど追加ファイルがあれば書き込みを停止する。必要な処理を失わない統合方法をレビューするまで進めない。
 マニフェストのOAuth scope・タイムゾーン等が異なる場合も停止する。実環境の必要な設定を保った候補をレビューする。
 単なるJSONキー順序・改行差は正規化して比較する。push時は既存マニフェストのバイト列を維持し、--forceは使わない。
@@ -106,7 +105,7 @@ Google側にCode.gs、古いbundle、HTMLなど追加ファイルがあれば書
    `status="reviewed"`、`settingsVerifiedOff=true`、`manualEditsReconciled=true`、`ownerGmailTestPreserved=true` は実際に確認した場合だけ設定する。
    `approvedSourceDigest` にはreportの `sourceDigest` を使う。ハッシュ値は秘密値ではない。
 3. レビュー記録をGitにコミットしmainへ取り込む。Google側のコード編集をいったん止める。
-4. mainの完全コミットSHAを取得。Actionsをtarget=`test`、operation=`bootstrap`、confirm_sha=そのSHAで手動実行しEnvironment承認する。
+4. mainの完全コミットSHAを取得。Actionsをtarget=`test`、operation=`bootstrap`、confirm_sha=そのSHAで手動実行する（TEST用は既存apps-script-test Environmentを使用）。
 5. 更新直前にもGoogle側のダイジェストを再確認し、一致時だけ1回clasp pushする。Google APIに原子的CASがないため、実行中は手動編集しない。
 6. 更新後に再取得しソース一致・構文・関数定義を確認する。設定やGmailの実行確認とは区別する。
 7. TESTのApps Scriptエディタで **verifyTestCrmDeployment** を手動実行する。出力はversion/modulesLoaded/testCrm/liveSendingOff/followUpOffのみ。すべてtrueであることを確認する。シート初期化・送信・トリガーは実行しない。
@@ -199,3 +198,6 @@ Google認証はMacで完了した旨をユーザーから受領。クラウド�
 実際のデータソースは未設定であり、外部実行は未検証。既存Phase 2が別ジョブで動いている場合はソースと担当範囲を確認してから有効化する。
 結果はActions artifactへ保存。読取失敗時はジョブを失敗させ、Actionsの通知対象にする（GitHub通知設定は所有者が確認）。
 既存Bufferの投稿・予約・実績同期は別の既存経路を維持し、このワークフローから呼び出さない。
+
+現行Google TESTソースの照合（2026-11-08）：添付exportはinspect実行42545311161のremoteDigestと一致。コード.jsのmyFunction（空関数）を無変更で保持し、マニフェストもLos Angeles・自動scope推論設定を維持する。元ソースにGmailテスト関数は存在しない。既存関数の削除や改名は行わない。
+ユーザー確認で送信3ゲートは未設定。TEST初回bootstrapはコード追加のみで、Settingsの有効化やGmail送信は行わない。反映後、所有者がinitializeAndVerifyTestCrmを実行してGoogle実行権限を承認する。指定TEST以外・互換性のないシート/ダッシュボードでは書き込み前に停止。新規Settingsは既存の安全なfalse初期値で作成される。実行完了まではruntime未検証のままとする。

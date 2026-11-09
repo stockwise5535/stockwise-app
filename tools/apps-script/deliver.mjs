@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {google} from 'googleapis';
 import {initAuth} from './node_modules/@google/clasp/build/src/auth/auth.js';
-import {FILES, digest, canonical, hash, fromRemote, validateSource, validateTargets, authorizeWrite, encryptBackup, requireSafe} from './safety.mjs';
+import {FILES, digest, canonical, hash, fromRemote, validateSource, validateTargets, authorizeWrite, encryptBackup, requireSafe, validateRemoteFileSet} from './safety.mjs';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const folder = 'apps-script/sales-crm';
 const git = args => execFileSync('git', args, {cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:4*1024*1024}).trim();
@@ -44,7 +44,7 @@ async function run() {
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
   if(operation === 'inspect') { console.log('Read-only inspection completed; encrypted backup and digest report saved. No Google writes.'); return; }
   requireSafe(git(['status','--porcelain','--untracked-files=no']) === '', 'CLEAN_CHECKOUT_REQUIRED');
-  requireSafe(JSON.stringify(Object.keys(remote).sort())===JSON.stringify([...FILES].sort()), 'REMOTE_FILES_REQUIRE_RECONCILIATION');
+  validateRemoteFileSet(remote, source, operation);
   requireSafe(canonical({'appsscript.json':remote['appsscript.json']})===canonical({'appsscript.json':source['appsscript.json']}),'MANIFEST_CHANGED_REVIEW_REQUIRED');
   const review = await json(path.join(root,folder,'deployment',`${target}.review.json`));
   requireSafe(review.target === target,'REVIEW_TARGET_MISMATCH');

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {FILES,TEST_CRM,hash,digest,fromRemote,validateSource,validateTargets,authorizeWrite,encryptBackup,decryptBackup,requireProductionProtection} from './safety.mjs';
+import {FILES,TEST_CRM,hash,digest,fromRemote,validateSource,validateTargets,authorizeWrite,encryptBackup,decryptBackup,requireProductionProtection,validateRemoteFileSet} from './safety.mjs';
 const source=Object.fromEntries(FILES.map(f=>[f,readFileSync(new URL('../../apps-script/sales-crm/'+f,import.meta.url),'utf8')]));
 const baseline=()=>({operation:'bootstrap',target:'test',event:'workflow_dispatch',ref:'refs/heads/main',confirmedSha:'head',head:'head',
  review:{status:'reviewed',bindingHash:'binding',remoteDigest:'remote',approvedSourceDigest:'source',settingsVerifiedOff:true,manualEditsReconciled:true,ownerGmailTestPreserved:true,testRuntimeVerified:true,testSourceDigest:'source',testDeploymentRunId:'12345'},
@@ -60,7 +60,7 @@ test('delivery is source-only, with no forced push, function run, CRM write or a
  assert.ok(!script.includes("'--force'"));assert.ok(!script.includes('projects.updateContent('));assert.ok(!script.includes('scripts.run('));
  const workflow=readFileSync(new URL('../../.github/workflows/apps-script-delivery.yml',import.meta.url),'utf8');
  assert.match(workflow,/APPS_SCRIPT_TEST_AUTO_DEPLOY == 'true'/);assert.ok(!workflow.includes('pull_request_target'));
- assert.match(workflow,/apps-script-test-bootstrap/);assert.match(workflow,/cancel-in-progress: false/);
+ assert.match(workflow,/apps-script-production/);assert.match(workflow,/cancel-in-progress: false/);
 });
 
 test('production requires an actual GitHub required-reviewer rule and tested source proof',()=>{
@@ -70,4 +70,13 @@ test('production requires an actual GitHub required-reviewer rule and tested sou
  const b={...baseline(),target:'production'};
  assert.throws(()=>authorizeWrite({...b,review:{...b.review,testRuntimeVerified:false}}),/TEST_RUNTIME/);
  assert.throws(()=>authorizeWrite({...b,source:'untested'}),/TEST_RUNTIME/);
+});
+
+test('reviewed bootstrap adds modules without deleting or replacing the existing Google entry point',()=>{
+ const remote={'appsscript.json':source['appsscript.json'],'コード.js':source['コード.js']};
+ assert.doesNotThrow(()=>validateRemoteFileSet(remote,source,'bootstrap'));
+ assert.throws(()=>validateRemoteFileSet(remote,source,'deploy'),/RECONCILIATION/);
+ assert.throws(()=>validateRemoteFileSet({...remote,'manual.js':'function manual(){}'},source,'bootstrap'),/RECONCILIATION/);
+ assert.throws(()=>validateRemoteFileSet(remote,{...source,'コード.js':'function myFunction(){danger();}'},'bootstrap'),/ENTRY_POINT_CHANGED/);
+ assert.doesNotThrow(()=>validateRemoteFileSet(source,source,'deploy'));
 });

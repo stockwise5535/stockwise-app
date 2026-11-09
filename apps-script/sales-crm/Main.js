@@ -103,6 +103,11 @@ function setupSheets() {
         var existingHeaders = old.getRange(1, 1, 1, old.getLastColumn()).getValues()[0].map(String);
         if (existingHeaders.some(function (h) { return h.trim() !== ''; }) && !compatibleHeaders_(name, existingHeaders)) throw new Error('INCOMPATIBLE_EXISTING_CRM_SCHEMA: ' + name + '. Existing data preserved. Use a blank test spreadsheet or reviewed migration.');
       }
+    });
+    var dashboard = ss.getSheetByName('Dashboard');
+    if (dashboard && dashboard.getLastRow() > 0 && String(dashboard.getRange(1, 1).getValue()) !== 'Stockwise Sales CRM') throw new Error('INCOMPATIBLE_DASHBOARD: existing dashboard preserved');
+    // Validate every existing table and dashboard before creating or changing any sheet.
+    Object.keys(T).forEach(function (name) {
       var s = ss.getSheetByName(name) || ss.insertSheet(name), cols = T[name];
       var have = s.getLastColumn() ? s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(String) : [];
       cols.forEach(function (c) { if (have.indexOf(c) < 0) { s.getRange(1, have.length + 1).setValue(c); have.push(c); } });
@@ -226,7 +231,7 @@ function verifyTestCrmDeployment() {
     return found.length === 1 && (found[0][1] === false || String(found[0][1]).trim().toUpperCase() === 'FALSE');
   }
   var result = { version: SALES_CRM_VERSION, modulesLoaded: true, testCrm: true,
-    liveSendingOff: explicitlyOff('LIVE_SENDING'), followUpOff: explicitlyOff('FOLLOW_UP_ENABLED') };
+    liveSendingOff: explicitlyOff('LIVE_SENDING'), followUpOff: explicitlyOff('FOLLOW_UP_ENABLED'), legalReviewOff: explicitlyOff('LEGAL_REVIEW_COMPLETED') };
   Logger.log(JSON.stringify(result));
   return result;
 }
@@ -333,3 +338,17 @@ function dailySalesReport_(d) {
   Logger.log(JSON.stringify(report)); return report;
 }
 function runDailySalesReport() { return locked_(function () { return dailySalesReport_(deps_()); }); }
+
+/* Initial setup is explicitly restricted to the known TEST spreadsheet.
+   It never sends mail, processes a queue, or creates triggers. */
+function initializeAndVerifyTestCrm() {
+  ensureLoaded_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var props = PropertiesService.getScriptProperties();
+  var configured = props.getProperty('STOCKWISE_CRM_ID'), testConfigured = props.getProperty('STOCKWISE_TEST_CRM_ID');
+  if (!ss || ss.getId() !== SALES_TEST_CRM_ID || (configured && configured !== SALES_TEST_CRM_ID) ||
+      (testConfigured && testConfigured !== SALES_TEST_CRM_ID)) throw new Error('TEST_CRM_ONLY');
+  var result = setupSheets();
+  if (result && result.skipped) return result;
+  return verifyTestCrmDeployment();
+}
