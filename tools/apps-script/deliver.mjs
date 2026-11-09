@@ -6,9 +6,9 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {google} from 'googleapis';
-import {initAuth} from './node_modules/@google/clasp/build/src/auth/auth.js';
+import {initAuth,getUserInfo} from './node_modules/@google/clasp/build/src/auth/auth.js';
 import {FILES, digest, canonical, hash, fromRemote, validateSource, validateTargets, authorizeWrite, encryptBackup, requireSafe, validateRemoteFileSet} from './safety.mjs';
-import {safeFailureCode,remoteSourceState} from './diagnostics.mjs';
+import {safeFailureCode,remoteSourceState,credentialMatchesCreator} from './diagnostics.mjs';
 let deliveryStage='SETUP',mayHaveWritten=false;
 const stage = value => { deliveryStage=value; };
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -55,7 +55,11 @@ async function run() {
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
   console.log(`Source inspection: ${sourceState}. No functions executed.`);
   if(env.GITHUB_ACTIONS==='true') console.log(`::notice title=Apps Script source state::state=${sourceState};target=${target};may_have_written=false`);
-  if(operation === 'inspect') { console.log('Read-only inspection completed; encrypted backup and digest report saved. No Google writes.'); return; }
+  if(operation === 'inspect') {
+    const creatorMatch=credentialMatchesCreator(await getUserInfo(auth.credentials),metadata);
+    if(env.GITHUB_ACTIONS==='true') console.log(`::notice title=Apps Script credential identity::matches_project_creator=${creatorMatch};personal_data=NOT_DISCLOSED`);
+    console.log('Read-only inspection completed; encrypted backup and digest report saved. No Google writes.'); return;
+  }
   stage('VERIFY_GUARDS');
   requireSafe(git(['status','--porcelain','--untracked-files=no']) === '', 'CLEAN_CHECKOUT_REQUIRED');
   validateRemoteFileSet(remote, source, operation);
