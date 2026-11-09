@@ -177,7 +177,9 @@ function buildDashboard_(ss) {
     ['Queue: FAILED (manual review)', '=COUNTIF(EmailQueue!' + Q + ':' + Q + ',"FAILED")'], ['Queue: SENDING (manual review if stuck)', '=COUNTIF(EmailQueue!' + Q + ':' + Q + ',"SENDING")'],
     ['Sent: total', '=COUNTIF(EmailQueue!' + Q + ':' + Q + ',"SENT")'], ['Sent: today', '=SUMPRODUCT((EmailQueue!' + Q + '2:' + Q + '2000="SENT")*(LEFT(EmailQueue!' + QS + '2:' + QS + '2000,10)=TEXT(TODAY(),"yyyy-MM-dd")))'],
     ['Suppression entries', '=COUNTA(Suppression!A2:A)']];
-  d.getRange(1, 1, rows.length, 2).setFormulas(rows.map(function (r) { return [r[0], r[1] === '' ? '' : r[1]]; })); d.getRange(1, 1).setFontWeight('bold'); d.autoResizeColumn(1);
+  d.getRange(1, 1, rows.length, 1).setValues(rows.map(function (r) { return [r[0]]; }));
+  d.getRange(1, 2, rows.length, 1).setFormulas(rows.map(function (r) { return [r[1]]; }));
+  d.getRange(1, 1).setFontWeight('bold'); d.autoResizeColumn(1);
 }
 
 function runDedupe() { var r = locked_(function () { return SalesEngine.dedupeLeads(deps_()); }); toast_('Dedupe: ' + JSON.stringify(r)); return r; }
