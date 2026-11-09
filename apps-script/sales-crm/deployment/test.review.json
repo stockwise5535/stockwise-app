@@ -1,0 +1,10 @@
+{
+  "status": "pending",
+  "target": "test",
+  "bindingHash": "",
+  "remoteDigest": "",
+  "approvedSourceDigest": "",
+  "settingsVerifiedOff": false,
+  "manualEditsReconciled": false,
+  "ownerGmailTestPreserved": false
+}

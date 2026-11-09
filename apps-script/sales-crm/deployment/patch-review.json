@@ -1,0 +1,16 @@
+{
+  "status": "reconciled",
+  "patchSha256": "856cd71963b4bf484449de77d1084ee3192ca5d7c3a0c5ca0f23b53013409898",
+  "baseCommit": "ed33fdc9aa2e0ce4bdbf1c2f4289383ec6dacc87",
+  "changes": {
+    "moduleLoadGuard": "Applied with required-function checks; no copy/paste bundle instructions.",
+    "tailoredOpening": "Applied only to first-step drafts. Existing approval snapshots still required.",
+    "optionalLeadColumns": "Applied as trailing optional columns; old headers remain readable. Setup is never run by delivery.",
+    "senderIdentity": "Adapted to existing TEST-only empty-only helper. Existing values, address and switches are preserved.",
+    "engineIdentityUpsert": "Excluded: overwrites existing sender values contrary to user requirements.",
+    "oldBundleAndReplacementInstructions": "Excluded: obsolete generated copy would duplicate globals and discard ed33fdc safeguards. Three current source files are delivered together.",
+    "bundleBuilder": "Unnecessary for clasp delivery; source completeness is tested directly.",
+    "patchTests": "Equivalent tests adapted to current guards instead of replacing existing tests.",
+    "csvAndEmailDrafts": "Not imported or sent. Not deployment inputs."
+  }
+}

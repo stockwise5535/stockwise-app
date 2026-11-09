@@ -3,3 +3,11 @@ dist
 .env.local
 .env
 .DS_Store
+
+# Google OAuth credentials and local clasp project bindings (never commit)
+.clasprc*
+.clasp*.json
+client_secret*.json
+oauth-client*.json
+apps-script-delivery-output/
+.npm-cache/

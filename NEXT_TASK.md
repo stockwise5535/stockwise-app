@@ -1,3 +1,13 @@
+## Current Apps Script rollout — 2026-11-08
+
+Existing PR #9 now contains the pushed feature branch feat/apps-script-sales-crm-gmail-bridge-20261107. Keep previous operational notes below as history; do not infer current production state from them.
+
+User reports TEST Environment and both Secrets saved. Confirm their metadata, enable the saved minimal network draft, finish PR CI and register the workflow on main, then run read-only inspect before any source push. Reconcile real manual edits and manifest, approve baseline, bootstrap TEST, execute verifyTestCrmDeployment on Google. Production requires the same tested source plus actual GitHub required-reviewer protection. Code delivery never enables sending.
+Mac Google auth and API ON were reported complete. TEST script ID is recorded in DEPLOYMENT.md. No cloud OAuth, remote Apps Script backup, TEST deploy, Gmail/Buffer write or new production activation has occurred.
+Reviewed free research sources are empty and the daily research activation variable is unset. Verify Claude Phase 2 ownership before adding sources or enabling the job. Legal/sender/unsubscribe review, max-three-recipient pilot and actual delivery verification are still required before recurring prospect mail. Do not set legacy switches TRUE automatically.
+
+---
+
 # NEXT_TASK — Stockwise / NexOps
 
 Current local integration: codex/integrate-social-autopilot-main, based on main
