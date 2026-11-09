@@ -25,14 +25,14 @@ function world(settings,options={}){
  }
  if(settings!==null)sheet('Settings',[['key','value','description'],...(settings||[])]);
  const ss={getId:()=>options.activeId||TEST_ID,getSheetByName:n=>sheets.get(n)||null,insertSheet:n=>sheet(n),toast(){}};
- const ctx={SalesCore:Core,SalesEngine:require('../apps-script/sales-crm/Engine.js'),SpreadsheetApp:{getActiveSpreadsheet:()=>options.noActive?null:ss,
+ const ctx={SalesCore:Core,SalesEngine:require('../apps-script/sales-crm/Engine.js'),SpreadsheetApp:{flush(){},getActiveSpreadsheet:()=>options.noActive?null:ss,
   openById(id){opened.push(id);if(id!==TEST_ID)throw Error('PRODUCTION_OPEN_FORBIDDEN');return ss;},
   newDataValidation:()=>({requireValueInList(){return this;},build(){return {};}})},
  PropertiesService:{getScriptProperties:()=>({getProperty:()=>options.configuredId||null})},
  LockService:{getScriptLock:()=>({tryLock:()=>!options.locked,releaseLock(){released++;}})},
  GmailApp:new Proxy({},{get(){throw Error('MAIL_FORBIDDEN');}}),
  ScriptApp:new Proxy({},{get(){throw Error('TRIGGER_MUTATION_FORBIDDEN');}}),
- Logger:{log(){}},Date};
+ Logger:{log(){}},Session:{getScriptTimeZone:()=> 'America/Los_Angeles'},Date};
  vm.createContext(ctx);vm.runInContext(source,ctx);
  return {ctx,sheets,writes,opened,ss,sheet,get released(){return released;}};
 }
@@ -132,4 +132,18 @@ test('all legacy tables and dashboard are checked before the first initial setup
   assert.throws(()=>w.ctx.initializeAndVerifyTestCrm(),/INCOMPATIBLE/);
   assert.equal(w.writes.length,0);assert.equal(w.sheets.has('Leads'),false);
  }
+});
+
+test('private 20-company CSV imports to 19 columns and repeated execution adds zero',()=>{
+ const w=world(null);
+ const csv=['company,country,source_url,contact_email',...Array.from({length:20},(_,i)=>'Company '+i+',JP,https://business'+i+'.com/about,private@example.test')].join('\n');
+ w.ctx.Utilities={parseCsv:text=>text.split('\n').map(line=>line.split(','))};
+ const result=w.ctx.verifyTestTwentyCompanyImport(csv);
+ assert.equal(result.columns,19);assert.equal(result.first.inserted,20);assert.equal(result.first.matchedAfter,20);assert.equal(result.rerun.inserted,0);
+ assert.equal(w.sheets.get('Leads').getLastRow(),21);
+ assert.equal(w.sheets.get('Leads').getLastColumn(),19);
+ assert.equal(result.gates.liveSendingOff,true);assert.equal(result.gates.followUpOff,true);assert.equal(result.gates.legalReviewOff,true);
+ assert.equal(result.mailSent,0);
+ for(const row of w.sheets.get('Leads').rows.slice(1)){assert.equal(row[5],'');assert.equal(row[10],'');assert.equal(row[11],'RESEARCH');}
+ const again=w.ctx.verifyTestTwentyCompanyImport(csv);assert.equal(again.first.inserted,0);assert.equal(w.sheets.get('Leads').getLastRow(),21);
 });

@@ -36,6 +36,6 @@ export function remoteSourceState(remoteDigest,sourceDigest,reviewedRemoteDigest
 }
 
 export function credentialMatchesCreator(user, metadata) {
- const actor=user?.email,creator=metadata?.createUser?.email;
+ const actor=user?.email,creator=metadata?.creator?.email || metadata?.createUser?.email;
  return actor && creator ? String(actor).trim().toLowerCase()===String(creator).trim().toLowerCase()?'true':'false':'unknown';
 }
