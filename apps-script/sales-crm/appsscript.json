@@ -1,11 +1,7 @@
 {
-  "timeZone": "Asia/Tokyo",
+  "timeZone": "America/Los_Angeles",
+  "dependencies": {
+  },
   "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8",
-  "oauthScopes": [
-    "https://www.googleapis.com/auth/spreadsheets.currentonly",
-    "https://www.googleapis.com/auth/gmail.modify",
-    "https://www.googleapis.com/auth/script.scriptapp",
-    "https://www.googleapis.com/auth/userinfo.email"
-  ]
+  "runtimeVersion": "V8"
 }

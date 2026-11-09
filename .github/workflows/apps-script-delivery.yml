@@ -57,7 +57,7 @@ jobs:
       (github.event_name == 'push' && vars.APPS_SCRIPT_TEST_AUTO_DEPLOY == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: ${{ inputs.target == 'production' && 'apps-script-production' || inputs.operation == 'bootstrap' && 'apps-script-test-bootstrap' || 'apps-script-test' }}
+    environment: ${{ inputs.target == 'production' && 'apps-script-production' || 'apps-script-test' }}
     concurrency:
       group: apps-script-delivery-${{ inputs.target || 'test' }}
       cancel-in-progress: false

@@ -212,7 +212,7 @@ test('Apps Script sources use no network calls and no Vercel/OAuth paths',async(
  for(const f of ['Core.js','Engine.js','Main.js']){const t=fs.readFileSync(new URL('../apps-script/sales-crm/'+f,import.meta.url),'utf8');
   assert.ok(!/UrlFetchApp|fetch\(|vercel|oauth|api\.openai|anthropic/i.test(t),f);}
  const m=JSON.parse(fs.readFileSync(new URL('../apps-script/sales-crm/appsscript.json',import.meta.url),'utf8'));
- assert.ok(!m.oauthScopes.some(s=>/script\.external_request/.test(s)));
+ assert.ok(!(m.oauthScopes || []).some(s=>/script\.external_request/.test(s)));
 });
 test('row is marked SENDING before Gmail is called (crash-safe against double send)',()=>{
  const w=world(LIVE);ready(w);approveAll(w);let seen;const orig=w.deps.mail.send;
