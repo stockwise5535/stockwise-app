@@ -21,6 +21,8 @@ export function safeFailureCode(error) {
   [/invalid_grant|invalid_rapt|reauthentication/i,'GOOGLE_REAUTH_REQUIRED'],
   [/invalid_client/i,'GOOGLE_OAUTH_CLIENT_REJECTED'],
   [/caller does not have permission|PERMISSION_DENIED|permission denied/i,'GOOGLE_PERMISSION_DENIED'],
+  [/User has not enabled.*Apps Script API|script\.google\.com\/home\/usersettings/i,'GOOGLE_USER_SCRIPT_API_DISABLED'],
+  [/SERVICE_DISABLED|accessNotConfigured|Apps Script API.*has not been used in project/i,'GOOGLE_CLOUD_SCRIPT_API_DISABLED'],
   [/Apps Script API.*(?:disabled|not enabled)|has not enabled.*Apps Script API/i,'GOOGLE_SCRIPT_API_DISABLED'],
   [/SyntaxError|Syntax error/i,'GOOGLE_SOURCE_SYNTAX_REJECTED'],
   [/CLASP_SINGLE_ATTEMPT_CONFIGURATION_REQUIRED/,'CLASP_SINGLE_ATTEMPT_CONFIGURATION_REQUIRED'],
@@ -31,4 +33,9 @@ export function safeFailureCode(error) {
 }
 export function remoteSourceState(remoteDigest,sourceDigest,reviewedRemoteDigest) {
  return remoteDigest===sourceDigest?'APPROVED_SOURCE':remoteDigest===reviewedRemoteDigest?'REVIEWED_BASELINE':'UNREVIEWED_CHANGE';
+}
+
+export function credentialMatchesCreator(user, metadata) {
+ const actor=user?.email,creator=metadata?.createUser?.email;
+ return actor && creator ? String(actor).trim().toLowerCase()===String(creator).trim().toLowerCase()?'true':'false':'unknown';
 }

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {safeFailureCode,remoteSourceState} from './diagnostics.mjs';
+import {safeFailureCode,remoteSourceState,credentialMatchesCreator} from './diagnostics.mjs';
 test('only fixed error labels are exposed, never credentials, URLs or arbitrary upper-case text',()=>{
  const secret='SENSITIVE_ACCESS_TOKEN_DO_NOT_PRINT';
  for(const e of [new Error(secret),new Error('https://host/?sig='+secret),{stderr:Buffer.from(secret)},{}]){
@@ -18,4 +18,14 @@ test('a read-only comparison distinguishes baseline, applied source and external
  assert.equal(remoteSourceState('old','new','old'),'REVIEWED_BASELINE');
  assert.equal(remoteSourceState('new','new','old'),'APPROVED_SOURCE');
  assert.equal(remoteSourceState('other','new','old'),'UNREVIEWED_CHANGE');
+});
+
+test('user setting disabled and Cloud service disabled are different failure classes',()=>{
+ assert.equal(safeFailureCode({stderr:'User has not enabled the Apps Script API. Enable it by visiting https://script.google.com/home/usersettings.'}),'GOOGLE_USER_SCRIPT_API_DISABLED');
+ assert.equal(safeFailureCode({stderr:'Apps Script API has not been used in project 123 before or it is disabled.'}),'GOOGLE_CLOUD_SCRIPT_API_DISABLED');
+});
+test('credential owner comparison reveals only a boolean, never an email',()=>{
+ assert.equal(credentialMatchesCreator({email:'owner@example.test'},{createUser:{email:'OWNER@example.test'}}),'true');
+ assert.equal(credentialMatchesCreator({email:'other@example.test'},{createUser:{email:'owner@example.test'}}),'false');
+ assert.equal(credentialMatchesCreator(undefined,{}),'unknown');
 });
