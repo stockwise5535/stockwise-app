@@ -36,3 +36,21 @@ Review and apply migrations `202611060001_sales_autopilot_foundation.sql` and `2
 - Run self-addressed Gmail tests and inspect durable send ledger and suppression before any external outreach.
 
 No code in this branch is permission to send real email.
+
+## Production OAuth start troubleshooting (2026-11-07)
+
+The operator observed `POST /api/auth/google/start` returning both HTTP 403 and 503 in Vercel request logs. These status codes have different causes. A request-log entry showing only status, route and duration does **not** identify which 503 branch ran. Do not infer that redeploying or changing the admin key will fix a 503.
+
+Read the **Response** JSON `error` field for the failed request using the browser's developer tools (Network → `start` → Response), without copying the Authorization header, cookies, state, verifier, secrets or full OAuth URL. The server deliberately emits only fixed error codes:
+
+| HTTP / error | Meaning | Safe operator action |
+| --- | --- | --- |
+| 403 `not_authorized` | Admin bearer key did not match the deployed value | Verify the key against the active Production deployment; never paste it into logs or chat |
+| 503 `oauth_setup_disabled` | Setup flag is not exactly `true`, or a required server variable is absent/invalid | Check Production environment scope, deployment age, `SUPABASE_URL` host format, and required key presence/length; do not expose values |
+| 503 `encryption_unavailable` | PKCE verifier could not be encrypted | Check that the encryption key is a valid base64-encoded 32-byte key; **do not rotate an existing key casually**, since stored credentials depend on it |
+| 503 `transaction_store_unavailable` | Supabase insert of OAuth state transaction failed | Check the `sales_oauth_transactions` migration, service-role access, project URL, and Supabase availability; do not weaken RLS or log credentials |
+| 503 `oauth_url_unavailable` | Google authorization URL configuration rejected | Verify the registered Web client ID and exact callback URI against server configuration |
+
+The `salesSupabaseConfig` guard accepts only an HTTPS `*.supabase.co` project URL (optional trailing slash) and a service-role key with at least 30 characters. An environment variable listed under **Team Environment Variables** is not proof that the active Production deployment has received its latest value. If Vercel deploys are rate-limited, wait for the allowed deployment window; do not repeatedly redeploy or turn on sending to diagnose OAuth.
+
+Before any controlled retry, confirm `STOCKWISE_SALES_SEND_ENABLED=false`. Only the authorized operator should initiate the OAuth browser flow. After a successful connection, return `STOCKWISE_SALES_OAUTH_SETUP_ENABLED` to `false` in a planned deployment. Never use external recipients as an OAuth connectivity test.
