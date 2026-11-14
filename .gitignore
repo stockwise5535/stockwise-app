@@ -11,3 +11,6 @@ client_secret*.json
 oauth-client*.json
 apps-script-delivery-output/
 .npm-cache/
+
+# Local daily growth reports (contain business metrics; never commit)
+reports/
