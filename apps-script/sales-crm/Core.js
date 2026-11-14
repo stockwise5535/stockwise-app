@@ -31,7 +31,7 @@ var SalesCore = (function () {
   var FREEMAIL = ['gmail.com','googlemail.com','yahoo.com','yahoo.co.jp','ymail.com','outlook.com','hotmail.com','hotmail.co.jp','live.com','icloud.com','me.com','aol.com','proton.me','protonmail.com','docomo.ne.jp','ezweb.ne.jp','softbank.ne.jp','au.com','nifty.com','biglobe.ne.jp'];
   var TRANSIENT = ['OUTSIDE_SEND_WINDOW','DAILY_LIMIT_REACHED','RUN_LIMIT_REACHED'];
   var BANNED = ['永久無料','無料で使い放題','使い放題','必ず','絶対','100%','クレジットカード不要','いつでも解約','日本語対応','日本語完全対応','free forever','guarantee','no credit card','cancel anytime','fully localized','risk-free'];
-  var UNSUB = ['unsubscribe','opt out','opt-out','remove me','remove my','stop emailing','stop sending','do not contact',"don't contact",'do not email','no more emails','配信停止','配信を停止','配信解除','配信をやめ','送らないで','送信しないで','連絡不要','連絡は不要','メール不要','メールは不要','不要です','お断り','迷惑'];
+  var UNSUB = ['unsubscribe','opt out','opt-out','remove me','remove my','stop emailing','stop sending','do not contact',"don't contact",'do not email','no more emails','no more messages','please stop','ご連絡は不要','ご連絡が不要','配信停止','配信を停止','配信解除','配信をやめ','送らないで','送信しないで','連絡不要','連絡は不要','メール不要','メールは不要','不要です','お断り','迷惑'];
   var AUTO = ['out of office','automatic reply','auto-reply','autoreply','自動返信','不在','vacation'];
 
   function isTrue(v) { return v === true || String(v).trim().toUpperCase() === 'TRUE'; }
@@ -103,30 +103,43 @@ var SalesCore = (function () {
 
   function localizedLang(lead) { var l = String(lead.language || '').toLowerCase(); if (l === 'ja' || l === 'en') return l; return String(lead.country).toUpperCase() === 'JP' ? 'ja' : 'en'; }
 
+  var OPT_OUT_JA = '今後のご連絡が不要でしたら、その旨だけご返信ください。以後お送りしません。';
+  var OPT_OUT_EN = 'If you would prefer no more messages, just reply and we will stop.';
+  function hasOptOutLine(body) {
+    var text = String(body || '');
+    return text.indexOf(OPT_OUT_JA) >= 0 || text.indexOf(OPT_OUT_EN) >= 0 || /配信停止|unsubscribe/i.test(text);
+  }
+  function containsPersonalName(text, lead, settings) {
+    var names = [String(lead.contact_name || '').trim()];
+    if (settings.senderName && settings.senderName !== settings.senderCompany) names.push(settings.senderName);
+    return names.some(function (name) { return name.length >= 3 && String(text).toLowerCase().indexOf(name.toLowerCase()) >= 0; });
+  }
   function buildEmail(lead, settings, step) {
-    var lang = localizedLang(lead), name = String(lead.contact_name || '').trim(), company = String(lead.company).trim();
+    var lang = localizedLang(lead), sender = String(settings.senderCompany || '').trim();
     var showProduct = settings.signupVerified && /^https:\/\//.test(settings.productUrl);
-    var sender = settings.senderName + (settings.senderCompany ? ' / ' + settings.senderCompany : '');
-    var basis = { PUBLISHED_BUSINESS_CONTACT: ['貴社の公開ウェブサイトに掲載されている連絡先を拝見し、ご連絡しました。', 'I found this contact on your company\'s public website: ' + (lead.source_url || '')],
-      EXPRESS_CONSENT: ['ご連絡をご希望いただいたため、ご連絡しました。', 'You asked to hear from us, so I am writing.'],
-      EXISTING_RELATIONSHIP: ['これまでのお取引・やり取りに基づきご連絡しました。', 'I am writing based on our previous contact.'],
-      INBOUND_REQUEST: ['お問い合わせをいただいたため、ご連絡しました。', 'I am following up on your enquiry.'] }[lead.contact_basis] || ['', ''];
+    var basis = {
+      PUBLISHED_BUSINESS_CONTACT: ['公開されている業務用の連絡先からご連絡しています。', 'Your business contact details are listed here: ' + (lead.source_url || '')],
+      EXPRESS_CONSENT: ['ご希望いただいた件でご連絡しました。', 'Following up on your request.'],
+      EXISTING_RELATIONSHIP: ['以前のやり取りの続きでご連絡しました。', 'Following up on our earlier conversation.'],
+      INBOUND_REQUEST: ['お問い合わせの件でご連絡しました。', 'Following up on your enquiry.']
+    }[lead.contact_basis] || ['', ''];
     var opening = String(lead.custom_opening || '').trim();
+    if (containsPersonalName(opening,lead,settings)) opening = '';
     var subject, body;
     if (lang === 'ja') {
-      subject = step > 1 ? 'Re: 在庫管理のご案内(' + company + '様)' : '在庫管理のご案内(' + company + '様)';
-      body = (name ? name + ' 様' : company + ' ご担当者様') + '\n\n' + basis[0] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
-        (step > 1 ? '先日お送りしたメールのご確認です。' : '在庫や仕入れの管理で「今日どれを確認すべきか」を整理するツール「Stockwise」を開発しています。') + '\n' +
-        (showProduct ? 'デモワークスペースで、確認すべき例外と推奨アクションを試せます(30日間の無料トライアル。現在、登録画面は英語です)。\n' + settings.productUrl + '\n' : '興味をお持ちであれば、このメールにご返信いただければ詳細をご案内します。\n') +
-        '\nご不要でしたら、このメールに「配信停止」とご返信ください。以後ご連絡しません。\n\n' + sender + '\n' + settings.senderAddress;
+      subject = (step > 1 ? 'Re: ' : '') + '在庫と発注の確認について';
+      body = 'ご担当者さま\n\n' + (basis[0] ? basis[0] + '\n\n' : '') + (opening && step === 1 ? opening + '\n\n' : '') +
+        (step > 1 ? '先日のご連絡について、必要な情報があればお知らせください。' : 'Stockwiseでは、在庫や発注で確認が必要な商品を一覧にできます。') + '\n' +
+        (showProduct ? '詳細はこちらです。\n' + settings.productUrl : '必要でしたら、画面の見本をお送りします。') +
+        '\n\n' + OPT_OUT_JA + '\n\n' + sender + (settings.senderAddress ? '\n' + settings.senderAddress : '');
     } else {
-      subject = (step > 1 ? 'Re: ' : '') + 'Inventory visibility for ' + company;
-      body = (name ? 'Hi ' + name : 'Hello') + ',\n\n' + basis[1] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
-        (step > 1 ? 'Following up on my earlier note.' : 'I am building Stockwise, a tool that helps small businesses see which inventory exceptions need attention today.') + '\n' +
-        (showProduct ? 'You can try a demo workspace (30-day free trial; the signup screens are currently in English):\n' + settings.productUrl + '\n' : 'If this is relevant, reply and I will send details.\n') +
-        '\nIf you do not want to hear from me, reply "unsubscribe" and I will not contact you again.\n\n' + sender + '\n' + settings.senderAddress;
+      subject = (step > 1 ? 'Re: ' : '') + 'Stock checks';
+      body = 'Hello,\n\n' + (basis[1] ? basis[1] + '\n\n' : '') + (opening && step === 1 ? opening + '\n\n' : '') +
+        (step > 1 ? 'Following up on the note below. I can send an example if useful.' : 'Stockwise brings stock issues and the items to check next into one view.') + '\n' +
+        (showProduct ? 'More details: '+settings.productUrl : 'If useful, we can send a short example.') +
+        '\n\n' + OPT_OUT_EN + '\n\n' + sender + (settings.senderAddress ? '\n' + settings.senderAddress : '');
     }
-    return { subject: subject, body: body, language: lang };
+    return {subject:subject,body:body,language:lang};
   }
   function bannedPhrases(text) { var t = String(text).toLowerCase(); return BANNED.filter(function (b) { return t.indexOf(b.toLowerCase()) >= 0; }); }
   function contentHash(subject, body, to) { return hash(normalizeEmail(to) + '\n' + subject + '\n' + body); }
@@ -140,9 +153,10 @@ var SalesCore = (function () {
     else if (!it.approved_hash || it.approved_hash !== contentHash(it.subject, it.body, it.to_email)) r.push('EDITED_AFTER_APPROVAL');
     if (normalizeEmail(it.to_email) !== normalizeEmail(lead.contact_email)) r.push('RECIPIENT_MISMATCH');
     if (!s.legalReviewCompleted) r.push('LEGAL_REVIEW_PENDING');
-    if (!s.senderName || !s.senderAddress) r.push('SENDER_IDENTITY_MISSING');
-    if (s.senderName && String(it.body).indexOf(s.senderName) < 0 || s.senderAddress && String(it.body).indexOf(s.senderAddress) < 0 || s.senderCompany && String(it.body).indexOf(s.senderCompany) < 0) r.push('SENDER_FOOTER_MISMATCH');
-    if (!/配信停止|unsubscribe/i.test(it.body)) r.push('NO_OPT_OUT_LINE');
+    if (!s.senderCompany || !s.senderAddress) r.push('SENDER_IDENTITY_MISSING');
+    if (s.senderAddress && String(it.body).indexOf(s.senderAddress) < 0 || s.senderCompany && String(it.body).indexOf(s.senderCompany) < 0) r.push('SENDER_FOOTER_MISMATCH');
+    if (!hasOptOutLine(it.body)) r.push('NO_OPT_OUT_LINE');
+    if (containsPersonalName(it.subject+' '+it.body,lead,s)) r.push('PERSONAL_NAME_IN_MESSAGE');
     if (bannedPhrases(it.subject + ' ' + it.body).length) r.push('BANNED_CLAIM');
     var el = leadEligibility(lead, s, ctx.sup).filter(function (x) { return x.indexOf('LEAD_STATUS_') !== 0 || x === 'LEAD_STATUS_DUPLICATE' || x === 'LEAD_STATUS_UNSUBSCRIBED' || x === 'LEAD_STATUS_BOUNCED' || x === 'LEAD_STATUS_REPLIED' || x === 'LEAD_STATUS_DO_NOT_CONTACT'; });
     r = r.concat(el);
@@ -205,6 +219,6 @@ var SalesCore = (function () {
     if (AUTO.some(function (k) { return body.indexOf(k) >= 0 || subj.indexOf(k) >= 0; })) return 'AUTO';
     return 'REPLY';
   }
-  return { TABLES: TABLES, companyResearchKey: companyResearchKey, planResearchCompanyImport: planResearchCompanyImport, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
+  return { TABLES: TABLES, companyResearchKey: companyResearchKey, planResearchCompanyImport: planResearchCompanyImport, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, hasOptOutLine: hasOptOutLine, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SalesCore;

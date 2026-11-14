@@ -24,3 +24,11 @@ test('a failed Sheets read-back is reported and never claimed successful',()=>{
  const w=world();w.deps.store.append=()=>{};
  assert.throws(()=>Engine.importResearchCompanies(w.deps,[candidate(1)]),/READBACK/);
 });
+test('SG and AU research candidates append beside Japanese records and never grant outreach consent',()=>{
+ const w=world(19);w.rows.push({...candidate(99),lead_id:'existing-jp',owner_notes:'Keep existing notes'});
+ const before=JSON.stringify(w.rows[0]);const batch=Array.from({length:20},(_,i)=>({...candidate(i),country:i<12?'SG':'AU'}));
+ assert.equal(Engine.importResearchCompanies(w.deps,batch).inserted,20);
+ assert.equal(Engine.importResearchCompanies(w.deps,batch).inserted,0);
+ assert.equal(w.rows.length,21);assert.equal(JSON.stringify(w.rows[0]),before);
+ for(const r of w.rows.slice(1)){assert.equal(r.status,'RESEARCH');assert.equal(r.contact_email,'');assert.equal(r.contact_name,'');assert.equal(r.contact_basis,'');}
+});
