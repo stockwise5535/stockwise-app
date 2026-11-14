@@ -8,7 +8,8 @@ import {execFileSync} from 'node:child_process';
 import {google} from 'googleapis';
 import {initAuth,getUserInfo} from './node_modules/@google/clasp/build/src/auth/auth.js';
 import {FILES, digest, canonical, hash, fromRemote, validateSource, validateTargets, authorizeWrite, encryptBackup, requireSafe, validateRemoteFileSet} from './safety.mjs';
-import {safeFailureCode,remoteSourceState,credentialMatchesCreator} from './diagnostics.mjs';
+import {safeFailureCode,remoteSourceState,credentialMatchesCreator,credentialAccountHint} from './diagnostics.mjs';
+import {inspectTestSheet} from './inspect-sheet.mjs';
 let deliveryStage='SETUP',mayHaveWritten=false;
 const stage = value => { deliveryStage=value; };
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -26,7 +27,7 @@ async function run() {
   requireSafe(['inspect','bootstrap','deploy'].includes(operation), 'INVALID_OPERATION');
   requireSafe(!env.DEBUG && !env.NODE_DEBUG, 'DEBUG_LOGGING_FORBIDDEN');
   const binding = validateTargets(env,target), bindingHash = hash(JSON.stringify(binding));
-  const source = await localSource(); validateSource(source);
+  const source = await localSource(); const checkedSource=validateSource(source);
   requireSafe(env.CLASP_AUTH_FILE && path.isAbsolute(env.CLASP_AUTH_FILE) && !path.resolve(env.CLASP_AUTH_FILE).startsWith(root), 'AUTH_FILE_MUST_BE_OUTSIDE_REPOSITORY');
   stage('AUTHENTICATE');
   const auth = await initAuth({authFilePath:env.CLASP_AUTH_FILE,userKey:'default'});
@@ -56,8 +57,14 @@ async function run() {
   console.log(`Source inspection: ${sourceState}. No functions executed.`);
   if(env.GITHUB_ACTIONS==='true') console.log(`::notice title=Apps Script source state::state=${sourceState};target=${target};may_have_written=false`);
   if(operation === 'inspect') {
-    const creatorMatch=credentialMatchesCreator(await getUserInfo(auth.credentials),metadata);
+    const user=await getUserInfo(auth.credentials);
+    const creatorMatch=credentialMatchesCreator(user,metadata);
+    if(env.GITHUB_ACTIONS==='true') console.log(`::notice title=Apps Script credential account::account_hint=${credentialAccountHint(user)};full_email=NOT_DISCLOSED`);
     if(env.GITHUB_ACTIONS==='true') console.log(`::notice title=Apps Script credential identity::matches_project_creator=${creatorMatch};personal_data=NOT_DISCLOSED`);
+    if(target==='test') {
+      const crm=await inspectTestSheet(google.sheets({version:'v4',auth:auth.credentials}),binding.parentId,checkedSource.SalesCore.TABLES.Leads);
+      if(env.GITHUB_ACTIONS==='true') console.log('::notice title=TEST CRM read-only::'+JSON.stringify(crm));
+    }
     console.log('Read-only inspection completed; encrypted backup and digest report saved. No Google writes.'); return;
   }
   stage('VERIFY_GUARDS');

@@ -3,7 +3,7 @@
   "target": "test",
   "bindingHash": "d9d851590594965c6e0d27acc4f75b98628f3ae9032340a8121a0b49588f61a1",
   "remoteDigest": "efcacc1d8cca4285ac61b4ed853251490f1d7bbd48f0d2f5620b8190e6c66e2a",
-  "approvedSourceDigest": "283706d3ef94522ce8774b237bc273168baf33a765a315b2f89a496d770a7efd",
+  "approvedSourceDigest": "329d51d62ffb3881363b9b480aea6efa84d934e047c86514406da04566c1584c",
   "settingsVerifiedOff": true,
   "manualEditsReconciled": true,
   "ownerGmailTestPreserved": true,
@@ -16,6 +16,7 @@
     "googleRuntimeExecution": "NOT_VERIFIED",
     "initializationFunction": "openTestResearchImport",
     "testImport": "Private CSV; TEST-only; 19 physical columns; exactly 20 distinct research companies; replay adds zero; Sheets read-back required.",
-    "productionSchema": "Header-based 17-column adapter locally tested; real production headers and production approval not yet verified."
+    "productionSchema": "Header-based 17-column adapter locally tested; real production headers and production approval not yet verified.",
+    "dashboard": "PR14 label/value separation included; strict formula mock rejects labels passed to setFormulas."
   }
 }

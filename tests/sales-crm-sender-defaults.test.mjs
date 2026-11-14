@@ -16,7 +16,8 @@ function world(settings,options={}){
     getFormulas:()=>Array.from({length:nr},(_,i)=>Array.from({length:nc},(_,j)=>formulas.get((r+i)+':'+(c+j))||'')),
     getValue:()=>rows[r-1]?.[c-1]??'',
     setValue(v){while(rows.length<r)rows.push([]);rows[r-1][c-1]=v;writes.push({sheet:name,row:r,col:c,value:v});return range;},
-    setFormulas(matrix){matrix.forEach((row,i)=>row.forEach((v,j)=>s.getRange(r+i,c+j).setValue(v)));return range;},
+    setValues(matrix){matrix.forEach((row,i)=>row.forEach((v,j)=>s.getRange(r+i,c+j).setValue(v)));return range;},
+    setFormulas(matrix){matrix.forEach((row,i)=>row.forEach((v,j)=>{if(v!==''&&!String(v).startsWith('='))throw Error('NON_FORMULA_PASSED_TO_SET_FORMULAS');s.getRange(r+i,c+j).setValue(v);}));return range;},
     setFontWeight:()=>range,setNumberFormat:()=>range,setDataValidation:()=>range};return range;},
    getDataRange:()=>s.getRange(1,1,Math.max(rows.length,1),Math.max(s.getLastColumn(),1)),
    appendRow(row){rows.push([...row]);writes.push({sheet:name,append:[...row]});},
@@ -146,4 +147,11 @@ test('private 20-company CSV imports to 19 columns and repeated execution adds z
  assert.equal(result.mailSent,0);
  for(const row of w.sheets.get('Leads').rows.slice(1)){assert.equal(row[5],'');assert.equal(row[10],'');assert.equal(row[11],'RESEARCH');}
  const again=w.ctx.verifyTestTwentyCompanyImport(csv);assert.equal(again.first.inserted,0);assert.equal(w.sheets.get('Leads').getLastRow(),21);
+});
+
+test('dashboard labels are literal values and only the calculation column receives formulas',()=>{
+ const w=world(null);w.ctx.initializeAndVerifyTestCrm();
+ const rows=w.sheets.get('Dashboard').rows;
+ assert.equal(rows[0][0],'Stockwise Sales CRM');assert.equal(rows[1][0],'Leads: total');
+ assert.ok(rows.slice(1).every(row=>String(row[1]).startsWith('=')));
 });
