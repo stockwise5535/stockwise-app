@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {safeFailureCode,remoteSourceState,credentialMatchesCreator} from './diagnostics.mjs';
+import {safeFailureCode,remoteSourceState,credentialMatchesCreator,credentialAccountHint} from './diagnostics.mjs';
 test('only fixed error labels are exposed, never credentials, URLs or arbitrary upper-case text',()=>{
  const secret='SENSITIVE_ACCESS_TOKEN_DO_NOT_PRINT';
  for(const e of [new Error(secret),new Error('https://host/?sig='+secret),{stderr:Buffer.from(secret)},{}]){
@@ -28,4 +28,11 @@ test('credential owner comparison reveals only a boolean, never an email',()=>{
  assert.equal(credentialMatchesCreator({email:'owner@example.test'},{createUser:{email:'OWNER@example.test'}}),'true');
  assert.equal(credentialMatchesCreator({email:'other@example.test'},{createUser:{email:'owner@example.test'}}),'false');
  assert.equal(credentialMatchesCreator(undefined,{}),'unknown');
+});
+
+test('account hint helps distinguish Google profiles without exposing the full address',()=>{
+ assert.equal(credentialAccountHint({email:'stockwise-private@gmail.com'}),'st***@gmail.com');
+ assert.equal(credentialAccountHint({email:'ab@gmail.com'}),'***@gmail.com');
+ assert.equal(credentialAccountHint({email:'evil\n::error@gmail.com'}),'unavailable');
+ assert.equal(credentialAccountHint(undefined),'unavailable');
 });

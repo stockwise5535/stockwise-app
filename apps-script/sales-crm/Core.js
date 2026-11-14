@@ -160,6 +160,34 @@ var SalesCore = (function () {
     if (ctx.sentThisRun >= s.runLimit) r.push('RUN_LIMIT_REACHED');
     return r;
   }
+  function companyResearchKey(row) {
+    return String(row.country || '').trim().toUpperCase() + '#' + String(row.company || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+  function planResearchCompanyImport(existing, candidates, headers, timestamp) {
+    if (!Array.isArray(headers) || [17, 19, 21].indexOf(headers.length) < 0 || headers.some(function (h, i) { return TABLES.Leads.indexOf(h) < 0 || headers.indexOf(h) !== i; }) ||
+      ['lead_id','company','country','source_url','status'].some(function (h) { return headers.indexOf(h) < 0; })) throw new Error('UNSUPPORTED_COMPANY_HEADER_MAPPING');
+    if (!Array.isArray(candidates) || candidates.length < 1 || candidates.length > 20) throw new Error('IMPORT_BATCH_LIMIT');
+    var seen = {}, existingCounts = {}, expected = [], appendRows = [], skipped = 0;
+    existing.forEach(function (row) { if (row.company) { var key = companyResearchKey(row); seen[key] = true; existingCounts[key] = (existingCounts[key] || 0) + 1; } });
+    candidates.forEach(function (row) {
+      var company = String(row.company || '').trim(), country = String(row.country || '').trim().toUpperCase();
+      if (!company || company.length > 200 || /^[=+@-]/.test(company) || ['JP','SG','AU'].indexOf(country) < 0 ||
+        !/^https:\/\/[^\s]+$/i.test(String(row.source_url || '')) || String(row.source_url).length > 2048) throw new Error('INVALID_RESEARCH_CANDIDATE');
+      var key = companyResearchKey({company:company,country:country});
+      if (expected.indexOf(key) < 0) expected.push(key);
+      if (existingCounts[key] > 1) throw new Error('EXISTING_COMPANY_DUPLICATES_REQUIRE_REVIEW');
+      if (seen[key]) { skipped++; return; }
+      if (existing.some(function (old) { return !old.country && companyResearchKey({company:old.company,country:country}) === key; })) throw new Error('AMBIGUOUS_EXISTING_COMPANY');
+      var full = {lead_id:'R-'+hash(key),company:company,country:country,domain:String(row.domain || ''),website:String(row.website || ''),
+        source_url:String(row.source_url),segment:String(row.segment || ''),industry:String(row.industry || ''),status:'RESEARCH',
+        contact_name:'',contact_email:'',contact_basis:'',created_at:timestamp,updated_at:timestamp,owner_notes:'Research only; outreach not approved.'};
+      Object.keys(full).forEach(function (name) { if (typeof full[name] === 'string' && /^[=+@-]/.test(full[name])) throw new Error('UNSAFE_SHEET_VALUE'); });
+      var mapped = {};headers.forEach(function (name) { mapped[name] = full[name] === undefined ? '' : full[name]; });
+      appendRows.push(mapped);seen[key] = true;
+    });
+    return {appendRows:appendRows,expectedKeys:expected,requested:candidates.length,skipped:skipped};
+  }
+
   function stripQuoted(body) {
     var out = [], lines = String(body || '').split(/\r?\n/);
     for (var i = 0; i < lines.length; i++) {
@@ -177,6 +205,6 @@ var SalesCore = (function () {
     if (AUTO.some(function (k) { return body.indexOf(k) >= 0 || subj.indexOf(k) >= 0; })) return 'AUTO';
     return 'REPLY';
   }
-  return { TABLES: TABLES, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
+  return { TABLES: TABLES, companyResearchKey: companyResearchKey, planResearchCompanyImport: planResearchCompanyImport, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SalesCore;

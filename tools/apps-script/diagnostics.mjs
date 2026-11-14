@@ -36,6 +36,14 @@ export function remoteSourceState(remoteDigest,sourceDigest,reviewedRemoteDigest
 }
 
 export function credentialMatchesCreator(user, metadata) {
- const actor=user?.email,creator=metadata?.createUser?.email;
+ const actor=user?.email,creator=metadata?.creator?.email || metadata?.createUser?.email;
  return actor && creator ? String(actor).trim().toLowerCase()===String(creator).trim().toLowerCase()?'true':'false':'unknown';
+}
+
+export function credentialAccountHint(user) {
+ const email=user?.email;
+ if(typeof email!=='string'||!/^([^@\s]+)@([A-Za-z0-9.-]+)$/.test(email))return 'unavailable';
+ const [local,domain]=email.split('@');
+ const prefix=local.length>2?local.slice(0,2).replace(/[^A-Za-z0-9]/g,'*'):'';
+ return prefix+'***@'+domain.toLowerCase();
 }

@@ -155,6 +155,18 @@ var SalesEngine = (function () {
     return { drafts: made };
   }
 
+  function importResearchCompanies(deps, candidates) {
+    if (!deps.store.headers) throw new Error('ACTUAL_SHEET_HEADERS_REQUIRED');
+    var core = C(), before = deps.store.rows('Leads');
+    var plan = core.planResearchCompanyImport(before, candidates, deps.store.headers('Leads'), iso(deps.now()));
+    plan.appendRows.forEach(function (row) { deps.store.append('Leads', row); });
+    if (deps.store.flush) deps.store.flush();
+    var after = deps.store.rows('Leads'), counts = {};
+    after.forEach(function (row) { var key = core.companyResearchKey(row); if (plan.expectedKeys.indexOf(key) >= 0) counts[key] = (counts[key] || 0) + 1; });
+    if (plan.expectedKeys.some(function (key) { return counts[key] !== 1; })) throw new Error('CRM_READBACK_COUNT_OR_DUPLICATE_MISMATCH');
+    return {requested:plan.requested,inserted:plan.appendRows.length,skipped:plan.skipped,matchedAfter:plan.expectedKeys.length,totalRowsAfter:after.length,approvedToEmail:false};
+  }
+
   function dailySummary(deps) {
     var day = deps.localParts(deps.now()).day, counts = {};
     deps.store.rows('ActivityLog').forEach(function (row) {
@@ -177,6 +189,6 @@ var SalesEngine = (function () {
       ['Signup journey verified (product link)', s.signupVerified ? 'yes' : 'no (emails omit product link)'], ['Daily limit', String(s.dailyLimit)]];
     return items.map(function (i) { return i[0] + ': ' + i[1]; }).join('\n');
   }
-  return { dedupeLeads: dedupeLeads, generateDrafts: generateDrafts, snapshotApprovals: snapshotApprovals, processQueue: processQueue, checkReplies: checkReplies, scheduleFollowUps: scheduleFollowUps, safetyReport: safetyReport, dailySummary: dailySummary, loadSettings: loadSettings };
+  return { dedupeLeads: dedupeLeads, generateDrafts: generateDrafts, snapshotApprovals: snapshotApprovals, processQueue: processQueue, checkReplies: checkReplies, scheduleFollowUps: scheduleFollowUps, safetyReport: safetyReport, dailySummary: dailySummary, importResearchCompanies: importResearchCompanies, loadSettings: loadSettings };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SalesEngine;
