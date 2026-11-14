@@ -1,0 +1,28 @@
+name: Research ledger recheck (read-only, manual)
+# Re-checks that already-known research candidates still exist (one GET each, capped). It does NOT discover new companies,
+# touch the CRM, send mail or use any secret. Manual start only: tests/integration-release.test.js allows time-based triggers
+# for approved workflows only, so adding a timer here needs that guard to be extended by Codex/the owner first.
+# Also OFF until the repository variable below is 'true'. Failed runs notify the owner through GitHub's default run-failure emails.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: stockwise-research-recheck
+  cancel-in-progress: false
+jobs:
+  recheck:
+    if: vars.STOCKWISE_RESEARCH_CYCLE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Run one read-only cycle (results only in the job log; ledger is not written back)
+        env:
+          NEXOPS_RESEARCH_EMERGENCY_STOP: ${{ vars.NEXOPS_RESEARCH_EMERGENCY_STOP }}
+        run: node scripts/sales-research-cycle.mjs --out "$RUNNER_TEMP/research"

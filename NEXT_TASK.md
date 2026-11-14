@@ -1,3 +1,19 @@
+## Current handoff — 2026-11-14 (0006 review)
+
+main `10e0a86` already contains PR #13. The 0006 research cycle is being reviewed
+on `codex/review-0006-sales-research`, not merged or enabled. See
+`docs/SALES_RESEARCH_CYCLE.md`. Keep the existing CRM importer and schedule guards.
+The ZIP's 20 candidates are distinct from the TEST CRM's existing 20 companies.
+Do not import the ZIP's B/C candidates or replay its old TEST CSV blindly.
+The TEST CRM already contains 20 companies and 20 unapproved, BLOCKED drafts;
+five drafts have publicly sourced candidate email addresses. Sending and follow-up
+remain FALSE. Sheets connector access and the Gmail sender identity were verified,
+but these are not proof that Apps Script runtime sending/opt-out tests passed.
+This review does not write CRM data, send mail, enable a schedule, deploy or migrate.
+0005 measurement integration remains incomplete; no matching patch was supplied.
+
+Historical environment notes below are not current connection or CRM state.
+
 ## Current Apps Script rollout — 2026-11-08
 
 Existing PR #9 now contains the pushed feature branch feat/apps-script-sales-crm-gmail-bridge-20261107. Keep previous operational notes below as history; do not infer current production state from them.
