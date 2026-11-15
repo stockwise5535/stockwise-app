@@ -1,0 +1,48 @@
+name: NexOps issue dispatcher (read-only dry run)
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Existing issue to inspect (no execution)
+        required: true
+        type: string
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: nexops-dispatch-${{ github.event.issue.number || inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'nexops:run-requested')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NEXOPS_AI_EXECUTION_ENABLED: 'false'
+      NEXOPS_AI_EMERGENCY_STOP: 'true'
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Validate parser and fail-closed behavior
+        run: node --test tests/nexops-issue-validator.test.mjs tests/nexops-dispatch-workflow.test.mjs
+      - name: Read and validate request; never execute
+        env:
+          NEXOPS_RECEIPT_PATH: ${{ runner.temp }}/nexops-phase-a-receipt.json
+        run: node scripts/nexops-issue-dispatch.mjs
+      - name: Upload synthetic-safe read-only receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nexops-phase-a-${{ github.run_id }}
+          path: ${{ runner.temp }}/nexops-phase-a-receipt.json
+          if-no-files-found: ignore
+          retention-days: 7
