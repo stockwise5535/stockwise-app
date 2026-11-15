@@ -213,7 +213,7 @@ function sendTestToOwner() {
   ensureLoaded_();
   var me = Session.getEffectiveUser().getEmail(), s = SalesEngine.loadSettings(deps_());
   var sample = SalesCore.buildEmail({ company: 'Sample Co', contact_name: 'Test', country: 'JP', contact_basis: 'PUBLISHED_BUSINESS_CONTACT', source_url: 'https://example.com' }, s, 1);
-  GmailApp.sendEmail(me, '[TEST] ' + sample.subject, sample.body, { name: s.senderName || undefined });
+  GmailApp.sendEmail(me, '[TEST] ' + sample.subject, sample.body, { name: s.senderCompany || undefined });
   deps_().store.append('ActivityLog', { timestamp: new Date().toISOString(), event: 'TEST_SENT_TO_OWNER', lead_id: '', queue_id: '', detail: 'owner only' });
   toast_('Test sent to ' + me);
 }

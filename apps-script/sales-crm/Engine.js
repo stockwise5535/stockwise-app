@@ -32,7 +32,7 @@ var SalesEngine = (function () {
     deps.store.rows('Leads').forEach(function (l) {
       if (l.status !== 'NEW' && l.status !== 'REVIEW_NEEDED') return;
       var reasons = core.leadEligibility(l, s, sup);
-      if (!s.senderName || !s.senderAddress) reasons.push('SENDER_IDENTITY_MISSING');
+      if (!s.senderCompany || !s.senderAddress) reasons.push('SENDER_IDENTITY_MISSING');
       if (reasons.length) { deps.store.update('Leads', l._row, { status: 'REVIEW_NEEDED', eligibility_note: reasons.join(','), updated_at: now }); held++; return; }
       var key = core.sendKey(l.lead_id, 1); if (queue.some(function (q) { return q.send_key === key; })) return;
       var m = core.buildEmail(l, s, 1), qid = 'Q-' + deps.id();
@@ -85,7 +85,7 @@ var SalesEngine = (function () {
       // Mark SENDING first: a crash after this point can never cause an automatic second send.
       deps.store.update('EmailQueue', q._row, { status: 'SENDING', attempts: Number(q.attempts || 0) + 1, blocked_reason: '' }); q.status = 'SENDING';
       try {
-        var out = deps.mail.send({ to: q.to_email, subject: q.subject, body: q.body, name: s.senderName, replyTo: s.replyTo });
+        var out = deps.mail.send({ to: q.to_email, subject: q.subject, body: q.body, name: s.senderCompany, replyTo: s.replyTo });
         if (!out || !out.threadId || !out.messageId) throw new Error('GMAIL_RECEIPT_MISSING');
         var t = iso(deps.now());
         deps.store.update('EmailQueue', q._row, { status: 'SENT', sent_at: t, gmail_thread_id: out.threadId, gmail_message_id: out.messageId, error: '' }); q.status = 'SENT'; q.sent_at = t;

@@ -2,13 +2,13 @@
   "status": "reviewed",
   "target": "test",
   "bindingHash": "d9d851590594965c6e0d27acc4f75b98628f3ae9032340a8121a0b49588f61a1",
-  "remoteDigest": "efcacc1d8cca4285ac61b4ed853251490f1d7bbd48f0d2f5620b8190e6c66e2a",
-  "approvedSourceDigest": "329d51d62ffb3881363b9b480aea6efa84d934e047c86514406da04566c1584c",
+  "remoteDigest": "329d51d62ffb3881363b9b480aea6efa84d934e047c86514406da04566c1584c",
+  "approvedSourceDigest": "5747f51887160e2253a6b47fdeeb81b342b9a8b7c3573cfe1315b164f555e532",
   "settingsVerifiedOff": true,
   "manualEditsReconciled": true,
   "ownerGmailTestPreserved": true,
   "evidence": {
-    "source": "user-export-matches-inspect-42545311161",
+    "source": "TEST source read-back verified by successful workflow 43615216945",
     "legacyEntryPointUnchanged": true,
     "manifestUnchanged": true,
     "existingOwnerGmailTestPresent": false,
@@ -17,6 +17,7 @@
     "initializationFunction": "openTestResearchImport",
     "testImport": "Private CSV; TEST-only; 19 physical columns; exactly 20 distinct research companies; replay adds zero; Sheets read-back required.",
     "productionSchema": "Header-based 17-column adapter locally tested; real production headers and production approval not yet verified.",
-    "dashboard": "PR14 label/value separation included; strict formula mock rejects labels passed to setFormulas."
+    "dashboard": "PR14 label/value separation included; strict formula mock rejects labels passed to setFormulas.",
+    "copyPreferences": "No personal names in generated copy or sender display; company and address retained; natural reply-based opt-out retained. Existing drafts and approvals are not rewritten."
   }
 }
