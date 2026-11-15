@@ -1,9 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync, unlinkSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync, unlinkSync, realpathSync, lstatSync, renameSync, fsyncSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { validateRequest, RUN_LABEL } from './nexops-issue-validator.mjs';
+import { validateRequest } from './nexops-issue-validator.mjs';
 
 const REPOSITORY = 'stockwise5535/stockwise-app';
 const ISSUE_MAX = 999999999;
@@ -41,10 +40,12 @@ export function sanitizeReceipt(validation, issueNumber) {
 }
 export function collectHandoff({ issueNumber, repository = REPOSITORY, get = runGh, stop = true }) {
   if (repository !== REPOSITORY) throw new Error('WRONG_REPOSITORY');
+  parseIssueNumber(String(issueNumber));
   const user = parseGhJson(get(['api', 'user']));
   const login = user.login;
   if (typeof login !== 'string' || !/^[A-Za-z0-9-]{1,39}$/.test(login)) throw new Error('GITHUB_IDENTITY_INVALID');
   const issue = parseGhJson(get(['api', `repos/${repository}/issues/${issueNumber}`]));
+  if (issue.number !== issueNumber) throw new Error('GITHUB_ISSUE_MISMATCH');
   const access = parseGhJson(get(['api', `repos/${repository}/collaborators/${login}/permission`]));
   const validation = validateRequest({
     repository, expectedRepository: REPOSITORY, eventName: 'workflow_dispatch',
@@ -53,23 +54,43 @@ export function collectHandoff({ issueNumber, repository = REPOSITORY, get = run
   return sanitizeReceipt(validation, issueNumber);
 }
 export function storeReceipt(stateDir, receipt) {
-  const digest = createHash('sha256').update(JSON.stringify(receipt)).digest('hex');
-  const path = join(stateDir, `issue-${receipt.issueNumber}.json`);
-  let previous;
-  if (existsSync(path)) {
-    try { previous = JSON.parse(readFileSync(path, 'utf8')); } catch { throw new Error('INVALID_LEDGER'); }
+  parseIssueNumber(String(receipt.issueNumber));
+  // Rejections must never erase a previously validated revision's replay history.
+  if (receipt.status !== 'VALIDATED_DRY_RUN') return { ...receipt, duplicate: false };
+  const validKey = key => typeof key === 'string' && /^[a-f0-9]{64}$/.test(key);
+  if (!validKey(receipt.idempotencyKey)) throw new Error('INVALID_RECEIPT');
+  if (!lstatSync(stateDir).isDirectory() || lstatSync(stateDir).isSymbolicLink()) throw new Error('INVALID_STATE_DIRECTORY');
+  const ledgerPath = join(stateDir, `issue-${receipt.issueNumber}.json`);
+  let seen = [];
+  if (existsSync(ledgerPath)) {
+    if (!lstatSync(ledgerPath).isFile() || lstatSync(ledgerPath).isSymbolicLink()) throw new Error('INVALID_LEDGER');
+    let previous;
+    try {
+      const raw = readFileSync(ledgerPath, 'utf8');
+      if (raw.length > 1_000_000) throw new Error('oversized');
+      previous = JSON.parse(raw);
+    } catch { throw new Error('INVALID_LEDGER'); }
+    if (previous.issueNumber !== receipt.issueNumber || !validKey(previous.idempotencyKey)) throw new Error('INVALID_LEDGER');
+    if (previous.schemaVersion === undefined) seen = [previous.idempotencyKey];
+    else if (previous.schemaVersion === 2 && Array.isArray(previous.seenIdempotencyKeys) &&
+      previous.seenIdempotencyKeys.length <= 4096 && previous.seenIdempotencyKeys.every(validKey) &&
+      new Set(previous.seenIdempotencyKeys).size === previous.seenIdempotencyKeys.length &&
+      previous.seenIdempotencyKeys.includes(previous.idempotencyKey)) seen = previous.seenIdempotencyKeys;
+    else throw new Error('INVALID_LEDGER');
   }
-  const duplicate = !!(previous && previous.idempotencyKey && previous.idempotencyKey === receipt.idempotencyKey);
-  if (!duplicate) {
-    const temp = join(stateDir, `.${receipt.issueNumber}-${process.pid}.tmp`);
-    writeFileSync(temp, JSON.stringify({ ...receipt, receivedAt: new Date().toISOString() }, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-    const { renameSync } = requireFs();
-    renameSync(temp, path);
-  }
-  return { ...receipt, duplicate };
+  if (seen.includes(receipt.idempotencyKey)) return { ...receipt, duplicate: true };
+  if (seen.length >= 4096) throw new Error('LEDGER_CAPACITY_REQUIRES_REVIEW');
+  const record = { ...receipt, schemaVersion: 2, seenIdempotencyKeys: [...seen, receipt.idempotencyKey], receivedAt: new Date().toISOString() };
+  const temp = join(stateDir, `.${receipt.issueNumber}-${process.pid}.tmp`);
+  let fd;
+  try {
+    fd = openSync(temp, 'wx', 0o600);
+    writeFileSync(fd, JSON.stringify(record, null, 2) + '\n');
+    fsyncSync(fd);
+  } finally { if (fd !== undefined) closeSync(fd); }
+  renameSync(temp, ledgerPath);
+  return { ...receipt, duplicate: false };
 }
-function requireFs() { return fsOps; }
-import * as fsOps from 'node:fs';
 
 export function localCodexProbe(get = runGh) {
   try {

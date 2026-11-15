@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseIssueNumber, collectHandoff, storeReceipt, withLock, main } from '../scripts/nexops-local-worker.mjs';
@@ -47,15 +47,63 @@ test('malicious username or permission denied fails closed', () => {
 test('ledger preserves same revision rather than repeating the handoff', () => {
   const dir = mkdtempSync(join(tmpdir(),'nexops-test-'));
   try {
-    const receipt = { issueNumber:23,idempotencyKey:'a',status:'VALIDATED_DRY_RUN' };
+    const receipt = { issueNumber:23,idempotencyKey:'a'.repeat(64),status:'VALIDATED_DRY_RUN' };
     assert.equal(storeReceipt(dir,receipt).duplicate,false);
     assert.equal(storeReceipt(dir,receipt).duplicate,true);
-    assert.equal(JSON.parse(readFileSync(join(dir,'issue-23.json'),'utf8')).idempotencyKey,'a');
-    assert.equal(storeReceipt(dir,{...receipt,idempotencyKey:'b'}).duplicate,false);
+    assert.equal(JSON.parse(readFileSync(join(dir,'issue-23.json'),'utf8')).idempotencyKey,'a'.repeat(64));
+    assert.equal(storeReceipt(dir,{...receipt,idempotencyKey:'b'.repeat(64)}).duplicate,false);
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
 test('second lock fails closed; crash leftovers require manual recovery', () => {
   const dir = mkdtempSync(join(tmpdir(),'nexops-lock-'));
   try { withLock(dir,()=>assert.throws(()=>withLock(dir,()=>{}),/WORKER_ALREADY_RUNNING/)); }
   finally {rmSync(dir,{recursive:true,force:true});}
+});
+
+test('reverting a valid revision and interleaving a blocked request cannot reset replay history',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'nexops-history-'));
+ try{const a={issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'a'.repeat(64)};
+ assert.equal(storeReceipt(dir,a).duplicate,false);
+ storeReceipt(dir,{...a,idempotencyKey:'b'.repeat(64)});
+ assert.equal(storeReceipt(dir,a).duplicate,true);
+ storeReceipt(dir,{issueNumber:23,status:'BLOCKED',reason:'EMERGENCY_STOP'});
+ assert.equal(storeReceipt(dir,a).duplicate,true);
+ const state=JSON.parse(readFileSync(join(dir,'issue-23.json'),'utf8'));assert.equal(state.seenIdempotencyKeys.length,2);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('legacy receipt migrates without losing its previous valid revision',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'nexops-migration-'));
+ try{const a={issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'a'.repeat(64)};
+ writeFileSync(join(dir,'issue-23.json'),JSON.stringify(a),{mode:0o600});
+ storeReceipt(dir,{...a,idempotencyKey:'b'.repeat(64)});
+ assert.equal(storeReceipt(dir,a).duplicate,true);
+ assert.equal(JSON.parse(readFileSync(join(dir,'issue-23.json'),'utf8')).schemaVersion,2);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('malformed history fails closed rather than being overwritten',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'nexops-invalid-'));
+ try{const file=join(dir,'issue-23.json'),raw=JSON.stringify({issueNumber:24,idempotencyKey:'a'.repeat(64)});writeFileSync(file,raw);
+ assert.throws(()=>storeReceipt(dir,{issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'b'.repeat(64)}),/INVALID_LEDGER/);
+ assert.equal(readFileSync(file,'utf8'),raw);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('mismatched issue response is blocked before any handoff receipt',()=>{
+ const get=args=>JSON.stringify(args[1]==='user'?{login:'operator'}:{number:24});
+ assert.throws(()=>collectHandoff({issueNumber:23,stop:false,get}),/GITHUB_ISSUE_MISMATCH/);
+});
+
+test('receipt symlinks never read or overwrite their external target',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'nexops-symlink-'));
+ try{const target=join(dir,'unrelated.json');writeFileSync(target,'private data');symlinkSync(target,join(dir,'issue-23.json'));
+ assert.throws(()=>storeReceipt(dir,{issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'a'.repeat(64)}),/INVALID_LEDGER/);
+ assert.equal(readFileSync(target,'utf8'),'private data');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('ledger capacity stops rather than evicting old replay protection',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'nexops-capacity-'));
+ try{const seen=Array.from({length:4096},(_,i)=>i.toString(16).padStart(64,'0'));const file=join(dir,'issue-23.json');
+ const raw=JSON.stringify({issueNumber:23,schemaVersion:2,idempotencyKey:seen[4095],seenIdempotencyKeys:seen});writeFileSync(file,raw);
+ assert.throws(()=>storeReceipt(dir,{issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'f'.repeat(64)}),/LEDGER_CAPACITY/);
+ assert.equal(readFileSync(file,'utf8'),raw);
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });

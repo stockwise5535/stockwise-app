@@ -27,3 +27,29 @@ Do not paste raw `gh auth status`, CLI config files, tokens or customer data int
 6. Configure Mac access through an operator-controlled setup; a cloud GitHub connector cannot access a user's local Mac or turn on launchd.
 
 **Release verdict:** Phase A and B are useful preproduction components but the autonomous production executor is **NOT READY**.
+
+## Verification and hardening — 2026-11-15
+
+Reviewed actual Phase A head `147bb53` and Phase B head `7ba81f8`.
+The reported 26 combined validator/worker/readiness cases were reproduced in
+Cloud Linux, not on the user's Mac. Unit 60 and Sales 218 also passed; Build passed.
+Both PRs have the same two unrelated Vercel project failures as the current main;
+`stockwise-app-1qz9` and `y` previews pass. These statuses do not verify a Mac worker.
+
+Added requested-Issue/returned-Issue binding and all-seen revision replay history,
+including A→B→A and rejection-interleaving cases. Existing latest-receipt data is
+migrated without resetting its prior key; corrupt/symlinked/oversized/capacity state
+stops instead of erasing history. Historical revisions already discarded by the
+old prototype cannot be recovered from that file. No production executor exists.
+
+Final local checks: 32 NexOps cases (13 validator, 14 worker, 5 readiness),
+60 Unit cases and 218 Sales cases passed; production Build and source/dist secret
+scan passed. No full browser suite rerun: this change has no browser/UI code.
+No main merge, Production deployment, Mac daemon, Codex/Claude execution,
+new provider credentials, email/SNS/CRM/database change or billing activation.
+Mac real authentication, plan entitlement and sandbox smoke test remain unverified.
+
+Added PR-only/manual `NexOps safety tests` CI; it uses synthetic fixtures and no
+provider secrets or schedules. Hosted result is checked separately after push.
+Issue dispatcher file is not yet on main, despite appearing in workflow listings;
+that listing alone does not establish a live issue-triggered production service.

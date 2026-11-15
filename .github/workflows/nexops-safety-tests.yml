@@ -1,0 +1,29 @@
+name: NexOps safety tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/nexops-*.mjs'
+      - 'tests/nexops-*.test.mjs'
+      - '.github/workflows/nexops-safety-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nexops-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Validate read-only NexOps gates with synthetic fixtures
+        run: node --test tests/nexops-issue-validator.test.mjs tests/nexops-local-worker.test.mjs tests/nexops-readiness.test.mjs
+      - name: Validate script syntax without running an agent
+        run: |
+          node --check scripts/nexops-issue-validator.mjs
+          node --check scripts/nexops-issue-dispatch.mjs
+          node --check scripts/nexops-local-worker.mjs
+          node --check scripts/nexops-readiness.mjs

@@ -5,7 +5,7 @@ Depends on the unmerged **Phase A Draft PR #24**. This Phase B is a separate sta
 ## Scope implemented
 - `scripts/nexops-local-worker.mjs`: single, explicit `--once ISSUE_NUMBER` request only (no daemon, polling schedule, launchd or AI execution).
 - Uses the authenticated local GitHub CLI (`gh api`) to read the current GitHub user, target Issue, and repository collaborator permission; invokes the strict Phase A validation path. All user-supplied Issue content remains untrusted.
-- Writes a sanitized local receipt under `~/.nexops/local-worker` with mode `0600`, a single-worker lock with `0600`, and deterministic last-revision duplicate detection. **No outbound GitHub writes**, no PRs, no email, no CRM, no SNS, no deployment and no Codex invocation.
+- Writes a sanitized local receipt under `~/.nexops/local-worker` with mode `0600`, a single-worker lock with `0600`, and bounded persistent all-seen-revision duplicate detection. **No outbound GitHub writes**, no PRs, no email, no CRM, no SNS, no deployment and no Codex invocation.
 - `localCodexProbe()` checks only whether `codex --version` exists (not authentication, subscription, headless support, quotas or actual invocation); that probe is **not** invoked by default and must not be represented as working agent automation.
 - Permission / identity / network error → BLOCKED. No credentials stored by the worker.
 
@@ -35,7 +35,7 @@ After a separate explicit decision to inspect a **synthetic, opted-in test Issue
 ## Known limits / follow-on work
 1. This is a **manual, read-only handoff prototype**, not a fully functional background polling daemon and not a Codex agent launcher. Mac access is not available to the authoring environment; local CLI auth is not verified.
 2. A stale lock file after unclean termination can block future runs. Remove it only after verifying there is no active worker.
-3. Receipt ledger stores only the last seen revision per Issue, not durable exactly-once history. Do not enable autonomous task execution until a transactional immutable ledger and replay protection exist.
+3. Receipt ledger now retains all seen valid revision keys (up to 4096 per Issue), migrates the previous receipt format without erasing its key, preserves history on blocked reads, and fails closed on malformed/oversized/symlinked state or capacity. This is a read-only handoff receipt ledger, not a transactional execution/approval ledger; unrecorded older history cannot be reconstructed and safe autonomous execution still requires a separate design.
 4. Account quota and Mac security posture must be checked before any automatic use. A paid ChatGPT subscription does not automatically prove no-cost unattended Codex access.
 5. Future local Codex integration must independently verify official CLI, authenticated account, supported noninteractive mode, resource/path allowlists, isolated worktree, operator consent, and no production secrets; otherwise use a manual Codex handoff.
 6. Claude Code is not installed, configured or invoked by this worker and must not be assumed free.
