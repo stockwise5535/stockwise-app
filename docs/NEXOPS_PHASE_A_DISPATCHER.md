@@ -78,3 +78,9 @@ to the read/validate step, where runner context is supported; artifact path and
 read-only permissions are unchanged. Added three workflow-safety regression tests
 (16 Phase A tests total). Existing Issue23 remains a specification, not a runnable
 task; no label/body/permissions or execution switches were changed.
+
+Live manual run 43739810101 on `ecdf0f7` completed all steps successfully, including
+receipt artifact upload. Added fixed-field receipt annotations for API-visible
+status without retrieving raw logs or Issue text; two subprocess tests exercise
+receipt persistence, emergency-stop, missing-label and denied-read paths.
+Phase A focused suite now has 18 cases; execution remains disabled.
