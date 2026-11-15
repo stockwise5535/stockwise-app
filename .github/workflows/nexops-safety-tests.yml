@@ -27,3 +27,6 @@ jobs:
           node --check scripts/nexops-issue-dispatch.mjs
           node --check scripts/nexops-local-worker.mjs
           node --check scripts/nexops-readiness.mjs
+          node --check scripts/nexops-job.mjs
+          node --check scripts/nexops-executor.mjs
+          node --check scripts/nexops-launchd.mjs
