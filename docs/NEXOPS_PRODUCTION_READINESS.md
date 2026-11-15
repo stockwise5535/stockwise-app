@@ -80,3 +80,19 @@ not satisfy the subscription-only gate. Focused NexOps tests now total 35 passin
 Next is one fixed-prompt, isolated, read-only Codex smoke run, using the existing
 ChatGPT/Codex allowance. No API key, new subscription, production credential,
 Issue-driven task, daemon or real external communication is needed.
+
+## Owner-provided Mac Codex smoke result — 2026-11-15
+
+The owner supplied `{"smokePassed":true,"reason":"OK","workerEnabled":false}`
+from the fixed-prompt smoke command. Codex returned the exact expected reply in
+a fresh Mac directory with read-only sandbox, ChatGPT authentication forced,
+OpenAI API-key/base-URL environment variables removed for that child, and shell,
+web, app and MCP tools disabled by configuration. No Issue content was executed.
+This establishes one successful noninteractive Codex response using the existing
+account allowance; it does not establish remaining quota, service availability,
+background scheduling, arbitrary task safety, PR delivery or production readiness.
+
+Mac CLI availability, CLI ChatGPT login and this bounded response are now
+owner-observed PASS checkpoints. The unattended execution/approval loop and PR
+result reporting remain unimplemented; both PRs remain unmerged and no worker,
+daemon, mail, SNS, database or production deployment was activated.
