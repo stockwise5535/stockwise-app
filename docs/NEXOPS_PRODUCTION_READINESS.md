@@ -67,3 +67,16 @@ result: no authenticated/entitled Codex smoke test or production executor has
 been established. No daemon, agent execution or outgoing communication was run
 by the diagnostic. Next check: capture codex login status as sanitized booleans
 and authentication type only; do not paste raw credential/config output.
+
+## Owner-provided Codex login check — 2026-11-15
+
+The owner supplied sanitized output: authenticated=true, method=CHATGPT,
+aiExecuted=false. Subscription-based CLI login is present on the Mac; this does
+not establish remaining quota, plan entitlement, noninteractive sandbox success
+or autonomous worker readiness. The readiness probe now distinguishes ChatGPT,
+API-key and failed/unknown login without exposing raw output. API-key login does
+not satisfy the subscription-only gate. Focused NexOps tests now total 35 passing.
+
+Next is one fixed-prompt, isolated, read-only Codex smoke run, using the existing
+ChatGPT/Codex allowance. No API key, new subscription, production credential,
+Issue-driven task, daemon or real external communication is needed.

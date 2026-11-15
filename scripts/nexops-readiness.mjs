@@ -61,7 +61,16 @@ export function assessReadiness({ root, runner = spawnSync, platform = process.p
     const auth = runner('gh', ['auth', 'status'], { shell: false, encoding: 'utf8', timeout: MAX_MS, maxBuffer: MAX_OUTPUT });
     report.githubAuthentication = auth.status === 0 && !auth.error ? 'CLI_AUTH_PRESENT_UNSCOPED' : 'NOT_VERIFIED';
   }
-  report.blockers.push('CODEX_AUTH_AND_ENTITLEMENTS_UNVERIFIED');
+  if (report.commands.codex) {
+    const auth = runner('codex', ['login', 'status'], { shell: false, encoding: 'utf8', timeout: MAX_MS, maxBuffer: MAX_OUTPUT });
+    const text = String(auth.stdout || '') + '\n' + String(auth.stderr || '');
+    if (auth.status === 0 && !auth.error) {
+      report.codexAuthentication = /chatgpt/i.test(text) ? 'CHATGPT_CLI_AUTH_PRESENT' :
+        /api.?key/i.test(text) ? 'API_KEY_AUTH_PRESENT' : 'AUTH_TYPE_UNVERIFIED';
+    }
+  }
+  if (report.codexAuthentication !== 'CHATGPT_CLI_AUTH_PRESENT') report.blockers.push('CODEX_CHATGPT_LOGIN_UNVERIFIED');
+  report.blockers.push('CODEX_ENTITLEMENTS_AND_SMOKE_TEST_UNVERIFIED');
   report.blockers.push('NO_DURABLE_APPROVAL_OR_PRODUCTION_EXECUTOR');
   report.status = 'BLOCKED'; // Intentionally never approves live automation.
   return report;
