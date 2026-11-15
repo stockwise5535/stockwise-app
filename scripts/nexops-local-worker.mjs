@@ -47,9 +47,14 @@ export function collectHandoff({ issueNumber, repository = REPOSITORY, get = run
   const issue = parseGhJson(get(['api', `repos/${repository}/issues/${issueNumber}`]));
   if (issue.number !== issueNumber) throw new Error('GITHUB_ISSUE_MISMATCH');
   const access = parseGhJson(get(['api', `repos/${repository}/collaborators/${login}/permission`]));
+  const author = issue.user?.login;
+  const authorAccess = author === login ? access :
+    typeof author === 'string' && /^[A-Za-z0-9-]{1,39}$/.test(author) ?
+      parseGhJson(get(['api', `repos/${repository}/collaborators/${author}/permission`])) : {permission:null};
   const validation = validateRequest({
     repository, expectedRepository: REPOSITORY, eventName: 'workflow_dispatch',
-    actorPermission: access.permission, issue, emergencyStop: stop,
+    actorPermission: access.permission, authorPermission: authorAccess.permission,
+    issue, expectedIssueNumber:issueNumber, emergencyStop: stop,
   });
   return sanitizeReceipt(validation, issueNumber);
 }

@@ -35,6 +35,10 @@ try {
     request(`issues/${issueNumber}`),
     request(`collaborators/${encodeURIComponent(actor)}/permission`),
   ]);
+  const author = issue.user?.login;
+  const authorAccess = author === actor ? permission :
+    typeof author === 'string' && /^[A-Za-z0-9-]{1,39}$/.test(author) ?
+      await request(`collaborators/${encodeURIComponent(author)}/permission`) : {permission:null};
   const result = validateRequest({
     repository,
     expectedRepository,
@@ -42,6 +46,9 @@ try {
     eventAction: event.action,
     eventLabel: event.label?.name,
     actorPermission: permission.permission,
+    authorPermission: authorAccess.permission,
+    expectedIssueNumber: issueNumber,
+    eventIssue: event.issue,
     issue,
     emergencyStop: env.NEXOPS_AI_EMERGENCY_STOP !== 'false',
   });

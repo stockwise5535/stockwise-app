@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate read-only NexOps gates with synthetic fixtures
-        run: node --test tests/nexops-issue-validator.test.mjs tests/nexops-local-worker.test.mjs tests/nexops-readiness.test.mjs
+        run: node --test tests/nexops-*.test.mjs
       - name: Validate script syntax without running an agent
         run: |
           node --check scripts/nexops-issue-validator.mjs

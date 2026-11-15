@@ -96,3 +96,20 @@ Mac CLI availability, CLI ChatGPT login and this bounded response are now
 owner-observed PASS checkpoints. The unattended execution/approval loop and PR
 result reporting remain unimplemented; both PRs remain unmerged and no worker,
 daemon, mail, SNS, database or production deployment was activated.
+
+## Phase B integration and request-boundary hardening — 2026-11-15
+
+Integrated Phase A's actual-dispatch fix into the Phase B development history.
+The dispatcher and local worker now check the Issue author's repository role
+independently from the operator/label actor. The fetched Issue must match the
+requested number; labeled-event content/author must match the event snapshot.
+Manual reads validate the current author/content but never imply execution approval.
+No Issue label or body was changed to force a successful execution result.
+
+All 50 NexOps tests pass, including actual dispatcher subprocess tests with fully
+mocked GitHub reads for unauthorized-author and edit-race rejection. Existing
+Unit 60, Sales 218, Build, source/dist secret scan and workflow YAML parsing passed.
+CI now discovers all NexOps test files rather than omitting the workflow tests.
+This is pre-execution validation, not a complete approval ledger, Codex job runner,
+PR publisher or background scheduler. No main merge, production deployment,
+provider/credential change, paid AI call, email/SNS/CRM/DB write or job activation.

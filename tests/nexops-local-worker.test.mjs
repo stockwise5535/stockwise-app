@@ -30,7 +30,7 @@ test('valid synthetic read returns only handoff (never AI execution)', () => {
     const path = args[1];
     if (path === 'user') return JSON.stringify({ login: 'test-operator' });
     if (path.endsWith('/permission')) return JSON.stringify({ permission: 'write' });
-    if (path.endsWith('/issues/23')) return JSON.stringify({number:23,state:'open',labels:[{name:'nexops:run-requested'}],body});
+    if (path.endsWith('/issues/23')) return JSON.stringify({number:23,user:{login:'requester'},state:'open',labels:[{name:'nexops:run-requested'}],body});
     throw new Error('UNEXPECTED_API');
   };
   const receipt = collectHandoff({ issueNumber: 23, stop:false, get });
@@ -106,4 +106,10 @@ test('ledger capacity stops rather than evicting old replay protection',()=>{
  assert.throws(()=>storeReceipt(dir,{issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'f'.repeat(64)}),/LEDGER_CAPACITY/);
  assert.equal(readFileSync(file,'utf8'),raw);
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('local handoff rechecks Issue author independently from the operator',()=>{
+ const body='```nexops-task\n'+JSON.stringify({schema_version:1,department:'IT',action:'code-audit',objective:'Review the existing source safely',dry_run:true})+'\n```';
+ const get=args=>JSON.stringify(args[1]==='user'?{login:'operator'}:args[1].endsWith('/issues/23')?{number:23,user:{login:'requester'},state:'open',labels:[{name:'nexops:run-requested'}],body}:{permission:args[1].includes('/requester/')?'read':'write'});
+ const r=collectHandoff({issueNumber:23,stop:false,get});assert.equal(r.reason,'UNAUTHORIZED_AUTHOR');assert.equal(r.codexExecuted,false);
 });
