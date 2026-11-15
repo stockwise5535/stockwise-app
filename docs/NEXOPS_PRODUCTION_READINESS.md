@@ -53,3 +53,17 @@ Added PR-only/manual `NexOps safety tests` CI; it uses synthetic fixtures and no
 provider secrets or schedules. Hosted result is checked separately after push.
 Issue dispatcher file is not yet on main, despite appearing in workflow listings;
 that listing alone does not establish a live issue-triggered production service.
+
+## Owner-provided Mac diagnostic — 2026-11-15
+
+The owner ran the read-only probe from a fresh Mac clone and supplied its output.
+It reports macOS=true, Node22OrNewer=true, git/gh/codex available, cleanRepo=true,
+and GitHub authentication CLI_AUTH_PRESENT_UNSCOPED. These are owner-provided
+Mac results, distinct from the Cloud synthetic tests above.
+
+Codex authentication and quota still report NOT_VERIFIED. Autonomous execution
+is false and paidApiActivated is false. BLOCKED remains the expected release
+result: no authenticated/entitled Codex smoke test or production executor has
+been established. No daemon, agent execution or outgoing communication was run
+by the diagnostic. Next check: capture codex login status as sanitized booleans
+and authentication type only; do not paste raw credential/config output.
