@@ -69,3 +69,18 @@ Test suite covers valid dry-run receipt, emergency stop, repository boundary, op
 - Do not merge/deploy or change any repository variables.
 - Phase B separate approval and separate PR: Mac opt-in polling worker, durable ledger, safe working directory, CLI capability checks and rollback.
 - Phase C/D require further review, especially API/runner costs, Claude availability, and external communication approvals.
+
+## Actual dispatch fix — 2026-11-15
+
+The first live manual dispatch was rejected before runner startup (HTTP 422):
+`runner.temp` is unavailable in job-level `env`. Moved the receipt-path binding
+to the read/validate step, where runner context is supported; artifact path and
+read-only permissions are unchanged. Added three workflow-safety regression tests
+(16 Phase A tests total). Existing Issue23 remains a specification, not a runnable
+task; no label/body/permissions or execution switches were changed.
+
+Live manual run 43739810101 on `ecdf0f7` completed all steps successfully, including
+receipt artifact upload. Added fixed-field receipt annotations for API-visible
+status without retrieving raw logs or Issue text; two subprocess tests exercise
+receipt persistence, emergency-stop, missing-label and denied-read paths.
+Phase A focused suite now has 18 cases; execution remains disabled.

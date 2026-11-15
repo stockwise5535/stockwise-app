@@ -5,6 +5,8 @@ const env = process.env;
 const receipt = (value) => {
   const safe = JSON.stringify(value, null, 2);
   console.log(safe);
+  // Same fixed validation fields as the receipt; no Issue text, tokens or URLs.
+  if (env.GITHUB_ACTIONS === 'true') console.log(`::notice title=NexOps dry-run receipt::status=${value.status};reason=${value.reason ?? 'N/A'};executionAllowed=${value.executionAllowed === true}`);
   if (env.NEXOPS_RECEIPT_PATH) writeFileSync(env.NEXOPS_RECEIPT_PATH, safe + '\n', { mode: 0o600 });
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `### NexOps Phase A (read-only)\n\nStatus: **${value.status}**; Reason: ${value.reason ?? 'N/A'}\n\nNo agent or external write was executed.\n`);
 };

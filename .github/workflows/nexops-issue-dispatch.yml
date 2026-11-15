@@ -24,7 +24,6 @@ jobs:
     env:
       NEXOPS_AI_EXECUTION_ENABLED: 'false'
       NEXOPS_AI_EMERGENCY_STOP: 'true'
-      NEXOPS_RECEIPT_PATH: ${{ runner.temp }}/nexops-phase-a-receipt.json
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -34,8 +33,10 @@ jobs:
         with:
           node-version: '22'
       - name: Validate parser and fail-closed behavior
-        run: node --test tests/nexops-issue-validator.test.mjs
+        run: node --test tests/nexops-issue-validator.test.mjs tests/nexops-dispatch-workflow.test.mjs
       - name: Read and validate request; never execute
+        env:
+          NEXOPS_RECEIPT_PATH: ${{ runner.temp }}/nexops-phase-a-receipt.json
         run: node scripts/nexops-issue-dispatch.mjs
       - name: Upload synthetic-safe read-only receipt
         if: always()
