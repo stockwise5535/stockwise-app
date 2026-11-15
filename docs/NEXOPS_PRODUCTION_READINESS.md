@@ -113,3 +113,16 @@ CI now discovers all NexOps test files rather than omitting the workflow tests.
 This is pre-execution validation, not a complete approval ledger, Codex job runner,
 PR publisher or background scheduler. No main merge, production deployment,
 provider/credential change, paid AI call, email/SNS/CRM/DB write or job activation.
+
+## Artifact executor implementation — 2026-11-15
+
+The separate Phase C implementation now supports approved report/draft jobs,
+subscription-authenticated Codex output, synthetic checks, a single added Markdown
+artifact, a Draft PR and a REVIEW receipt on the originating Issue. See
+[NEXOPS_ARTIFACT_EXECUTOR.md](NEXOPS_ARTIFACT_EXECUTOR.md). Earlier statements
+that this execution loop was unimplemented describe the previous checkpoints.
+
+This implementation is disabled. Mac end-to-end task delivery and scheduler
+activation remain unverified/unperformed. The existing Mac fixed-prompt smoke
+is not evidence of complete task delivery. No production, CRM, email or SNS
+operation was enabled.
