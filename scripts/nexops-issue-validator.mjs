@@ -14,13 +14,19 @@ const departmentActions = Object.freeze({
 const permittedRoles = new Set(['admin', 'maintain', 'write']);
 const MAX_BODY_LENGTH = 10000;
 
-export function validateRequest({ repository, expectedRepository, eventName, eventAction, eventLabel, actorPermission, issue, emergencyStop = true }) {
+export function validateRequest({ repository, expectedRepository, eventName, eventAction, eventLabel, actorPermission, authorPermission, issue, expectedIssueNumber, eventIssue, emergencyStop = true }) {
   const blocked = (reason) => ({ status: 'BLOCKED', reason, executionAllowed: false });
   if (repository !== expectedRepository || !/^[-\w.]+\/[-\w.]+$/.test(repository ?? '')) return blocked('WRONG_REPOSITORY');
   if (!(['issues', 'workflow_dispatch'].includes(eventName))) return blocked('INVALID_EVENT');
   if (eventName === 'issues' && (eventAction !== 'labeled' || eventLabel !== RUN_LABEL)) return blocked('NOT_OPTED_IN_EVENT');
   if (!permittedRoles.has(actorPermission)) return blocked('UNAUTHORIZED_ACTOR');
   if (!issue || issue.pull_request || issue.state !== 'open' || !Number.isSafeInteger(issue.number) || issue.number <= 0) return blocked('INVALID_ISSUE');
+  if (!Number.isSafeInteger(expectedIssueNumber) || issue.number !== expectedIssueNumber) return blocked('ISSUE_NUMBER_MISMATCH');
+  const author = issue.user?.login;
+  if (typeof author !== 'string' || !/^[A-Za-z0-9-]{1,39}$/.test(author)) return blocked('INVALID_ISSUE_AUTHOR');
+  if (!permittedRoles.has(authorPermission)) return blocked('UNAUTHORIZED_AUTHOR');
+  if (eventName === 'issues' && (!eventIssue || eventIssue.number !== issue.number ||
+      eventIssue.user?.login !== author || eventIssue.body !== issue.body)) return blocked('ISSUE_CHANGED_SINCE_EVENT');
   if (!Array.isArray(issue.labels) || !issue.labels.some((l) => (typeof l === 'string' ? l : l?.name) === RUN_LABEL)) return blocked('LABEL_MISSING');
   if (typeof issue.body !== 'string' || issue.body.length > MAX_BODY_LENGTH) return blocked('INVALID_BODY');
   const match = issue.body.match(/(?:^|\n)```nexops-task\n([\s\S]*?)\n```(?:\n|$)/g);

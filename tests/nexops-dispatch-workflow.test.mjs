@@ -16,14 +16,14 @@ test('dispatch stays read-only with execution disabled and emergency stop active
 
 import {mkdtempSync,writeFileSync,readFileSync as read,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawnSync} from 'node:child_process';import{fileURLToPath}from'node:url';
-function runDispatch({missingLabel=false,denied=false}={}){
+function runDispatch({missingLabel=false,denied=false,authorRole="write",eventName="workflow_dispatch",edited=false}={}){
  const dir=mkdtempSync(join(tmpdir(),'nexops-dispatch-'));
  try{
-  const issue={number:23,state:'open',labels:missingLabel?[]:[{name:'nexops:run-requested'}],body:'```nexops-task\n'+JSON.stringify({schema_version:1,department:'IT',action:'code-audit',objective:'PRIVATE_OBJECTIVE_DO_NOT_LOG',dry_run:true})+'\n```'};
+  const issue={number:23,user:{login:'requester'},state:'open',labels:missingLabel?[]:[{name:'nexops:run-requested'}],body:'```nexops-task\n'+JSON.stringify({schema_version:1,department:'IT',action:'code-audit',objective:'PRIVATE_OBJECTIVE_DO_NOT_LOG',dry_run:true})+'\n```'};
   const preload=join(dir,'mock.mjs');
-  writeFileSync(preload,'globalThis.fetch=async(url)=>({ok:'+(!denied)+',json:async()=>url.includes("/issues/")?'+JSON.stringify(issue)+':{permission:"write"}});');
-  const event=join(dir,'event.json'),receipt=join(dir,'receipt.json');writeFileSync(event,JSON.stringify({inputs:{issue_number:'23'}}));
-  const child=spawnSync(process.execPath,['--import',preload,fileURLToPath(new URL('../scripts/nexops-issue-dispatch.mjs',import.meta.url))],{encoding:'utf8',timeout:10000,env:{...process.env,GITHUB_ACTIONS:'true',GITHUB_EVENT_PATH:event,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY:'stockwise5535/stockwise-app',GITHUB_ACTOR:'operator',GITHUB_TOKEN:'PRIVATE_SYNTHETIC_TOKEN',NEXOPS_AI_EMERGENCY_STOP:'true',NEXOPS_RECEIPT_PATH:receipt,GITHUB_STEP_SUMMARY:join(dir,'summary.md')}});
+  writeFileSync(preload,'globalThis.fetch=async(url)=>({ok:'+(!denied)+',json:async()=>url.includes("/issues/")?'+JSON.stringify(issue)+':{permission:url.includes("/collaborators/requester/")?'+JSON.stringify(authorRole)+':"write"}});');
+  const event=join(dir,'event.json'),receipt=join(dir,'receipt.json');writeFileSync(event,JSON.stringify({inputs:{issue_number:'23'},action:'labeled',label:{name:'nexops:run-requested'},issue:{...issue,body:edited?'previous Issue body':issue.body}}));
+  const child=spawnSync(process.execPath,['--import',preload,fileURLToPath(new URL('../scripts/nexops-issue-dispatch.mjs',import.meta.url))],{encoding:'utf8',timeout:10000,env:{...process.env,GITHUB_ACTIONS:'true',GITHUB_EVENT_PATH:event,GITHUB_EVENT_NAME:eventName,GITHUB_REPOSITORY:'stockwise5535/stockwise-app',GITHUB_ACTOR:'operator',GITHUB_TOKEN:'PRIVATE_SYNTHETIC_TOKEN',NEXOPS_AI_EMERGENCY_STOP:'true',NEXOPS_RECEIPT_PATH:receipt,GITHUB_STEP_SUMMARY:join(dir,'summary.md')}});
   assert.equal(child.status,0);assert.ok(!child.stdout.includes('PRIVATE_'));assert.ok(!child.stderr.includes('PRIVATE_'));
   return{receipt:JSON.parse(read(receipt,'utf8')),stdout:child.stdout};
  }finally{rmSync(dir,{recursive:true,force:true});}
@@ -36,3 +36,6 @@ test('missing opt-in and denied GitHub reads remain explicit non-executing resul
  assert.equal(runDispatch({missingLabel:true}).receipt.reason,'LABEL_MISSING');
  assert.equal(runDispatch({denied:true}).receipt.reason,'READ_OR_VALIDATION_FAILED');
 });
+
+test('dispatcher refuses an unprivileged author despite a privileged actor',()=>assert.equal(runDispatch({authorRole:'read'}).receipt.reason,'UNAUTHORIZED_AUTHOR'));
+test('dispatcher refuses Issue body edited between label event and fetch',()=>assert.equal(runDispatch({eventName:'issues',edited:true}).receipt.reason,'ISSUE_CHANGED_SINCE_EVENT'));
