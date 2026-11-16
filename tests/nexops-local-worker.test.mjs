@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, symlinkSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseIssueNumber, collectHandoff, storeReceipt, withLock, main } from '../scripts/nexops-local-worker.mjs';
@@ -58,6 +58,23 @@ test('second lock fails closed; crash leftovers require manual recovery', () => 
   const dir = mkdtempSync(join(tmpdir(),'nexops-lock-'));
   try { withLock(dir,()=>assert.throws(()=>withLock(dir,()=>{}),/WORKER_ALREADY_RUNNING/)); }
   finally {rmSync(dir,{recursive:true,force:true});}
+});
+test('unsafe directories are rejected before a lock or receipt is created', () => {
+  const root = mkdtempSync(join(tmpdir(), 'nexops-directory-'));
+  const dir = join(root, 'state'), alias = join(root, 'alias');
+  mkdirSync(dir, {mode:0o700}); symlinkSync(dir, alias);
+  const receipt = {issueNumber:23,status:'VALIDATED_DRY_RUN',idempotencyKey:'a'.repeat(64)};
+  try {
+    for (const candidate of [alias]) {
+      assert.throws(()=>withLock(candidate,()=>assert.fail('must not run')), /INVALID_STATE_DIRECTORY/);
+      assert.throws(()=>storeReceipt(candidate,receipt), /INVALID_STATE_DIRECTORY/);
+    }
+    chmodSync(dir,0o755);
+    assert.throws(()=>withLock(dir,()=>assert.fail('must not run')), /INVALID_STATE_DIRECTORY/);
+    assert.throws(()=>storeReceipt(dir,receipt), /INVALID_STATE_DIRECTORY/);
+    assert.equal(existsSync(join(dir,'worker.lock')),false);
+    assert.equal(existsSync(join(dir,'issue-23.json')),false);
+  } finally {rmSync(root,{recursive:true,force:true});}
 });
 
 test('reverting a valid revision and interleaving a blocked request cannot reset replay history',()=>{
