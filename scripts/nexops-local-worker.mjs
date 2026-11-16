@@ -26,8 +26,16 @@ export function parseGhJson(text) {
 export function defaultStateDir() {
   return resolve(homedir(), '.nexops', 'local-worker');
 }
+function verifyStateDirectory(stateDir) {
+  const info = lstatSync(stateDir);
+  if (!info.isDirectory() || info.isSymbolicLink() || realpathSync(stateDir) !== resolve(stateDir) ||
+      (info.mode & 0o077) !== 0 || (process.getuid && info.uid !== process.getuid())) {
+    throw new Error('INVALID_STATE_DIRECTORY');
+  }
+}
 export function withLock(stateDir, operation) {
   mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+  verifyStateDirectory(stateDir);
   const lockPath = join(stateDir, 'worker.lock');
   let fd;
   try { fd = openSync(lockPath, 'wx', 0o600); } catch { throw new Error('WORKER_ALREADY_RUNNING'); }
@@ -64,7 +72,7 @@ export function storeReceipt(stateDir, receipt) {
   if (receipt.status !== 'VALIDATED_DRY_RUN') return { ...receipt, duplicate: false };
   const validKey = key => typeof key === 'string' && /^[a-f0-9]{64}$/.test(key);
   if (!validKey(receipt.idempotencyKey)) throw new Error('INVALID_RECEIPT');
-  if (!lstatSync(stateDir).isDirectory() || lstatSync(stateDir).isSymbolicLink()) throw new Error('INVALID_STATE_DIRECTORY');
+  verifyStateDirectory(stateDir);
   const ledgerPath = join(stateDir, `issue-${receipt.issueNumber}.json`);
   let seen = [];
   if (existsSync(ledgerPath)) {
@@ -94,6 +102,8 @@ export function storeReceipt(stateDir, receipt) {
     fsyncSync(fd);
   } finally { if (fd !== undefined) closeSync(fd); }
   renameSync(temp, ledgerPath);
+  const directory = openSync(stateDir, 'r');
+  try { fsyncSync(directory); } finally { closeSync(directory); }
   return { ...receipt, duplicate: false };
 }
 

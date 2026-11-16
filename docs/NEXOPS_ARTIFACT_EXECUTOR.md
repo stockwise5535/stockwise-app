@@ -44,10 +44,13 @@ All these gates are required for execution and remain disabled by default:
 - `NEXOPS_HOSTING_GUARDS_VERIFIED=true`
 - `NEXOPS_WORKER_COMMIT=<reviewed exact commit>`
 
-The hosting gate requires an operator to confirm branch mappings, deployment
-behavior and free quotas: a new Draft PR branch can trigger existing Vercel
-Preview automation. The executor never updates main or requests deployment.
-Do not assert this gate merely because worker tests passed.
+The hosting gate requires an operator to confirm branch mappings and deployment
+behavior. Main includes `git.deploymentEnabled["codex/nexops-job-*"]=false`
+through PR #29. Verify that configuration remains in the current main used as
+the result base, and confirm linked projects do not deploy job branches. Usage
+limits must be reviewed if an execution path can deploy; unknown quota alone
+does not block a verified no-preview path. The executor never updates main or
+requests deployment. Do not assert this gate merely because worker tests passed.
 
 One local lock spans the whole asynchronous run. The hard limit is two claimed
 jobs per UTC day (`NEXOPS_MAX_DAILY_JOBS` may lower it to one). Model timeout is
@@ -77,7 +80,9 @@ Optional fixed local failure notifications use `NEXOPS_DESKTOP_NOTIFICATIONS`.
 Approval checks and remote writes are not an atomic distributed transaction.
 
 `scripts/nexops-launchd.mjs` only creates a private `.plist.disabled` template,
-with execution OFF and emergency stop ON. It never calls launchctl or installs
+with `Disabled=true`, execution OFF and emergency stop ON. It carries HOME,
+an explicit absolute PATH and a canonical TMPDIR so launchd can find existing
+authentication and tests do not encounter `/var` aliases. It never calls launchctl or installs
 a service. Review and separate authorization are required before activation;
 the Mac must stay awake and connected. No existing schedule is duplicated.
 
@@ -85,7 +90,10 @@ the Mac must stay awake and connected. No existing schedule is duplicated.
 
 Synthetic tests cover real adapter arguments with mocked processes, role and
 revision checks, limits, secret rejection, stop, replay, uncertain writes and
-read-only reconciliation. They make no AI/Buffer/Gmail calls. Mac task-to-PR
-acceptance is still pending; earlier owner-provided Codex smoke only confirmed
-a fixed response. Report delivery goes to the Issue and Draft PR, not directly
+read-only reconciliation. They make no AI/Buffer/Gmail calls. One owner-approved
+Mac IT/code-audit job completed for Issue #28 and produced Draft PR #30 with a
+matching REVIEW receipt. Its 89 synthetic checks passed and all four Vercel
+projects had zero deployments for the result commit at inspection time. This
+validates that one manual execution path, not unattended operation or all routes.
+Report delivery goes to the Issue and Draft PR, not directly
 to a shared ChatGPT report. Production automatic operation is not claimed.

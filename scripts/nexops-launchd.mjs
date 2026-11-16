@@ -1,14 +1,16 @@
 /* Generates a DISABLED example only. Never installs or loads a Mac service. */
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import{fileURLToPath}from'node:url';
 const escape=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-export function launchdTemplate({nodePath,scriptPath,workerCommit,searchPath,stateDir=path.join(os.homedir(),'.nexops','artifact-worker')}){
+export function launchdTemplate({nodePath,scriptPath,workerCommit,searchPath,stateDir=path.join(os.homedir(),'.nexops','artifact-worker'),homeDir=os.homedir(),tempDir=fs.realpathSync(os.tmpdir())}){
  if(!path.isAbsolute(nodePath)||!path.isAbsolute(scriptPath)||!/^\/[\s\S]+/.test(nodePath)||!(/^[a-f0-9]{40}$/.test(workerCommit||'')))throw Error('ABSOLUTE_PATHS_AND_PINNED_COMMIT_REQUIRED');
  const executablePath=searchPath||[path.dirname(nodePath),'/opt/homebrew/bin','/usr/local/bin','/usr/bin','/bin','/usr/sbin','/sbin'].join(':');
  if(executablePath.length>8192||/[\r\n\0]/.test(executablePath)||!executablePath.split(':').every(p=>path.isAbsolute(p))||!path.isAbsolute(stateDir))throw Error('ABSOLUTE_SEARCH_PATH_REQUIRED');
+ if(![homeDir,tempDir].every(p=>path.isAbsolute(p)&&!/[\r\n\0]/.test(p)))throw Error('ABSOLUTE_RUNTIME_PATHS_REQUIRED');
  return`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>com.nexops.artifact-worker</string>
+<key>Disabled</key><true/>
 <key>ProgramArguments</key><array><string>${escape(nodePath)}</string><string>${escape(scriptPath)}</string><string>--poll-once</string></array>
 <key>StartInterval</key><integer>600</integer>
 <key>RunAtLoad</key><false/>
@@ -17,6 +19,8 @@ export function launchdTemplate({nodePath,scriptPath,workerCommit,searchPath,sta
 <key>StandardOutPath</key><string>${escape(path.join(stateDir,'run.log'))}</string>
 <key>StandardErrorPath</key><string>${escape(path.join(stateDir,'error.log'))}</string>
 <key>EnvironmentVariables</key><dict>
+<key>HOME</key><string>${escape(homeDir)}</string>
+<key>TMPDIR</key><string>${escape(tempDir)}</string>
 <key>PATH</key><string>${escape(executablePath)}</string>
 <key>NEXOPS_AI_EXECUTION_ENABLED</key><string>false</string>
 <key>NEXOPS_AI_EMERGENCY_STOP</key><string>true</string>
