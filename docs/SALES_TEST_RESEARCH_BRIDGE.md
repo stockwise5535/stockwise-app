@@ -5,6 +5,11 @@ This change connects the existing `runDailyCandidateResearch` and
 change the production source configuration, scheduled workflow, enablement
 variable, Apps Script deployment, mail queue or Mac worker.
 
+Current acceptance target is the isolated spreadsheet
+`1frj0e0YmGqOlGkEip6QNoTTI3oFHw3Tc_diCdT2j8TY`.
+The shared original TEST ID is now rejected by the adapter and regression test.
+Isolated live acceptance below supersedes the historical shared-sheet blocker.
+
 ## Reviewed source
 
 The separate `research-sources.test.json` contains one Wikidata entity: Nintendo
@@ -56,7 +61,7 @@ The CLI always targets TEST; it has no production-ID argument. `--plan` and
 alternative operator-mediated transport. The plan contains only new rows, and
 the same existing engine skips a repeated company/country key.
 
-## Live evidence: 2026-11-17
+## Historical shared-TEST evidence: 2026-11-17
 
 Source retrieval by the existing research function succeeded with one candidate.
 Existing local Google CLI authentication returned 403 for Sheets, so the live
@@ -96,3 +101,47 @@ were not established. Do not overwrite or restore rows automatically. The next
 live acceptance needs an exclusive TEST write window (pause other import/edit
 processes) before one controlled import/readback/replay. Unknown/concurrent
 results must not be treated as success or retried blindly.
+
+## Completed isolated acceptance: 2026-11-17
+
+Created a new native spreadsheet from scratch:
+https://docs.google.com/spreadsheets/d/1frj0e0YmGqOlGkEip6QNoTTI3oFHw3Tc_diCdT2j8TY/edit
+
+Only the 19 Leads header strings were read from the shared TEST. Its data,
+EmailQueue, backups, Apps Script and triggers were not copied. The new file has
+exactly two tabs: Leads (537996327) and Settings (19032026). Settings contains
+only LIVE_SENDING, FOLLOW_UP_ENABLED and LEGAL_REVIEW_COMPLETED, all boolean
+false. No script, trigger or scheduled job was created or enabled.
+
+The adapter's destination constant is pinned to the new ID. A fresh public
+Wikidata fetch through `runDailyCandidateResearch` returned one unverified
+Nintendo candidate with approvedToEmail=false. A temporary local RPC transport
+passed each live read and the single append from the actual async
+`importTestResearch` function to the connected native Sheets API. It did not
+simulate reads or use the old sheet snapshots. The same function ran twice
+against the same research data:
+
+| Check | First call | Second call |
+| --- | --- | --- |
+| requested | 1 | 1 |
+| inserted | 1 | 0 |
+| skipped | 0 | 1 |
+| readback matchedAfter | 1 | 1 |
+| readback totalRows | 1 | 1 |
+| approvedToEmail | false | false |
+
+There was exactly one native write to Leads!A2:S2. The second call performed
+fresh reads but no write. Serialized Leads header+row were identical before
+and after replay, including IDs and timestamps. SHA-256:
+`02be3d40fa6d96d2c5f8624557e029e313c69a4cc1ea9d99dd99798fad744fc1`.
+The final independent CellData readback showed one row, status RESEARCH, blank
+contact name/email/basis/last-contacted fields and explicit unapproved-outreach
+notes. Settings remained false and the next Leads row was empty. No prior rows
+or headers were overwritten. Native cell values and formatting were inspected;
+browser rendering was unavailable.
+
+Relevant 14 local tests passed, now including rejection of the original shared
+TEST ID. The standalone HTTP CLI's OAuth scope limitation is unchanged; this
+acceptance verifies the real async importer over connected Sheets transport,
+not that separate HTTP authentication path. No human action is needed for this
+completed isolated test. Shared TEST and production were not written during it.

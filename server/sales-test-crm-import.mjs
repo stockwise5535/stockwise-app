@@ -3,7 +3,8 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const Core=require('../apps-script/sales-crm/Core.js');
 const Engine=require('../apps-script/sales-crm/Engine.js');
-export const TEST_CRM_ID='12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
+// Dedicated empty acceptance sheet; shared TEST and production are never destinations.
+export const TEST_CRM_ID='1frj0e0YmGqOlGkEip6QNoTTI3oFHw3Tc_diCdT2j8TY';
 export function checkTestSettings(id,settings){
  if(id!==TEST_CRM_ID)throw Error('TEST_CRM_ONLY');
  for(const key of ['LIVE_SENDING','FOLLOW_UP_ENABLED','LEGAL_REVIEW_COMPLETED']){

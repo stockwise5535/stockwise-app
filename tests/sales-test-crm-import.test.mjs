@@ -12,7 +12,7 @@ test('existing CRM engine maps research to one non-contactable TEST row and repl
  assert.equal(verifyTestResearchImport({...d,plan:p}).matchedAfter,1);assert.equal(planTestResearchImport(d).summary.inserted,0);
 });
 test('production targets, missing/duplicate/on safety gates and incomplete research fail before append',()=>{
- for(const mutate of [d=>d.spreadsheetId='production',d=>d.settings.pop(),d=>d.settings.push(['LIVE_SENDING',false]),d=>d.settings[1][1]=true,d=>d.result.status='needs_attention',d=>d.result.candidates[0].approvedToEmail=true]){
+ for(const mutate of [d=>d.spreadsheetId='production',d=>d.spreadsheetId='12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk',d=>d.settings.pop(),d=>d.settings.push(['LIVE_SENDING',false]),d=>d.settings[1][1]=true,d=>d.result.status='needs_attention',d=>d.result.candidates[0].approvedToEmail=true]){
   const d=input();mutate(d);assert.throws(()=>planTestResearchImport(d));
  }
 });
