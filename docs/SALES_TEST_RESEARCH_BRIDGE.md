@@ -84,3 +84,15 @@ Relevant local tests: existing source checks, engine import tests and new bridge
 tests (14 total) passed. OAuth/CLI transport remains a separate access limitation:
 to use the standalone CLI later, authorize Google Sheets access for that account.
 No credential is committed, and no production token is required.
+
+### Later concurrent change: acceptance is blocked, do not restore automatically
+
+A later final read on the same day found 215 lead IDs instead of 166 and no
+matching Nintendo company/country key. The verifier failed, and replanning would
+insert one row again. No such write was issued. The initial successful readbacks
+above are historical evidence, not a claim that the row is still present.
+Other updates are occurring in the shared TEST sheet; their author and purpose
+were not established. Do not overwrite or restore rows automatically. The next
+live acceptance needs an exclusive TEST write window (pause other import/edit
+processes) before one controlled import/readback/replay. Unknown/concurrent
+results must not be treated as success or retried blindly.
