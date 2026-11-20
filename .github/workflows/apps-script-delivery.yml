@@ -6,6 +6,7 @@ on:
       - 'tools/apps-script/**'
       - 'server/sales-*.mjs'
       - 'scripts/sales-daily-research.mjs'
+      - 'scripts/sales-crm-register.mjs'
       - 'tests/sales-*.test.mjs'
       - '.github/workflows/apps-script-delivery.yml'
   push:
@@ -15,6 +16,7 @@ on:
       - 'tools/apps-script/**'
       - 'server/sales-*.mjs'
       - 'scripts/sales-daily-research.mjs'
+      - 'scripts/sales-crm-register.mjs'
       - 'tests/sales-*.test.mjs'
       - '.github/workflows/apps-script-delivery.yml'
   workflow_dispatch:

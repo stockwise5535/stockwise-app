@@ -145,3 +145,59 @@ TEST ID. The standalone HTTP CLI's OAuth scope limitation is unchanged; this
 acceptance verifies the real async importer over connected Sheets transport,
 not that separate HTTP authentication path. No human action is needed for this
 completed isolated test. Shared TEST and production were not written during it.
+
+## Daily registration readiness and measured conflict controls
+
+The existing daily workflow now has an OFF-by-default registration step, limited
+to main. `research-sources.registration.json` contains two reviewed CC0 samples
+(Nintendo and Sony Group); this is a bounded transport pilot, not an unlimited
+discovery feed or a claim that these large companies are qualified prospects.
+The existing generic source profile is unchanged. Nothing is enabled by this PR.
+
+`sales-crm-registration.mjs` reuses the existing company/country planner and
+preserves either the isolated 19-column schema or the actual production
+17-column display headers without migration. Its destination is fixed by mode;
+the shared TEST is not permitted. Production still has zero Leads, LIVE_SENDING
+and FOLLOW_UP_ENABLED=false, and lacks LEGAL_REVIEW_COMPLETED and the new
+RESEARCH_IMPORT_ENABLED gate. All missing/on/duplicate safety gates block.
+
+Registration is append-only. A first atomic batch reserves unique company IDs
+and one UTC daily slot as persistent developer metadata; a second atomic batch
+appends cells and commits those claims. Requests never clear/update old rows.
+Pending claims, missing claimed rows, changed existing rows or uncertain writes
+stop processing rather than automatically retry. Metadata-ID collisions stop;
+the cap is one registration per UTC day. RESEARCH_IMPORT_ENABLED=false is the
+remote emergency stop, rechecked before the row write. Same-workflow Actions
+concurrency remains serialized; no extra schedule is added.
+
+Isolated live follow-up: the same async registration function added Sony Group,
+preserving Nintendo, then replay inserted zero. Total rows remained two and all
+old row values/timestamps and header values matched. The claim persisted as
+COMMITTED and its UTC day slot was recorded. A deliberate duplicate metadata-ID
+test was rejected by Google with HTTP 400 (ID already exists), without another
+row write. Post-registration row snapshot SHA-256:
+`f3e87bc3f7c1d3505134fbfa7b5dfe5e4595e347a8af8e6054a6b73a73fa8a73`.
+Relevant tests: 24 passed, including both header schemas, concurrency, daily cap,
+lost acknowledgements, missing claim readback, emergency stop and zero-network
+default/auth failures. The HTTP OAuth transport is distinct from the validated
+native connector transport. Final read-only authentication diagnosis: the
+existing OAuth refresh succeeds, but Sheets returns HTTP 403 SERVICE_DISABLED
+for Google Cloud project 1072944905499. Sheets API must be enabled there and
+access/scopes rechecked before installing the daily credential; API enablement
+and credential installation have not been performed.
+
+External editors can still overwrite/delete rows or metadata after a successful
+transaction. The importer cannot prevent that; it detects missing claimed rows
+and stops instead of restoring them. Keep the daily importer as the only
+automated writer to these research rows, and do not erase claim metadata.
+
+Production start requires separate owner approval: merge this PR (including
+existing main auto-deploy effects), enable Sheets API in project 1072944905499,
+verify the existing Google credential's Sheets access (authorize scopes if needed)
+and register it as SALES_SHEETS_AUTH_JSON, append the two missing Settings gates
+(LEGAL_REVIEW_COMPLETED=false, RESEARCH_IMPORT_ENABLED=true), keep all sending
+gates false, set STOCKWISE_SALES_RESEARCH_ENABLED=true and
+STOCKWISE_SALES_CRM_IMPORT_ENABLED=true, then run the existing workflow once and
+read back at most one new RESEARCH row before its normal 23:25 UTC daily schedule.
+Those two GitHub variables and that secret are currently absent. No production
+CRM/App Script/hosting setting or secret was changed during preparation.

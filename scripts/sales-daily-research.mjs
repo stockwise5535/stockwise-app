@@ -2,7 +2,8 @@
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {runDailyCandidateResearch} from '../server/sales-daily-research.mjs';
 try{
- const config=JSON.parse(await readFile(new URL('../apps-script/sales-crm/deployment/research-sources.json',import.meta.url),'utf8'));
+ const profile=process.env.STOCKWISE_SALES_CRM_IMPORT_ENABLED==='true'?'research-sources.registration.json':'research-sources.json';
+ const config=JSON.parse(await readFile(new URL('../apps-script/sales-crm/deployment/'+profile,import.meta.url),'utf8'));
  const result=await runDailyCandidateResearch({sources:config.sources});
  const out=process.env.RUNNER_TEMP || '/tmp';
  await mkdir(out,{recursive:true});

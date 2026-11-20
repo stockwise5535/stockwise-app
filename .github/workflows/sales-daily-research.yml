@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   research:
-    if: vars.STOCKWISE_SALES_RESEARCH_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && vars.STOCKWISE_SALES_RESEARCH_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency:
@@ -21,11 +21,22 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/sales-daily-research.mjs
+        env:
+          STOCKWISE_SALES_CRM_IMPORT_ENABLED: ${{ vars.STOCKWISE_SALES_CRM_IMPORT_ENABLED }}
+      - name: Append unapproved research to CRM (explicit enablement only)
+        if: vars.STOCKWISE_SALES_CRM_IMPORT_ENABLED == 'true'
+        env:
+          STOCKWISE_SALES_CRM_IMPORT_ENABLED: ${{ vars.STOCKWISE_SALES_CRM_IMPORT_ENABLED }}
+          SALES_CRM_TARGET: production
+          SALES_SHEETS_AUTH_JSON: ${{ secrets.SALES_SHEETS_AUTH_JSON }}
+        run: node scripts/sales-crm-register.mjs
       - name: Save research-only results (never a send queue)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sales-research-${{ github.run_id }}
-          path: ${{ runner.temp }}/stockwise-research-daily.json
+          path: |
+            ${{ runner.temp }}/stockwise-research-daily.json
+            ${{ runner.temp }}/stockwise-registration-daily.json
           if-no-files-found: ignore
           retention-days: 30
