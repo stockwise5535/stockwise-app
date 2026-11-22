@@ -146,58 +146,83 @@ acceptance verifies the real async importer over connected Sheets transport,
 not that separate HTTP authentication path. No human action is needed for this
 completed isolated test. Shared TEST and production were not written during it.
 
-## Daily registration readiness and measured conflict controls
+## Canonical CRM correction and production hold (2026-11-21)
 
-The existing daily workflow now has an OFF-by-default registration step, limited
-to main. `research-sources.registration.json` contains two reviewed CC0 samples
-(Nintendo and Sony Group); this is a bounded transport pilot, not an unlimited
-discovery feed or a claim that these large companies are qualified prospects.
-The existing generic source profile is unchanged. Nothing is enabled by this PR.
+The old production designation was based on the spreadsheet title, not proven
+sales ownership. The former 1kFsOx… destination is retired from this route.
+The operational candidate 12uDN… (named TEST) has 77 SENT queue rows; three recent
+message IDs match actual outgoing Gmail messages. This establishes real use,
+not owner confirmation that it is the canonical CRM. `crm-binding.json` has no
+production ID and owner/reviewer confirmation is pending. Production transport
+fails before authentication or network access until these are supplied. PR #32
+had no independent reviews at HEAD 284185900cf8b083ab3d10612981dc42ddc36092.
 
-`sales-crm-registration.mjs` reuses the existing company/country planner and
-preserves either the isolated 19-column schema or the actual production
-17-column display headers without migration. Its destination is fixed by mode;
-the shared TEST is not permitted. Production still has zero Leads, LIVE_SENDING
-and FOLLOW_UP_ENABLED=false, and lacks LEGAL_REVIEW_COMPLETED and the new
-RESEARCH_IMPORT_ENABLED gate. All missing/on/duplicate safety gates block.
+The isolated spreadsheet remains the sole authorized live-write target. On
+2026-11-21 the updated registration function appended Onfleet (US), read back
+three total rows, then replayed with zero additional rows. Both prior rows and
+all replayed values were unchanged. Snapshot SHA-256:
+`2a4a692df8cef1fb67ab0966a52d757464610f509756e50d7a299d5cc42300a5`.
+LIVE_SENDING, FOLLOW_UP_ENABLED and LEGAL_REVIEW_COMPLETED remained FALSE.
+No shared TEST/operational/old production sheet was written in this pass.
 
-Registration is append-only. A first atomic batch reserves unique company IDs
-and one UTC daily slot as persistent developer metadata; a second atomic batch
-appends cells and commits those claims. Requests never clear/update old rows.
-Pending claims, missing claimed rows, changed existing rows or uncertain writes
-stop processing rather than automatically retry. Metadata-ID collisions stop;
-the cap is one registration per UTC day. RESEARCH_IMPORT_ENABLED=false is the
-remote emergency stop, rechecked before the row write. Same-workflow Actions
-concurrency remains serialized; no extra schedule is added.
+Production uses its own `stockwiseResearchRoute` developer-metadata gate:
+`spreadsheetId=<owner-confirmed ID>, enabled=true, emailSending=false,
+snsSending=false, followUp=false`. No gate has been installed. Setting enabled
+false stops this route only. The route does not require switching off or changing
+an existing sender's Settings. Writes remain restricted to Leads append and
+research claims/day slots. Existing rows, EmailQueue, ActivityLog, Suppression,
+settings and triggers are never updated. Domain deduplication supplements the
+existing company/country deduplication. One registration/UTC day remains the
+initial cap. Durable claims and no write retries remain unchanged. External
+editors can still change rows; missing claimed rows stop rather than restore.
 
-Isolated live follow-up: the same async registration function added Sony Group,
-preserving Nintendo, then replay inserted zero. Total rows remained two and all
-old row values/timestamps and header values matched. The claim persisted as
-COMMITTED and its UTC day slot was recorded. A deliberate duplicate metadata-ID
-test was rejected by Google with HTTP 400 (ID already exists), without another
-row write. Post-registration row snapshot SHA-256:
-`f3e87bc3f7c1d3505134fbfa7b5dfe5e4595e347a8af8e6054a6b73a73fa8a73`.
-Relevant tests: 24 passed, including both header schemas, concurrency, daily cap,
-lost acknowledgements, missing claim readback, emergency stop and zero-network
-default/auth failures. The HTTP OAuth transport is distinct from the validated
-native connector transport. Final read-only authentication diagnosis: the
-existing OAuth refresh succeeds, but Sheets returns HTTP 403 SERVICE_DISABLED
-for Google Cloud project 1072944905499. Sheets API must be enabled there and
-access/scopes rechecked before installing the daily credential; API enablement
-and credential installation have not been performed.
+Dedicated service-account authentication is supported, Sheets scope only, no
+user/domain delegation and no fallback to the existing clasp OAuth credential.
+No service account/project/secret has been created or installed. gcloud and
+Google Cloud administration integration are unavailable in this session; the
+existing OAuth client has no confirmed Cloud administration authorization.
+Its known Sheets SERVICE_DISABLED error does not prove the new dedicated
+project is configured. An owner must provide access to a separate Cloud project
+with Sheets API enabled and a dedicated principal. Initially share only the
+isolated spreadsheet; validate access there before requesting canonical CRM
+sharing. Keep JSON keys in a private local file/GitHub secret, never in chat,
+source control or logs. Do not change existing OAuth clients or sender identity.
 
-External editors can still overwrite/delete rows or metadata after a successful
-transaction. The importer cannot prevent that; it detects missing claimed rows
-and stops instead of restoring them. Keep the daily importer as the only
-automated writer to these research rows, and do not erase claim metadata.
+## Continuous discovery and sales handoff
 
-Production start requires separate owner approval: merge this PR (including
-existing main auto-deploy effects), enable Sheets API in project 1072944905499,
-verify the existing Google credential's Sheets access (authorize scopes if needed)
-and register it as SALES_SHEETS_AUTH_JSON, append the two missing Settings gates
-(LEGAL_REVIEW_COMPLETED=false, RESEARCH_IMPORT_ENABLED=true), keep all sending
-gates false, set STOCKWISE_SALES_RESEARCH_ENABLED=true and
-STOCKWISE_SALES_CRM_IMPORT_ENABLED=true, then run the existing workflow once and
-read back at most one new RESEARCH row before its normal 23:25 UTC daily schedule.
-Those two GitHub variables and that secret are currently absent. No production
-CRM/App Script/hosting setting or secret was changed during preparation.
+Registration no longer uses the two fixed entity samples. The dedicated profile
+queries the official free CC0 Wikidata query service, with sequential bounded
+requests, current source-permission reviews and CRM-domain/entity exclusion.
+Regional scope is SG/NZ/KR/TH/VN/MY; existing JP/AU validation remains supported.
+Worldwide inventory consultants, supply-chain services and AI partner research
+are admitted to the research policy; sender eligibility settings are unchanged.
+Keyset paging continues past known domains. Up to 50 new research candidates can
+be staged per run, not 50 verified/consented sales leads. Source errors fail the
+registration run; no partial or stale result is registered.
+
+Actual discovery initially returned 17 supply-chain companies. Disabling the
+Wikidata v1 query optimizer as documented returned 17 supply-chain and 17 AI
+candidates, with a regional timeout. The final six-country query completed: 50 distinct research candidates
+(17 regional, 17 supply-chain, 16 AI). None is sales-approved; no 50/day
+qualified lead capacity or production operation is claimed. A second actual
+query excluded all first-batch entities/domains and returned another 50, with
+zero overlapping domains. This is a next-run simulation, not consecutive-day
+production evidence. Wikidata structured facts
+are CC0; the v1 endpoint is still officially offered alongside v2. The new v2
+endpoint rejected this User-Agent, so the documented current v1 endpoint is
+configured explicitly, without a hidden endpoint fallback.
+
+Official company verification is separate: recent matching homepage/business
+and contact-page evidence is required before production registration. Onfleet's
+homepage, contact page and partnership program were read; commercial fit is a
+hypothesis, not a claim that it wants to buy/resell Stockwise. Published enquiry
+pages do not create email consent or legal approval. Reviewed facts are carried
+in owner_notes; contact_email/contact_name/contact_basis remain empty and status
+remains RESEARCH. The existing Engine generates drafts only for NEW or
+REVIEW_NEEDED, so these entries do not enter its sending queue. Sales must review
+fit, jurisdiction, contact permission, suppression/reply history and campaign
+approval separately through its existing process. No automatic promotion exists.
+
+Production pilot, durable daily operation, actual 50 qualified leads/day,
+independent review and delivery to the sales team are NOT complete. No main
+merge, deployment, scheduler activation, production CRM change or send occurred.

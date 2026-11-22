@@ -1,0 +1,12 @@
+{
+  "spreadsheetId": null,
+  "confirmedByOwner": false,
+  "confirmedAt": null,
+  "independentReviewCommit": null,
+  "independentReviewer": null,
+  "credentialsProjectId": null,
+  "serviceAccountEmail": null,
+  "dedicatedCredentialConfirmed": false,
+  "reason": "Previous target was selected by title, not operational ownership. Await canonical CRM confirmation and independent review.",
+  "newRoute": {"emailSending": false, "snsSending": false, "followUp": false}
+}

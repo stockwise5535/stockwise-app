@@ -1,0 +1,15 @@
+{
+  "reviews": [
+    {
+      "companyName": "Onfleet",
+      "countryCode": "US",
+      "officialWebsite": "https://onfleet.com/",
+      "reviewedBy": "Codex: official homepage, contact and partnership pages read; not independent PR review",
+      "checkedAt": "2026-11-22T02:51:34Z",
+      "officialEvidenceUrl": "https://onfleet.com/partnerships",
+      "businessRelevance": "Official delivery orchestration and retail logistics platform with a published technology/commercial partner program; possible complementary Stockwise channel, commercial fit not approved.",
+      "contactMethod": "business_enquiry_page",
+      "contactUrl": "https://onfleet.com/partnerships"
+    }
+  ]
+}

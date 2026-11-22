@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/sales-daily-research.mjs
+        if: vars.STOCKWISE_SALES_CRM_IMPORT_ENABLED != 'true'
         env:
           STOCKWISE_SALES_CRM_IMPORT_ENABLED: ${{ vars.STOCKWISE_SALES_CRM_IMPORT_ENABLED }}
       - name: Append unapproved research to CRM (explicit enablement only)

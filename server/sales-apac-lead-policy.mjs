@@ -1,8 +1,9 @@
 // APAC lead candidate validation. AI suggestions are untrusted until a human or
 // independent source-verification process confirms the official evidence.
 // This module NEVER discovers personal emails or authorizes sending.
-const COUNTRIES=new Set(['JP','SG','AU']);
-const SEGMENTS=new Set(['manufacturing','import_wholesale','ecommerce','sme','startup']);
+const COUNTRIES=new Set(['JP','SG','AU','NZ','KR','TH','VN','MY']);
+const GLOBAL_SEGMENTS=new Set(['inventory_consulting','supply_chain_services','ai_partner']);
+const SEGMENTS=new Set(['manufacturing','import_wholesale','ecommerce','sme','startup',...GLOBAL_SEGMENTS]);
 function validOfficialUrl(value){
  if(typeof value!=='string'||value.length>2048)return false;
  try{
@@ -17,7 +18,8 @@ export function assessApacLeadCandidate(candidate){
  if(!candidate||typeof candidate!=='object'||Array.isArray(candidate))
   return {eligibleForResearch:false,approvedToEmail:false,reasons:['invalid_candidate']};
  if(typeof candidate.companyName!=='string'||candidate.companyName.trim().length<2||candidate.companyName.length>200)reasons.push('invalid_company_name');
- if(!COUNTRIES.has(candidate.countryCode))reasons.push('unsupported_apac_country');
+ let validGlobalCountry=false;try{validGlobalCountry=/^[A-Z]{2}$/.test(candidate.countryCode)&&!['ZZ','EU','UN','XX'].includes(candidate.countryCode)&&new Intl.DisplayNames(['en'],{type:'region'}).of(candidate.countryCode)!==candidate.countryCode;}catch{}
+ if(!COUNTRIES.has(candidate.countryCode)&&!(GLOBAL_SEGMENTS.has(candidate.segment)&&validGlobalCountry))reasons.push('unsupported_apac_country');
  if(!SEGMENTS.has(candidate.segment))reasons.push('unsupported_segment');
  if(!validOfficialUrl(candidate.officialWebsite))reasons.push('invalid_official_website');
  if(!Array.isArray(candidate.evidenceUrls)||candidate.evidenceUrls.length<1||
@@ -28,7 +30,7 @@ export function assessApacLeadCandidate(candidate){
  return {eligibleForResearch:reasons.length===0,approvedToEmail:false,reasons};
 }
 export const APAC_LEAD_POLICY=Object.freeze({
- priorityCountries:['JP','SG','AU'],
+ priorityCountries:[...COUNTRIES],
  targetSegments:[...SEGMENTS],
  defaultEmailSending:false,
  requirementsBeforeSending:['independent_source_verification','jurisdiction_compliance_review','contact_provenance','suppression_and_reply_check','unsubscribe_verified','explicit_campaign_approval']

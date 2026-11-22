@@ -171,7 +171,9 @@ var SalesCore = (function () {
     existing.forEach(function (row) { if (row.company) { var key = companyResearchKey(row); seen[key] = true; existingCounts[key] = (existingCounts[key] || 0) + 1; } });
     candidates.forEach(function (row) {
       var company = String(row.company || '').trim(), country = String(row.country || '').trim().toUpperCase();
-      if (!company || company.length > 200 || /^[=+@-]/.test(company) || ['JP','SG','AU'].indexOf(country) < 0 ||
+      var researchCountry = ['JP','SG','AU','NZ','KR','TH','VN','MY'].indexOf(country) >= 0 ||
+        (['inventory_consulting','supply_chain_services','ai_partner'].indexOf(row.segment) >= 0 && /^[A-Z]{2}$/.test(country) && ['XX','ZZ','EU','UN'].indexOf(country) < 0);
+      if (!company || company.length > 200 || /^[=+@-]/.test(company) || !researchCountry ||
         !/^https:\/\/[^\s]+$/i.test(String(row.source_url || '')) || String(row.source_url).length > 2048) throw new Error('INVALID_RESEARCH_CANDIDATE');
       var key = companyResearchKey({company:company,country:country});
       if (expected.indexOf(key) < 0) expected.push(key);
