@@ -324,3 +324,12 @@ duplicate is mode644; the configured local key is inside a700 directory and
 is600. No key contents were displayed, files deleted, or keys revoked. Replace
 the synchronized credential before any expansion to production Sheets access;
 this does not require rebuilding the existing Gmail connection.
+
+Independent technical re-review: source commit
+504bac2a8a78a69aa3345674f24d655ab76845c3, digest
+81abbe924424509149bdda9521ef023b1906cad587fa3725cd04d85d70a66511.
+The separate reviewer found no remaining must-fix code defect after the stated
+corrections; status is CONDITIONAL because the external sender/queue coordination,
+owner approval and live application conditions remain unresolved. This is not
+a GitHub human approval. No passed live registration/authentication test was
+repeated. Fully resolved messages are also in SALES_PILOT_MESSAGES.txt.
