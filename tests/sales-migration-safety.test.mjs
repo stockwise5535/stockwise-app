@@ -1,10 +1,36 @@
 import test from'node:test';import assert from'node:assert/strict';import{generateKeyPairSync,createVerify}from'node:crypto';
-import{productionCrmId,RETIRED_UNVERIFIED_CRM_ID}from'../server/sales-crm-binding.mjs';
+import{productionCrmId,RETIRED_UNVERIFIED_CRM_ID,assertProductionWriteAuthorization,CRM_BINDING}from'../server/sales-crm-binding.mjs';
 import{sheetsAccessToken}from'../server/sales-sheets-auth.mjs';
 import{discoverBusinessLeads,discoveryQuery,DISCOVERY_ENDPOINT}from'../server/sales-lead-discovery.mjs';
 import{researchRouteGate}from'../server/sales-crm-registration.mjs';
 import{verifiedResearchCandidates}from'../server/sales-lead-handoff.mjs';
+import{checkDedicatedSheetsAuth}from'../server/sales-sheets-auth-check.mjs';
+import{registrationClient}from'../server/sales-crm-registration-client.mjs';
+import{registerResearch}from'../server/sales-crm-registration.mjs';
+import{TEST_CRM_ID}from'../server/sales-test-crm-import.mjs';
+import{createRequire}from'node:module';
 const now=new Date('2026-11-21T20:00:00Z');
+test('production prohibition stops before client reads or writes, even with a supplied client',async()=>{
+ let calls=0;const client={read:async()=>{calls++;},batch:async()=>{calls++;}};
+ await assert.rejects(()=>registerResearch({target:'production',client,result:{}}),/PRODUCTION_WRITES_NOT_AUTHORIZED/);assert.equal(calls,0);
+});
+test('dedicated preparation probe uses readonly scope and GETs against isolation only; transport rejects writes',async()=>{
+ const{privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
+ const authJson=JSON.stringify({type:'service_account',project_id:'isolated-research',client_email:'research@isolated-research.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
+ const Core=createRequire(import.meta.url)('../apps-script/sales-crm/Core.js');let reads=0;
+ const fetchImpl=async(url,opts)=>{
+  if(url==='https://oauth2.googleapis.com/token'){
+   const payload=JSON.parse(Buffer.from(opts.body.get('assertion').split('.')[1],'base64url'));assert.equal(payload.scope,'https://www.googleapis.com/auth/spreadsheets.readonly');
+   return new Response('{"access_token":"unit-test-only"}',{headers:{'Content-Type':'application/json'}});
+  }
+  reads++;assert.equal(opts.method,'GET');assert.ok(url.startsWith('https://sheets.googleapis.com/v4/spreadsheets/'+TEST_CRM_ID));
+  const body=url.includes('/values/Leads')?{values:[Core.TABLES.Leads.slice(0,19)]}:url.includes('/values/Settings')?{values:[['key','value'],['LIVE_SENDING',false],['FOLLOW_UP_ENABLED',false],['LEGAL_REVIEW_COMPLETED',false],['RESEARCH_IMPORT_ENABLED',true]]}:{spreadsheetId:TEST_CRM_ID,sheets:[{properties:{title:'Leads',sheetId:1,gridProperties:{rowCount:2001,columnCount:19}}},{properties:{title:'Settings',sheetId:2,gridProperties:{rowCount:60,columnCount:2}}}]};
+  return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}});
+ };
+ const report=await checkDedicatedSheetsAuth({authJson,fetchImpl});assert.equal(reads,3);assert.equal(report.crmWrites,false);assert.equal(report.sheetsApiReachable,true);
+ const client=await registrationClient({target:'isolation',authJson,requireDedicatedAuth:true,readOnly:true,fetchImpl});
+ await assert.rejects(()=>client.batch([{appendCells:{sheetId:1}}]),/READ_ONLY_SHEETS_CLIENT/);assert.equal(reads,3);
+});
 test('dedicated route gate leaves an active sender and its settings untouched; emergency OFF blocks only intake',()=>{
  const route={spreadsheetId:'canonical',enabled:true,emailSending:false,snsSending:false,followUp:false};
  const state={settings:[['LIVE_SENDING',true],['LEGAL_REVIEW_COMPLETED',true]],metadata:{developerMetadata:[{metadataKey:'stockwiseResearchRoute',metadataValue:JSON.stringify(route)}]}};
@@ -20,8 +46,12 @@ test('official verification needs matching fresh evidence and contact page; publ
  const out=verifiedResearchCandidates([c],[r],{now})[0];assert.equal(out.approvedToEmail,false);assert.equal(out.officialVerification.legalReviewStatus,'pending');assert.equal(out.contact_email,undefined);
 });
 test('unconfirmed canonical CRM or missing independent review cannot authorize a destination',()=>{
- assert.throws(()=>productionCrmId(),/NOT_CONFIRMED/);
- const b={confirmedByOwner:true,confirmedAt:now.toISOString(),spreadsheetId:'canonical-owner-confirmed',newRoute:{emailSending:false,snsSending:false,followUp:false}};
+ assert.equal(CRM_BINDING.spreadsheetId,'12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk');
+ assert.equal(CRM_BINDING.confirmedByOwner,true);
+ assert.throws(()=>productionCrmId({...CRM_BINDING,confirmedByOwner:false}),/NOT_CONFIRMED/);
+ assert.throws(()=>productionCrmId(),/INDEPENDENT_REVIEW_REQUIRED/);
+ assert.throws(()=>assertProductionWriteAuthorization(),/PRODUCTION_WRITES_NOT_AUTHORIZED/);
+ const b={confirmedByOwner:true,confirmedAt:now.toISOString(),spreadsheetId:CRM_BINDING.spreadsheetId,newRoute:{emailSending:false,snsSending:false,followUp:false}};
  assert.throws(()=>productionCrmId(b),/INDEPENDENT_REVIEW/);
  assert.throws(()=>productionCrmId({...b,spreadsheetId:RETIRED_UNVERIFIED_CRM_ID}),/NOT_CONFIRMED/);
  assert.throws(()=>productionCrmId({...b,independentReviewCommit:'a'.repeat(40),independentReviewer:'reviewer',newRoute:{...b.newRoute,emailSending:true}}),/SENDING_FORBIDDEN/);

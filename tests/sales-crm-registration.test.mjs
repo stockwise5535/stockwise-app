@@ -65,7 +65,7 @@ test('HTTP transport uses only fixed Google endpoints and never retries a write 
  const c=await registrationClient({target:'isolation',authJson:'{"client_id":"test-id","client_secret":"test-secret","refresh_token":"test-refresh"}',fetchImpl});await assert.rejects(()=>c.batch([]),/WRITE_UNCONFIRMED/);assert.equal(calls,2);
 });
 test('missing Google authorization makes zero network calls',async()=>{
- let calls=0;await assert.rejects(()=>registrationClient({target:'production',authJson:'{}',fetchImpl:async()=>{calls++;}}),/CANONICAL_CRM_NOT_CONFIRMED/);assert.equal(calls,0);
+ let calls=0;await assert.rejects(()=>registrationClient({target:'production',authJson:'{}',fetchImpl:async()=>{calls++;}}),/INDEPENDENT_REVIEW_REQUIRED/);assert.equal(calls,0);
 });
 test('missing reservation acknowledgement/readback prevents the row append',async()=>{
  const w=world();let writes=0;w.client.batch=async()=>{writes++;};

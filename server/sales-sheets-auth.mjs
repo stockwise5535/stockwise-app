@@ -1,6 +1,6 @@
 import{createSign}from'node:crypto';
 const TOKEN_URL='https://oauth2.googleapis.com/token';
-export async function sheetsAccessToken({authJson,dedicated=false,expectedPrincipal,expectedProject,fetchImpl=fetch,now=new Date()}){
+export async function sheetsAccessToken({authJson,dedicated=false,expectedPrincipal,expectedProject,readOnly=false,fetchImpl=fetch,now=new Date()}){
  const parsed=JSON.parse(authJson),auth=parsed.tokens?.default||parsed;
  let body;
  if(auth.type==='service_account'){
@@ -8,7 +8,7 @@ export async function sheetsAccessToken({authJson,dedicated=false,expectedPrinci
   if(!/^[a-z][a-z0-9-]+@[a-z][a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(auth.client_email||'')||!auth.private_key||!auth.project_id||auth.subject||auth.delegated_subject)throw Error('DEDICATED_SHEETS_AUTH_REQUIRED');
   const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
   const iat=Math.floor(now.getTime()/1000);
-  const unsigned=encode({alg:'RS256',typ:'JWT'})+'.'+encode({iss:auth.client_email,scope:'https://www.googleapis.com/auth/spreadsheets',aud:TOKEN_URL,iat,exp:iat+3600});
+  const unsigned=encode({alg:'RS256',typ:'JWT'})+'.'+encode({iss:auth.client_email,scope:'https://www.googleapis.com/auth/spreadsheets'+(readOnly?'.readonly':''),aud:TOKEN_URL,iat,exp:iat+3600});
   const assertion=unsigned+'.'+createSign('RSA-SHA256').update(unsigned).sign(auth.private_key,'base64url');
   body=new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion});
  }else{

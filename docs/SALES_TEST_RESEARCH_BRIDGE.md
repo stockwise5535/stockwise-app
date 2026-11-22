@@ -151,10 +151,13 @@ completed isolated test. Shared TEST and production were not written during it.
 The old production designation was based on the spreadsheet title, not proven
 sales ownership. The former 1kFsOx… destination is retired from this route.
 The operational candidate 12uDN… (named TEST) has 77 SENT queue rows; three recent
-message IDs match actual outgoing Gmail messages. This establishes real use,
-not owner confirmation that it is the canonical CRM. `crm-binding.json` has no
-production ID and owner/reviewer confirmation is pending. Production transport
-fails before authentication or network access until these are supplied. PR #32
+message IDs match actual outgoing Gmail messages. This establishes real use.
+The owner has now explicitly confirmed 12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk
+as the canonical CRM in this conversation. That exact ID is pinned in code and
+crm-binding.json; every other ID, including the retired ID, is rejected.
+productionWritesAuthorized remains FALSE independently of credential/review
+readiness. No canonical spreadsheet write is authorized. Production transport
+still stops for missing independent review/credential confirmation. PR #32
 had no independent reviews at HEAD 284185900cf8b083ab3d10612981dc42ddc36092.
 
 The isolated spreadsheet remains the sole authorized live-write target. On
@@ -226,3 +229,27 @@ approval separately through its existing process. No automatic promotion exists.
 Production pilot, durable daily operation, actual 50 qualified leads/day,
 independent review and delivery to the sales team are NOT complete. No main
 merge, deployment, scheduler activation, production CRM change or send occurred.
+
+## Dedicated authentication preparation follow-up
+
+The new scripts/sales-sheets-auth-check.mjs accepts one private, owner-only
+service-account JSON file (0600), requests spreadsheets.readonly, and uses a
+read-only transport pinned to the isolated spreadsheet. It never reads/writes
+the canonical CRM or stores tokens. It checks existing isolated schema and OFF
+gates using GETs only, then prints aggregate booleans. A write attempt on this
+client is rejected before HTTP. No real credential has yet been supplied or
+tested. Existing clasp/user OAuth is not loaded or modified.
+
+GitHub currently lists only the PR author as a collaborator; PR #32 has no
+independent reviews or outstanding review requests. No self-review is counted
+as independent approval. A separate reviewer must review the final HEAD and
+production binding, write prohibition, dedicated credential identity, append
+transactions/no retries, and separation from the active sender before any
+production start. Existing passing live registration/discovery probes were not
+repeated for this configuration/authentication-only change.
+
+Next Google-side owner action only: create a separate Cloud project named
+Stockwise Lead Intake and provide its project ID. No existing project, OAuth
+client, billing configuration, CRM sharing or sender configuration is changed
+by this preparation. API enablement and dedicated principal creation remain
+unperformed, pending management access; do not mark them verified.

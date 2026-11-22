@@ -1,7 +1,7 @@
 // Append-only registration. No mail/queue APIs, arbitrary targets or scheduler control.
 import{createRequire}from'node:module';import{createHash}from'node:crypto';
 import{TEST_CRM_ID}from'./sales-test-crm-import.mjs';
-import{productionCrmId}from'./sales-crm-binding.mjs';
+import{productionCrmId,assertProductionWriteAuthorization}from'./sales-crm-binding.mjs';
 import{assessApacLeadCandidate}from'./sales-apac-lead-policy.mjs';
 const Core=createRequire(import.meta.url)('../apps-script/sales-crm/Core.js');
 export const DAILY_REGISTRATION_LIMIT=1;
@@ -96,6 +96,7 @@ export function verifyRegistration(plan,after){
  return{inserted:plan.inserted,skipped:plan.skipped,deferred:plan.deferred,totalRows:current.rows.length,existingRowsUnchanged:true,approvedToEmail:false};
 }
 export async function registerResearch({target,result,client,now=new Date()}){
+ if(target==='production')assertProductionWriteAuthorization();
  const initial=await client.read(),plan=planRegistration(initial,result,{target,now});
  if(!plan.inserted)return verifyRegistration(plan,await client.read());
  if(!eq(initial,await client.read()))throw Error('CONCURRENT_UPDATE_REPLAN_REQUIRED');
