@@ -54,7 +54,7 @@ test('unconfirmed canonical CRM or missing independent review cannot authorize a
  const b={confirmedByOwner:true,confirmedAt:now.toISOString(),spreadsheetId:CRM_BINDING.spreadsheetId,newRoute:{emailSending:false,snsSending:false,followUp:false}};
  assert.throws(()=>productionCrmId(b),/INDEPENDENT_REVIEW/);
  assert.throws(()=>productionCrmId({...b,spreadsheetId:RETIRED_UNVERIFIED_CRM_ID}),/NOT_CONFIRMED/);
- assert.throws(()=>productionCrmId({...b,independentReviewCommit:'a'.repeat(40),independentReviewer:'reviewer',newRoute:{...b.newRoute,emailSending:true}}),/SENDING_FORBIDDEN/);
+ assert.throws(()=>productionCrmId({...b,independentReviewStatus:'approved',independentReviewCommit:'a'.repeat(40),independentReviewDigest:'a'.repeat(64),independentReviewer:'reviewer',newRoute:{...b.newRoute,emailSending:true}}),/SENDING_FORBIDDEN/);
 });
 test('dedicated auth rejects existing user OAuth without touching it or making a request',async()=>{
  let calls=0;await assert.rejects(()=>sheetsAccessToken({authJson:JSON.stringify({client_id:'existing',client_secret:'existing',refresh_token:'existing'}),dedicated:true,fetchImpl:async()=>{calls++;}}),/DEDICATED_SHEETS_AUTH_REQUIRED/);assert.equal(calls,0);

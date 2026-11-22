@@ -260,3 +260,67 @@ stockwise-lead-intake in that dedicated project, with no project IAM roles or
 domain-wide delegation, and return its email address. Do not create/share a key
 or grant CRM access in this step. Live API/authentication verification and
 independent review remain pending.
+
+## Priority change: approved sales email pilot (2026-11-22)
+
+The owner made actual sales email the priority. The existing Gmail connection
+and actual English sent copy were read and retained, not replaced. Actual From
+is Ryan S <nexops2026test@gmail.com>. The bound Apps Script belongs to that
+account and canonical spreadsheet; remote Main/Engine match the previous
+checkout, while Core differs only in research-import country permissions.
+No remote code, property, spreadsheet, trigger or send was changed.
+
+The current unsent queue has five APPROVED/READY Canadian rows with older copy.
+Canada is outside current allowed SG/NZ/UK. Current legal gate is FALSE and
+daily50/run10 conflict with code hard limits10/5. Do not rename READY to QUEUED
+or turn switches on to force them through. These five are not the pilot.
+
+The structured pilot-proposal.json contains three new Singapore business
+contacts and fully resolved bodies for owner review, still DRAFT/unauthorized.
+Official contact/business pages and current Gmail/CRM/Suppression were checked.
+One initially considered recipient already had a Gmail sent receipt absent
+from the CRM snapshot and was excluded. The English copy comes from actual
+sent message 1a203fe94895ec57; only company names and one existing contact-email
+footer line differ. Public B2B contact is not treated as express consent.
+
+Independent technical review found missing durable SENDING persistence, stale
+approval snapshots and unpinned From. Development Main/Engine now persist
+ScriptProperties intent, flush/read back SENDING before Gmail, re-read each
+queue/lead/settings/suppression, bind expected From email/display name, verify
+actual sent identity/body plus receipts, and halt uncertain results without
+retry. READY is supported without modifying old queue rows. Actual Gmail
+prior-contact/daily counts supplement stale CRM counts. Queue/Lead IDs are
+re-resolved after Gmail before recording receipts, but external structural
+edits still require coordination; ScriptLock cannot stop other APIs/editors.
+Hourly processing stays OFF until separate post-pilot recurring approval.
+
+The actual Gmail query returned at least100 sent messages for the current local
+day, and another ChatGPT sender remains unidentified. A pre-send count is not
+a shared atomic quota: a global ten-per-day guarantee requires that sender's
+task/instructions to be identified and coordinated. No task was stopped.
+Pilot must use an available permitted day/window after that condition is met;
+do not treat owner content approval as permission to exceed the daily cap.
+
+After explicit owner approval, the application scope is selective Main/Engine
+replacement in the existing bound Apps Script, preserving Core, manifest, all
+custom files and existing properties. sending-patch.review.json records the
+current/prepared hashes and OFF authorizations. Fresh source drift requires
+reconciliation; an unknown write result is never retried. Before arming, read
+existing launch review, expected sender, unresolved deliveries and trigger
+state. Only missing, specifically reviewed settings may be changed: proposed
+daily10/run3, scoped three-message approval and country launch review. The
+master LIVE flag is already TRUE; follow-ups stay FALSE; no bulk TRUE operation.
+No new Gmail connection, Vercel deployment or paid API is part of this proposal.
+
+CRM-specific review also fixed stale-review/source binding and pre-write row
+capacity handling. Daily CRM registration is not claimed ready: official-review
+supply still has only Onfleet, so subsequent registration awaits fresh reviews.
+Production writes remain FALSE and review status is pending/conditional.
+
+The Desktop duplicate key is outside Git (git reports not a repository) but
+is the same inode as its iCloud Desktop path, and Desktop/Documents iCloud
+sync settings are enabled. Actual upload/deletion history is unverified. The
+duplicate is mode644; the configured local key is inside a700 directory and
+is600. No key contents were displayed, files deleted, or keys revoked. Replace
+the synchronized credential before any expansion to production Sheets access;
+this does not require rebuilding the existing Gmail connection.

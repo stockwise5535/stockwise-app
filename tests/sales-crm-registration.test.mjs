@@ -72,3 +72,10 @@ test('missing reservation acknowledgement/readback prevents the row append',asyn
  await assert.rejects(()=>registerResearch({target:w.target,result,client:w.client,now}),/RESERVATION_READBACK_FAILED/);
  assert.equal(writes,1);assert.equal(w.state.leads.length,1);
 });
+test('capacity boundary stops before reserving or appending, while a full-sheet replay remains safe',async()=>{
+ const w=world(),headers=w.state.leads[0];
+ for(let i=0;i<1999;i++)w.state.leads.push(headers.map(k=>({lead_id:'old-'+i,company:'Existing '+i,country:'JP',website:'https://old-'+i+'.example',status:'RESEARCH'}[k]||'')));
+ await assert.rejects(()=>registerResearch({target:w.target,result,client:w.client,now}),/CAPACITY_REQUIRES_REVIEW_BEFORE_WRITE/);assert.equal(w.writes,0);assert.equal(w.state.leads.length,2000);
+ const replay=structuredClone(result);replay.candidates[0].companyName='Existing 0';replay.candidates[0].officialWebsite='https://old-0.example';
+ assert.equal((await registerResearch({target:w.target,result:replay,client:w.client,now})).inserted,0);assert.equal(w.writes,0);
+});

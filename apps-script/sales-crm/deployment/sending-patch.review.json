@@ -1,0 +1,36 @@
+{
+  "status": "PREPARED_NOT_APPLIED",
+  "scriptId": "10-3xUUzlKVCXZItlI4d1vaOknJ-VfAAqPre-0Gz5Pzl5lvFQChPIikXA",
+  "crmId": "12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk",
+  "replaceFiles": [
+    "Main",
+    "Engine"
+  ],
+  "retainEveryOtherRemoteFile": true,
+  "retainManifest": true,
+  "retainCore": true,
+  "retainScriptProperties": true,
+  "expectedCurrentSourceHashes": {
+    "Main": "a4daaa6476f73cdeb4482478e92adc13efdad853669a78051c16204ed7436e51",
+    "Engine": "30e1bb85da296d36b462fb2044ddf85bf4dc64fa9e7636188623e315f98cd4cd",
+    "Core": "3dbc7e073c8aeb0befc8d7f678ee23884f84937551e4a0d26b203cf352a98c95"
+  },
+  "expectedCurrentManifestHash": "7d4b529cb1d0644ee6db89aec74fc7bc4e3097c9a449f40b9d1c042760b8fa16",
+  "preparedSourceHashes": {
+    "Main": "132e958638c63197fe06aead8772d777ba6cf9bf4c7fd02ee1d3d3c6feb35ae2",
+    "Engine": "b529b88f4c7ace46374e168a774598277ddcd81927add4eef0722713a95cd599"
+  },
+  "ownerApprovalReceived": false,
+  "applyAuthorized": false,
+  "mailSendAuthorized": false,
+  "recurringEnableAuthorized": false,
+  "initialMaxTotal": 3,
+  "dailyMax": 10,
+  "scopeNotes": [
+    "No Google write is currently authorized. Re-read the remote source and reconcile any changes before an explicitly approved application.",
+    "Apply only Main and Engine into the full fresh remote files payload; retain all custom files including Unicode-named files, manifest and Core.",
+    "Use existing Gmail connection and sender; no OAuth replacement or paid API.",
+    "Read back exact source hashes after one write; never retry an unknown write result.",
+    "Current ChatGPT sender task must be identified/coordinated before any claim of a global ten-per-day bound."
+  ]
+}

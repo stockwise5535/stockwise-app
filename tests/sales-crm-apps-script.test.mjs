@@ -10,17 +10,20 @@ function world(over={}, opts={}){
  const tables={Leads:[],EmailQueue:[],ActivityLog:[],Suppression:[],Settings:[]};
  const settings={SENDER_NAME:'Taro Test',SENDER_ADDRESS:'1-1 Test St, Tokyo',...over};
  for(const [key,value] of Object.entries(settings))tables.Settings.push({key,value});
- let clock=new Date(opts.now||WED_10JST), seq=0, sent=[], threads={};
+ let clock=new Date(opts.now||WED_10JST), seq=0, sent=[], sentTimes=[], threads={};
  const store={
   rows:t=>tables[t].map((r,i)=>({...r,_row:i+2})), // copies, like real Sheets reads
   append:(t,o)=>{tables[t].push({...o});},
-  update:(t,row,p)=>{Object.assign(tables[t][row-2],p);}
+  update:(t,row,p)=>{Object.assign(tables[t][row-2],p);},flush:()=>{}
  };
  const mail={self:()=>'owner@stockwise.test',
-  send:m=>{ if(opts.failSend)throw new Error('Gmail quota exceeded'); sent.push(m); const id='T'+sent.length; threads[id]=[{id:'M'+sent.length,from:'Owner <owner@stockwise.test>',date:clock.toISOString(),subject:m.subject,body:m.body}]; return {threadId:id,messageId:'M'+sent.length}; },
+  sentToday:()=>sentTimes.filter(d=>deps.localParts(d).day===deps.localParts(clock).day).length,
+  hasPriorSend:to=>sent.some(m=>m.to===to),
+  send:m=>{ if(opts.failSend)throw new Error('Gmail quota exceeded'); sent.push(m); sentTimes.push(new Date(clock)); const id='T'+sent.length; threads[id]=[{id:'M'+sent.length,from:'Owner <owner@stockwise.test>',date:clock.toISOString(),subject:m.subject,body:m.body}]; return {threadId:id,messageId:'M'+sent.length}; },
   threadMessages:id=>threads[id]||[]};
  let stopped=false;
- const safety={isStopped:()=>stopped,isAllowed:()=>true,stop:()=>{stopped=true;}};
+ const attempts=new Map();
+ const safety={isStopped:()=>stopped,isAllowed:()=>true,reserveSend:q=>{if(attempts.has(q.send_key))throw Error('PREVIOUS_ATTEMPT');attempts.set(q.send_key,'SENDING');},completeSend:q=>attempts.set(q.send_key,'SENT'),stop:()=>{stopped=true;}};
  const deps={store,mail,safety,now:()=>clock,id:()=>String(++seq),
   localParts:d=>{const j=new Date(d.getTime()+9*3600e3);return {day:j.toISOString().slice(0,10),hour:j.getUTCHours(),dow:j.getUTCDay()};}};
  return {tables,deps,sent,threads,setNow:s=>{clock=new Date(s);},reply:(id,from,subject,body,date)=>threads[id].push({id:'R'+Math.random(),from,subject,body,date:date||new Date(clock.getTime()+1000).toISOString()})};
@@ -265,4 +268,53 @@ test('live sending has hard daily and per-run limits even if Settings is changed
   const w=world({...LIVE,...config});ready(w);approveAll(w);Engine.processQueue(w.deps);
   assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/SEND_LIMIT_CONFIGURATION_INVALID/);
  }
+});
+
+
+test('SENDING must flush and read back before Gmail; failed persistence never sends',()=>{
+ for(const mode of ['flush_error','lost_sending']){
+  const w=world(LIVE);ready(w);approveAll(w);const update=w.deps.store.update;
+  if(mode==='flush_error')w.deps.store.flush=()=>{throw Error('UNCONFIRMED');};
+  else w.deps.store.update=(t,row,p)=>{if(p.status!=='SENDING')update(t,row,p);};
+  const r=Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.equal(r.stopped,true);
+ }
+});
+test('revoked approval on the next message is reloaded after the previous send',()=>{
+ const w=world(LIVE);ready(w,[lead(),lead({company:'Other',contact_email:'owner@other.example',domain:'other.example'})]);approveAll(w);
+ const send=w.deps.mail.send;w.deps.mail.send=m=>{const out=send(m);w.tables.EmailQueue[1].approval_status='REJECTED';return out;};
+ const r=Engine.processQueue(w.deps);assert.equal(r.sent,1);assert.equal(w.sent.length,1);assert.equal(w.tables.EmailQueue[1].status,'BLOCKED');
+});
+test('body edit or suppression during reservation is noticed before Gmail',()=>{
+ for(const change of [w=>{w.tables.EmailQueue[0].body+=' external edit';},w=>{w.tables.Suppression.push({value:'sato@acme.example',type:'email'});}]){
+  const w=world(LIVE);ready(w);approveAll(w);const flush=w.deps.store.flush;let n=0;w.deps.store.flush=()=>{flush();if(++n===1)change(w);};
+  assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
+ }
+});
+test('actual Gmail daily cap and prior-contact history override a stale CRM snapshot',()=>{
+ for(const update of [w=>{w.deps.mail.sentToday=()=>10;},w=>{w.deps.mail.hasPriorSend=()=>true;}]){
+  const w=world(LIVE);ready(w);approveAll(w);update(w);const r=Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.equal(r.deferred,1);
+ }
+});
+test('Gmail receipt followed by failed Sheet readback stops and never sends again',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);const update=w.deps.store.update;
+ w.deps.store.update=(t,row,p)=>{if(p.status!=='SENT')update(t,row,p);};
+ const r=Engine.processQueue(w.deps);assert.equal(r.stopped,true);assert.equal(w.sent.length,1);
+ w.tables.EmailQueue[0].status='QUEUED';w.deps.safety.isStopped=()=>false;
+ Engine.processQueue(w.deps);assert.equal(w.sent.length,1);
+});
+
+
+test('invalid or newly postponed scheduled_at cannot be sent',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);w.tables.EmailQueue[0].scheduled_at='invalid';
+ assert.equal(Engine.processQueue(w.deps).deferred,1);assert.equal(w.sent.length,0);
+ w.tables.EmailQueue[0].scheduled_at='';let flushed=false;w.deps.store.flush=()=>{if(!flushed){flushed=true;w.tables.EmailQueue[0].scheduled_at='2099-01-01T00:00:00Z';}};
+ assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
+});
+
+
+test('receipt writes re-resolve queue and lead IDs after a row reorder during Gmail',()=>{
+ const w=world(LIVE);ready(w,[lead(),lead({company:'Other',contact_email:'owner@other.example',domain:'other.example'})]);approveAll(w);
+ const send=w.deps.mail.send;let changed=false;w.deps.mail.send=m=>{const out=send(m);if(!changed){changed=true;w.tables.EmailQueue.reverse();w.tables.Leads.reverse();}return out;};
+ const r=Engine.processQueue(w.deps);assert.equal(r.sent,2);assert.equal(w.sent.length,2);
+ assert.ok(w.tables.EmailQueue.every(q=>q.status==='SENT'&&q.gmail_message_id));assert.ok(w.tables.Leads.every(l=>l.status==='CONTACTED'));
 });

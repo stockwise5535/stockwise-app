@@ -34,9 +34,30 @@ function gmailAdapter_() {
   return {
     self: function () { return Session.getEffectiveUser().getEmail(); },
     send: function (m) {
-      var opts = { name: m.name || undefined }; if (m.replyTo) opts.replyTo = m.replyTo;
+      var configuredName = PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME');
+      var opts = { name: configuredName || m.name || undefined }; if (m.replyTo) opts.replyTo = m.replyTo;
       var msg = GmailApp.createDraft(m.to, m.subject, m.body, opts).send(); // returns the sent message, so we keep thread/message IDs
+      var address=function(v){return SalesCore.normalizeEmail((String(v).match(/<([^>]+)>/)||[0,v])[1]);};
+      var body=function(v){return String(v).replace(/\r\n/g,'\n').replace(/\n+$/,'');};
+      var expected=SalesCore.normalizeEmail(PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM'));
+      if(!expected||address(msg.getFrom())!==expected||address(msg.getTo())!==SalesCore.normalizeEmail(m.to)||msg.getSubject()!==m.subject||body(msg.getPlainBody())!==body(m.body))throw Error('GMAIL_SENT_CONTENT_UNCONFIRMED');
       return { threadId: msg.getThread().getId(), messageId: msg.getId() };
+    },
+    hasPriorSend: function (to) {
+      if (!SalesCore.isValidEmail(to)) throw Error('INVALID_SEND_RECIPIENT');
+      return GmailApp.search('in:sent to:'+SalesCore.normalizeEmail(to),0,1).length > 0;
+    },
+    sentToday: function (now) {
+      var tz=Session.getScriptTimeZone(),day=Utilities.formatDate(now,tz,'yyyy-MM-dd');
+      var start=Utilities.parseDate(day+' 00:00:00',tz,'yyyy-MM-dd HH:mm:ss');
+      var threads=GmailApp.search('in:sent after:'+Math.floor(start.getTime()/1000)+' {subject:StockWise subject:"Inventory visibility"}',0,100);
+      var seen={},count=0,self=SalesCore.normalizeEmail(Session.getEffectiveUser().getEmail());
+      threads.some(function(t){return t.getMessages().some(function(m){
+        var from=SalesCore.normalizeEmail((String(m.getFrom()).match(/<([^>]+)>/)||[0,m.getFrom()])[1]);
+        if(!seen[m.getId()]&&from===self&&Utilities.formatDate(m.getDate(),tz,'yyyy-MM-dd')===day&&/stockwise|inventory visibility/i.test(m.getSubject())){seen[m.getId()]=true;count++;}
+        return count>=10;
+      });});
+      return count;
     },
     threadMessages: function (id) {
       var th = GmailApp.getThreadById(id); if (!th) return [];
@@ -197,7 +218,7 @@ function showSafetyReport() { ensureLoaded_(); var t = SalesEngine.safetyReport(
 
 /* Hourly: replies first (so a reply/unsubscribe is always seen before the next send), then queue. */
 function hourlyRun() {
-  return locked_(function () { var d = deps_(); try { SalesEngine.checkReplies(d); return SalesEngine.processQueue(d); } catch (e) { d.safety.stop('MAINTENANCE_FAILED'); throw new Error('SALES_MAINTENANCE_FAILED_CHECK_EXECUTIONS'); } });
+  return locked_(function () { var d = deps_(); try { SalesEngine.checkReplies(d); if (PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_RECURRING_ENABLED') !== 'true' || salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT').mode !== 'recurring') return {stopped:true,recurringNotEnabled:true}; return SalesEngine.processQueue(d); } catch (e) { d.safety.stop('MAINTENANCE_FAILED'); throw new Error('SALES_MAINTENANCE_FAILED_CHECK_EXECUTIONS'); } });
 }
 function dailyRun() { return locked_(function () { var d = deps_(); SalesEngine.dedupeLeads(d); SalesEngine.generateDrafts(d); SalesEngine.scheduleFollowUps(d); return dailySalesReport_(d); }); }
 function installTriggers() {
@@ -272,23 +293,44 @@ function notifySalesOwner_(code) {
   catch (e) { Logger.log('SALES_ALERT_EMAIL_RESULT_UNCONFIRMED'); }
 }
 function sendController_() {
-  var props = PropertiesService.getScriptProperties();
+  var props=PropertiesService.getScriptProperties(),prefix='STOCKWISE_SALES_SEND_ATTEMPT_';
+  function sender() {
+    var expected=SalesCore.normalizeEmail(props.getProperty('STOCKWISE_SALES_EXPECTED_FROM'));
+    var actual=SalesCore.normalizeEmail(Session.getEffectiveUser().getEmail());
+    return SalesCore.isValidEmail(expected)&&expected===actual ? expected : '';
+  }
+  function attemptKey(q) { return prefix+SalesCore.hash(SalesCore.normalizeEmail(q.to_email)+'#'+String(q.step)); }
+  function pendingAttempt() {
+    var all=props.getProperties();return Object.keys(all).some(function(k){if(k.indexOf(prefix)!==0)return false;try{return JSON.parse(all[k]).phase!=='SENT';}catch(e){return true;}});
+  }
+  function allowed(queue) {
+    var grant=salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT'),identity=sender();
+    if(!identity||grant.senderEmail!==identity||grant.senderName!==(props.getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME')||'')||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false')return false;
+    var lead=sheetsStore_().rows('Leads').filter(function(l){return l.lead_id===queue.lead_id;});
+    if(lead.length!==1||!legalLaunchReviewed_(lead[0]))return false;
+    return grant.mode==='recurring' || grant.mode==='pilot'&&grant.queue&&Object.keys(grant.queue).length<=3&&grant.queue[queue.queue_id]===SalesCore.contentHash(queue.subject,queue.body,queue.to_email);
+  }
   return {
-    isStopped: function () {
-      var grant = salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');
-      return props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP') !== 'false' || ['pilot','recurring'].indexOf(grant.mode) < 0;
+    isStopped:function(){var grant=salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');return !sender()||grant.senderEmail!==sender()||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false'||['pilot','recurring'].indexOf(grant.mode)<0||pendingAttempt();},
+    isAllowed:allowed,
+    hasUnresolvedAttempts:pendingAttempt,
+    reserveSend:function(q){
+      if(!allowed(q)||pendingAttempt())throw Error('SEND_AUTHORIZATION_CHANGED');
+      var key=attemptKey(q);if(props.getProperty(key))throw Error('PREVIOUS_SEND_ATTEMPT_NO_RETRY');
+      var value=JSON.stringify({phase:'SENDING',queueId:q.queue_id,hash:SalesCore.contentHash(q.subject,q.body,q.to_email),senderEmail:sender()});
+      props.setProperty(key,value);if(props.getProperty(key)!==value)throw Error('SEND_INTENT_NOT_PERSISTED');
     },
-    isAllowed: function (queue) {
-      var grant = salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');
-      var lead = sheetsStore_().rows('Leads').filter(function (l) { return l.lead_id === queue.lead_id; })[0];
-      if (!lead || !legalLaunchReviewed_(lead)) return false;
-      return grant.mode === 'recurring' || (grant.mode === 'pilot' && grant.queue && Object.keys(grant.queue).length <= 3 &&
-        grant.queue[queue.queue_id] === SalesCore.contentHash(queue.subject, queue.body, queue.to_email));
+    completeSend:function(q,out){
+      var key=attemptKey(q),record=salesPropertyJson_(key);
+      if(record.phase!=='SENDING'||record.queueId!==q.queue_id||record.hash!==SalesCore.contentHash(q.subject,q.body,q.to_email)||!out.messageId||!out.threadId)throw Error('SEND_RECEIPT_UNCONFIRMED');
+      var value=JSON.stringify({phase:'SENT',queueId:q.queue_id,hash:record.hash,senderEmail:record.senderEmail,messageId:out.messageId,threadId:out.threadId});
+      props.setProperty(key,value);if(props.getProperty(key)!==value)throw Error('SEND_RECEIPT_NOT_PERSISTED');
     },
-    stop: function (code) { props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'true'); notifySalesOwner_(code); }
+    stop:function(code){props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP','true');notifySalesOwner_(code);}
   };
 }
-function stopSalesSending() { PropertiesService.getScriptProperties().setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'true'); Logger.log('SALES_SENDING_STOPPED'); }
+
+function stopSalesSending() { PropertiesService.getScriptProperties().setProperty('STOCKWISE_SALES_RECURRING_ENABLED','false'); PropertiesService.getScriptProperties().setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'true'); Logger.log('SALES_SENDING_STOPPED'); }
 function confirmedSalesOperation_(message) {
   var ui = SpreadsheetApp.getUi();
   if (ui.alert('Stockwise sales approval', message, ui.ButtonSet.YES_NO) !== ui.Button.YES) throw new Error('OWNER_CONFIRMATION_REQUIRED');
@@ -297,11 +339,13 @@ function armReviewedSalesPilot() {
   return locked_(function () {
     var d = deps_(), s = SalesEngine.loadSettings(d), ids = salesPropertyJson_('STOCKWISE_SALES_PILOT_QUEUE_IDS');
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 || ids.some(function (id, i) { return typeof id !== 'string' || ids.indexOf(id) !== i; })) throw new Error('PILOT_REQUIRES_1_TO_3_UNIQUE_QUEUE_IDS');
-    var queue = d.store.rows('EmailQueue'), leads = d.store.rows('Leads'), grant = { mode: 'pilot', queue: {} };
-    if (queue.some(function (q) { return ['FAILED','SENDING'].indexOf(q.status) >= 0; })) throw new Error('UNRESOLVED_DELIVERY');
+    var identity=SalesCore.normalizeEmail(PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM'));
+    if(!SalesCore.isValidEmail(identity)||identity!==SalesCore.normalizeEmail(Session.getEffectiveUser().getEmail()))throw Error('EXPECTED_SENDER_REQUIRED');
+    var queue = d.store.rows('EmailQueue'), leads = d.store.rows('Leads'), grant = { mode: 'pilot', senderEmail:identity, senderName:PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME')||'', queue: {} };
+    if (queue.some(function (q) { return ['FAILED','SENDING'].indexOf(q.status) >= 0; }) || d.safety.hasUnresolvedAttempts()) throw new Error('UNRESOLVED_DELIVERY');
     ids.forEach(function (id) {
       var matches = queue.filter(function (q) { return q.queue_id === id; });
-      if (matches.length !== 1 || ['QUEUED','DRY_RUN_OK'].indexOf(matches[0].status) < 0) throw new Error('PILOT_QUEUE_NOT_READY');
+      if (matches.length !== 1 || ['QUEUED','READY','DRY_RUN_OK'].indexOf(matches[0].status) < 0) throw new Error('PILOT_QUEUE_NOT_READY');
       var q = matches[0], lead = leads.filter(function (l) { return l.lead_id === q.lead_id; })[0];
       if (!lead || !legalLaunchReviewed_(lead)) throw new Error('COUNTRY_AND_LAUNCH_REVIEW_REQUIRED');
       var reasons = SalesCore.preSendChecks({item:q, lead:lead, settings:s, sup:SalesCore.suppressionSet(d.store.rows('Suppression')), queue:queue,
@@ -327,7 +371,11 @@ function armReviewedRecurringSales() {
           grant.queue[id] !== SalesCore.contentHash(rows[0].subject,rows[0].body,rows[0].to_email);
       })) throw new Error('PILOT_DELIVERY_VERIFICATION_REQUIRED');
     confirmedSalesOperation_('Confirm actual pilot delivery and unsubscribe handling were checked. Arm recurring processing of approved messages only? Sending switches stay unchanged.');
+    if(sendController_().isStopped())throw Error('SEND_CONTROLLER_STOPPED');
+    var settings=SalesEngine.loadSettings(deps_());
+    if(settings.dailyLimit!==10||settings.runLimit<1||settings.runLimit>5)throw Error('DAILY_TEN_CONFIGURATION_REQUIRED');
     grant.mode = 'recurring'; props.setProperty('STOCKWISE_SALES_SEND_GRANT', JSON.stringify(grant));
+    props.setProperty('STOCKWISE_SALES_RECURRING_ENABLED','true');
     props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'false');
     return {mode:'recurring'};
   });

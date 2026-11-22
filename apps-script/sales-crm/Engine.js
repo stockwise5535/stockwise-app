@@ -47,7 +47,7 @@ var SalesEngine = (function () {
   function snapshotApprovals(deps) {
     var core = C(), n = 0, now = iso(deps.now());
     deps.store.rows('EmailQueue').forEach(function (q) {
-      if (q.approval_status === 'APPROVED' && String(q.approved_by || '').trim() && !q.approved_hash && !q.sent_at && ['QUEUED','DRY_RUN_OK'].indexOf(String(q.status)) >= 0) {
+      if (q.approval_status === 'APPROVED' && String(q.approved_by || '').trim() && !q.approved_hash && !q.sent_at && ['QUEUED','READY','DRY_RUN_OK'].indexOf(String(q.status)) >= 0) {
         deps.store.update('EmailQueue', q._row, { approved_hash: core.contentHash(q.subject, q.body, q.to_email), approved_at: q.approved_at || now }); n++;
         log(deps, 'APPROVAL_RECORDED', q.lead_id, q.queue_id, 'by ' + q.approved_by);
       }
@@ -56,46 +56,68 @@ var SalesEngine = (function () {
   }
 
   function processQueue(deps) {
-    var core = C(), s = loadSettings(deps), res = { mode: s.liveSending ? 'LIVE' : 'DRY_RUN', sent: 0, dryRunOk: 0, blocked: 0, failed: 0, deferred: 0 };
-    // Approval hashes must be recorded explicitly during a separate review action.
-    // Never auto-snapshot during a live send run: an edited email could otherwise gain approval.
-    var nowD = deps.now(), lp = deps.localParts(nowD), sup = core.suppressionSet(deps.store.rows('Suppression'));
-    var queue = deps.store.rows('EmailQueue'), leads = deps.store.rows('Leads');
-    var sentToday = queue.filter(function (q) { return q.status === 'SENT' && q.sent_at && deps.localParts(new Date(q.sent_at)).day === lp.day; }).length;
-    var pending = queue.filter(function (q) { return q.approval_status === 'APPROVED' && ['QUEUED', 'DRY_RUN_OK', ''].indexOf(String(q.status)) >= 0 && (!q.scheduled_at || Date.parse(q.scheduled_at) <= nowD.getTime()); });
-    var sentThisRun = 0, halted = false;
-    // Real Apps Script supplies a persistent, separately armed send controller.
-    if (s.liveSending && (!deps.safety || deps.safety.isStopped())) { res.stopped = true; return res; }
-    if (s.liveSending && queue.some(function (q, i) { return !q.queue_id || queue.some(function (other, j) { return i !== j && other.queue_id === q.queue_id; }); })) {
-      deps.safety.stop('AMBIGUOUS_QUEUE_ID'); res.stopped = true; return res;
+    var core = C(), initialSettings = loadSettings(deps);
+    var res = {mode:initialSettings.liveSending ? 'LIVE' : 'DRY_RUN',sent:0,dryRunOk:0,blocked:0,failed:0,deferred:0};
+    var readyStatuses = ['QUEUED','READY','DRY_RUN_OK',''];
+    function snapshot(id) {
+      var now = deps.now(), local = deps.localParts(now), queue = deps.store.rows('EmailQueue');
+      var matches = queue.filter(function (q) { return q.queue_id === id; });
+      if (matches.length !== 1 || queue.some(function (q,i) { return !q.queue_id || queue.some(function (r,j) { return i !== j && r.queue_id === q.queue_id; }); })) throw Error('AMBIGUOUS_QUEUE_ID');
+      var leads = deps.store.rows('Leads').filter(function (l) { return l.lead_id === matches[0].lead_id; });
+      if (leads.length !== 1) throw Error('AMBIGUOUS_LEAD_ID');
+      var sent = queue.filter(function (q) { return q.status === 'SENT' && q.sent_at && deps.localParts(new Date(q.sent_at)).day === local.day; }).length;
+      var settings = loadSettings(deps);
+      if (settings.liveSending && typeof deps.mail.sentToday === 'function') sent = Math.max(sent,deps.mail.sentToday(now));
+      return {item:matches[0],lead:leads[0],settings:settings,sup:core.suppressionSet(deps.store.rows('Suppression')),queue:queue,localNow:local,sentToday:sent,sentThisRun:res.sent,nowMs:now.getTime()};
     }
-    // An unresolved previous attempt blocks the whole live run, not just one row.
-    if (s.liveSending && queue.some(function (q) { return ['SENDING','FAILED'].indexOf(q.status) >= 0; })) {
+    function scheduledReady(q,now) { return !q.scheduled_at || isFinite(Date.parse(q.scheduled_at)) && Date.parse(q.scheduled_at) <= now; }
+    function hardReasons(ctx) { return core.preSendChecks(ctx).filter(function (r) { return core.TRANSIENT.indexOf(r) < 0; }); }
+    function flush() { if (typeof deps.store.flush !== 'function') throw Error('DURABLE_STORE_REQUIRED'); deps.store.flush(); }
+    var queue = deps.store.rows('EmailQueue'), halted = false;
+    var pending = queue.filter(function (q) { return q.approval_status === 'APPROVED' && readyStatuses.indexOf(String(q.status)) >= 0; });
+    if (initialSettings.liveSending && (!deps.safety || deps.safety.isStopped())) { res.stopped = true; return res; }
+    if (initialSettings.liveSending && queue.some(function (q) { return ['SENDING','FAILED'].indexOf(q.status) >= 0; })) {
       deps.safety.stop('UNRESOLVED_DELIVERY'); res.stopped = true; return res;
     }
-    pending.forEach(function (q) {
+    pending.forEach(function (original) {
       if (halted) { res.deferred++; return; }
-      if (s.liveSending && (deps.safety.isStopped() || !deps.safety.isAllowed(q))) { res.deferred++; return; }
-      var lead = byId(leads, 'lead_id', q.lead_id);
-      var reasons = core.preSendChecks({ item: q, lead: lead, settings: s, sup: sup, queue: queue, localNow: lp, sentToday: sentToday, sentThisRun: sentThisRun, nowMs: nowD.getTime() });
-      var hard = reasons.filter(function (r) { return core.TRANSIENT.indexOf(r) < 0; });
-      if (hard.length) { deps.store.update('EmailQueue', q._row, { status: 'BLOCKED', blocked_reason: hard.join(',') }); q.status = 'BLOCKED'; log(deps, 'BLOCKED', q.lead_id, q.queue_id, hard.join(',')); res.blocked++; return; }
-      if (reasons.length) { res.deferred++; return; }
-      if (!s.liveSending) { deps.store.update('EmailQueue', q._row, { status: 'DRY_RUN_OK', blocked_reason: '' }); q.status = 'DRY_RUN_OK'; log(deps, 'DRY_RUN_OK', q.lead_id, q.queue_id, 'would send; LIVE_SENDING=false'); res.dryRunOk++; return; }
-      // Mark SENDING first: a crash after this point can never cause an automatic second send.
-      deps.store.update('EmailQueue', q._row, { status: 'SENDING', attempts: Number(q.attempts || 0) + 1, blocked_reason: '' }); q.status = 'SENDING';
+      var q, ctx;
       try {
-        var out = deps.mail.send({ to: q.to_email, subject: q.subject, body: q.body, name: s.senderName, replyTo: s.replyTo });
-        if (!out || !out.threadId || !out.messageId) throw new Error('GMAIL_RECEIPT_MISSING');
-        var t = iso(deps.now());
-        deps.store.update('EmailQueue', q._row, { status: 'SENT', sent_at: t, gmail_thread_id: out.threadId, gmail_message_id: out.messageId, error: '' }); q.status = 'SENT'; q.sent_at = t;
-        if (lead) deps.store.update('Leads', lead._row, { status: 'CONTACTED', last_contacted_at: t, updated_at: t });
-        log(deps, 'SENT', q.lead_id, q.queue_id, 'step ' + q.step); sentToday++; sentThisRun++; res.sent++;
+        ctx = snapshot(original.queue_id); q = ctx.item;
+        // Each item is reloaded: a prior item's send may have changed approval,
+        // suppression, limits or the next recipient. A stale snapshot never sends.
+        if (readyStatuses.indexOf(String(q.status)) < 0 || q.sent_at || q.gmail_message_id || q.gmail_thread_id || !scheduledReady(q,ctx.nowMs)) { res.deferred++; return; }
+        if (ctx.settings.liveSending && (deps.safety.isStopped() || !deps.safety.isAllowed(q))) { res.deferred++; return; }
+        var reasons = core.preSendChecks(ctx), hard = hardReasons(ctx);
+        if (hard.length) { deps.store.update('EmailQueue',q._row,{status:'BLOCKED',blocked_reason:hard.join(',')}); res.blocked++; return; }
+        if (reasons.length) { res.deferred++; return; }
+        if (!ctx.settings.liveSending) { deps.store.update('EmailQueue',q._row,{status:'DRY_RUN_OK',blocked_reason:''}); res.dryRunOk++; return; }
+        if (typeof deps.safety.reserveSend !== 'function' || typeof deps.safety.completeSend !== 'function' || typeof deps.mail.sentToday !== 'function' || typeof deps.mail.hasPriorSend !== 'function') throw Error('DURABLE_SEND_CONTROLLER_REQUIRED');
+        if (Number(q.step) === 1 && deps.mail.hasPriorSend(q.to_email)) { res.deferred++; return; }
+        var approvedHash = core.contentHash(q.subject,q.body,q.to_email), attempt = Number(q.attempts || 0) + 1;
+        // ScriptProperties intent is persisted independently of buffered Sheet
+        // cells. A crash/unknown result can never turn into an automatic retry.
+        deps.safety.reserveSend(q);
+        deps.store.update('EmailQueue',q._row,{status:'SENDING',attempts:attempt,blocked_reason:''}); flush();
+        ctx = snapshot(q.queue_id); var current = ctx.item;
+        if (!scheduledReady(current,ctx.nowMs) || current.status !== 'SENDING' || Number(current.attempts) !== attempt || current.sent_at || current.gmail_message_id || current.gmail_thread_id || core.contentHash(current.subject,current.body,current.to_email) !== approvedHash || !ctx.settings.liveSending || !deps.safety.isAllowed(current) || core.preSendChecks(ctx).length) throw Error('SEND_RESERVATION_READBACK_FAILED');
+        var out = deps.mail.send({to:current.to_email,subject:current.subject,body:current.body,name:ctx.settings.senderName,replyTo:ctx.settings.replyTo});
+        if (!out || !out.threadId || !out.messageId) throw Error('GMAIL_RECEIPT_MISSING');
+        var time = iso(deps.now());
+        var receiving=deps.store.rows('EmailQueue').filter(function(r){return r.queue_id===current.queue_id;});
+        if(receiving.length!==1||receiving[0].status!=='SENDING'||core.contentHash(receiving[0].subject,receiving[0].body,receiving[0].to_email)!==approvedHash)throw Error('RECEIPT_ROW_CHANGED');
+        deps.store.update('EmailQueue',receiving[0]._row,{status:'SENT',sent_at:time,gmail_thread_id:out.threadId,gmail_message_id:out.messageId,error:''}); flush();
+        var receipts = deps.store.rows('EmailQueue').filter(function (r) { return r.queue_id === current.queue_id; });
+        if (receipts.length !== 1 || receipts[0].status !== 'SENT' || receipts[0].gmail_message_id !== out.messageId || receipts[0].gmail_thread_id !== out.threadId || core.contentHash(receipts[0].subject,receipts[0].body,receipts[0].to_email) !== approvedHash) throw Error('SENT_READBACK_UNCONFIRMED');
+        deps.safety.completeSend(current,out); res.sent++;
+        var contacted=deps.store.rows('Leads').filter(function(l){return l.lead_id===ctx.lead.lead_id;});
+        if(contacted.length!==1)throw Error('CONTACTED_ROW_CHANGED');
+        deps.store.update('Leads',contacted[0]._row,{status:'CONTACTED',last_contacted_at:time,updated_at:time});
+        log(deps,'SENT',current.lead_id,current.queue_id,'step '+current.step);
       } catch (e) {
-        deps.store.update('EmailQueue', q._row, { status: 'FAILED', error: 'DELIVERY_RESULT_REQUIRES_MANUAL_REVIEW' }); q.status = 'FAILED';
-        log(deps, 'SEND_FAILED', q.lead_id, q.queue_id, 'DELIVERY_RESULT_REQUIRES_MANUAL_REVIEW'); res.failed++;
-        halted = true; res.stopped = true;
-        if (deps.safety) deps.safety.stop('SEND_FAILED_OR_UNKNOWN');
+        // Do not overwrite a concurrent actor's SENT receipt with FAILED.
+        if (q) { try { var rows=deps.store.rows('EmailQueue').filter(function(r){return r.queue_id===q.queue_id;});if(rows.length===1&&!rows[0].sent_at&&!rows[0].gmail_message_id&&rows[0].status==='SENDING'){deps.store.update('EmailQueue',rows[0]._row,{status:'FAILED',error:'DELIVERY_RESULT_REQUIRES_MANUAL_REVIEW'});flush();}}catch(ignore){} }
+        halted=true;res.failed++;res.stopped=true;if(deps.safety)deps.safety.stop('SEND_FAILED_OR_UNKNOWN');
       }
     });
     return res;

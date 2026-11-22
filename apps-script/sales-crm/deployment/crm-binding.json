@@ -5,7 +5,7 @@
   "independentReviewCommit": null,
   "independentReviewer": null,
   "credentialsProjectId": "stockwise-lead-intake",
-  "serviceAccountEmail": null,
+  "serviceAccountEmail": "stockwise-lead-intake@stockwise-lead-intake.iam.gserviceaccount.com",
   "dedicatedCredentialConfirmed": false,
   "reason": "Owner explicitly confirmed canonical CRM in this conversation. Production writes remain prohibited; independent review and dedicated credential setup are pending.",
   "newRoute": {
@@ -15,5 +15,10 @@
   },
   "productionWritesAuthorized": false,
   "sheetsApiOwnerReportedEnabled": true,
-  "sheetsApiLiveVerified": false
+  "sheetsApiLiveVerified": true,
+  "isolatedViewerOwnerReported": true,
+  "independentReviewDigest": null,
+  "isolatedReadConnectionVerified": true,
+  "credentialStorageReview": "Desktop duplicate is under iCloud Desktop sync; actual upload history unknown. Not approved for production credential use.",
+  "independentReviewStatus": "pending"
 }

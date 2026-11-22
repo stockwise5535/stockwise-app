@@ -58,6 +58,9 @@ export function planRegistration(state,result,{target,now=new Date()}={}){
  const unique=candidates.filter(c=>{const d=Core.normalizeDomain(c.domain||c.website);if(domains.has(d))return false;domains.add(d);return true;});
  const staged=unique.length?Core.planResearchCompanyImport(rows,unique,canonical,now.toISOString()):{appendRows:[],skipped:0};
  staged.skipped+=candidates.length-unique.length;
+ // The readback accepts at most 1999 data rows. Never reserve/append the row
+ // that would make the post-write state unreadable and appear uncertain.
+ if(staged.appendRows.length&&rows.length>=1999)throw Error('CRM_CAPACITY_REQUIRES_REVIEW_BEFORE_WRITE');
  const day=now.toISOString().slice(0,10),used=markers.filter(m=>m.metadataKey===SLOT&&m.metadataValue.startsWith(day+':')).length;
  if(used>DAILY_REGISTRATION_LIMIT)throw Error('INVALID_DAILY_RESERVATIONS');
  const selected=staged.appendRows.slice(0,Math.max(0,DAILY_REGISTRATION_LIMIT-used));

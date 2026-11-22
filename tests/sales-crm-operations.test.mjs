@@ -6,11 +6,11 @@ function world() {
  const properties=new Map(),tables={Settings:[{key:'SENDER_NAME',value:'NexOps'},{key:'SENDER_COMPANY',value:'NexOps'},
   {key:'SENDER_ADDRESS',value:'Verified test postal address'},{key:'LEGAL_REVIEW_COMPLETED',value:'TRUE'},{key:'LIVE_SENDING',value:'FALSE'},{key:'FOLLOW_UP_ENABLED',value:'FALSE'}],
   Leads:[{lead_id:'L1',company:'Company',contact_email:'contact@company.example',country:'JP',contact_basis:'EXPRESS_CONSENT'}],EmailQueue:[],ActivityLog:[],Suppression:[]};
- const ctx={console,Logger:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)||null,setProperty:(k,v)=>properties.set(k,v)})},
+ const ctx={console,Logger:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)||null,setProperty:(k,v)=>properties.set(k,v),getProperties:()=>Object.fromEntries(properties)})},
   LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},
   SpreadsheetApp:{getUi:()=>({ButtonSet:{YES_NO:'YES_NO'},Button:{YES:'YES'},alert:()=> 'YES'})},
   GmailApp:new Proxy({},{get(){throw Error('NO_EMAIL_DURING_ARM_OR_REPORT');}}),
-  Utilities:{formatDate:()=>new Date().toISOString().slice(0,10)},Session:{getScriptTimeZone:()=> 'Asia/Tokyo'}};
+  Utilities:{formatDate:()=>new Date().toISOString().slice(0,10)},Session:{getScriptTimeZone:()=> 'Asia/Tokyo',getEffectiveUser:()=>({getEmail:()=> 'owner@stockwise.test'})}};
  vm.createContext(ctx);
  for(const file of ['Core.js','Engine.js','Main.js'])vm.runInContext(readFileSync(new URL('../apps-script/sales-crm/'+file,import.meta.url),'utf8'),ctx);
  const store={rows:t=>tables[t].map((r,i)=>({...r,_row:i+2})),append:(t,row)=>tables[t].push(row),update:(t,row,p)=>Object.assign(tables[t][row-2],p)};
@@ -21,6 +21,7 @@ function world() {
  tables.EmailQueue.push(q);
  const deps={store,now:()=>new Date(),localParts:()=>({day:new Date().toISOString().slice(0,10),hour:10,dow:3}),safety:ctx.sendController_()};
  ctx.deps_=()=>deps;
+ properties.set('STOCKWISE_SALES_EXPECTED_FROM','owner@stockwise.test');
  properties.set('STOCKWISE_SALES_PILOT_QUEUE_IDS',JSON.stringify(['Q1']));
  properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify({senderAddressVerified:true,unsubscribeTestVerified:true,reviewedAt:new Date().toISOString(),reviewedBy:'owner',evidenceReference:'review record',countries:{JP:['EXPRESS_CONSENT']}}));
  return {ctx,properties,tables,q,deps};
@@ -59,4 +60,36 @@ test('stop notification defaults to execution log; daily summary is idempotent a
  assert.equal(w.ctx.runDailySalesReport().skipped,'ALREADY_REPORTED_OR_ATTEMPTED');
  assert.equal(w.tables.ActivityLog.filter(r=>r.event==='DAILY_SUMMARY').length,1);
  assert.ok(!JSON.stringify(summary).includes('contact@'));assert.equal(w.tables.Settings.find(r=>r.key==='FOLLOW_UP_ENABLED').value,'FALSE');
+});
+
+
+test('sender identity is pinned and a different executing user cannot arm or send',()=>{
+ const w=world();w.ctx.armReviewedSalesPilot();
+ w.ctx.Session.getEffectiveUser=()=>({getEmail:()=> 'different@stockwise.test'});
+ assert.equal(w.deps.safety.isAllowed(w.q),false);assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.ctx.armReviewedSalesPilot());
+});
+test('durable send intent survives an untouched Sheet and blocks automatic rearming',()=>{
+ const w=world();w.ctx.armReviewedSalesPilot();w.deps.safety.reserveSend(w.q);
+ assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.deps.safety.reserveSend(w.q));assert.throws(()=>w.ctx.armReviewedSalesPilot());
+});
+
+
+test('Gmail daily budget counts real sender messages and stops at the hard cap',()=>{
+ const w=world(),now=new Date('2026-11-23T18:00:00Z');
+ w.ctx.Session.getScriptTimeZone=()=> 'America/Los_Angeles';
+ w.ctx.Utilities.parseDate=()=>new Date('2026-11-23T08:00:00Z');
+ w.ctx.Utilities.formatDate=d=>new Date(new Date(d).getTime()-8*3600000).toISOString().slice(0,10);
+ const message=(i,from='owner@stockwise.test')=>({getId:()=>String(i),getFrom:()=>from,getDate:()=>now,getSubject:()=>'<ADV> Try StockWise free'});
+ const messages=[message('other','other@example.test'),...Array.from({length:12},(_,i)=>message(i))];
+ w.ctx.GmailApp={search:query=>{assert.match(query,/^in:sent after:/);return[{getMessages:()=>messages}];}};
+ assert.equal(w.ctx.gmailAdapter_().sentToday(now),10);
+});
+
+
+test('Gmail acknowledgement verifies actual sent identity and content without a second send',()=>{
+ for(const wrong of [false,true]){
+  const w=world();let sends=0;w.ctx.GmailApp={createDraft:(to,subject,body)=>({send:()=>{sends++;return{getFrom:()=> 'Existing Name <owner@stockwise.test>',getTo:()=>to,getSubject:()=>subject,getPlainBody:()=>wrong?'changed body':body+'\n',getId:()=> 'message-id',getThread:()=>({getId:()=> 'thread-id'})};}})};
+  const run=()=>w.ctx.gmailAdapter_().send({to:'contact@company.example',subject:'Reviewed subject',body:'Reviewed body'});
+  if(wrong)assert.throws(run,/CONTENT_UNCONFIRMED/);else assert.equal(run().messageId,'message-id');assert.equal(sends,1);
+ }
 });
