@@ -248,8 +248,15 @@ transactions/no retries, and separation from the active sender before any
 production start. Existing passing live registration/discovery probes were not
 repeated for this configuration/authentication-only change.
 
-Next Google-side owner action only: create a separate Cloud project named
-Stockwise Lead Intake and provide its project ID. No existing project, OAuth
-client, billing configuration, CRM sharing or sender configuration is changed
-by this preparation. API enablement and dedicated principal creation remain
-unperformed, pending management access; do not mark them verified.
+The owner supplied dedicated project ID stockwise-lead-intake and reported that
+Sheets API is enabled there. Record that report separately from live API
+verification (still false). No service-account identity/credential has been
+confirmed. The isolated dedicated-auth probe now also rejects credentials from
+other projects before requesting a token. Production writes and new-route
+sending remain false; no existing OAuth/CRM data/history/settings are changed.
+
+Next Google-side owner action only: create service account ID
+stockwise-lead-intake in that dedicated project, with no project IAM roles or
+domain-wide delegation, and return its email address. Do not create/share a key
+or grant CRM access in this step. Live API/authentication verification and
+independent review remain pending.

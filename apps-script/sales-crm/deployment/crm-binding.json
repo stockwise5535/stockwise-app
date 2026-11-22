@@ -4,7 +4,7 @@
   "confirmedAt": "2026-11-22T03:28:16Z",
   "independentReviewCommit": null,
   "independentReviewer": null,
-  "credentialsProjectId": null,
+  "credentialsProjectId": "stockwise-lead-intake",
   "serviceAccountEmail": null,
   "dedicatedCredentialConfirmed": false,
   "reason": "Owner explicitly confirmed canonical CRM in this conversation. Production writes remain prohibited; independent review and dedicated credential setup are pending.",
@@ -13,5 +13,7 @@
     "snsSending": false,
     "followUp": false
   },
-  "productionWritesAuthorized": false
+  "productionWritesAuthorized": false,
+  "sheetsApiOwnerReportedEnabled": true,
+  "sheetsApiLiveVerified": false
 }

@@ -4,7 +4,7 @@ import{sheetsAccessToken}from'./sales-sheets-auth.mjs';
 export async function registrationClient({target,authJson,requireDedicatedAuth=false,readOnly=false,fetchImpl=fetch}){
  const id=target==='production'?productionCrmId():target==='isolation'?TEST_CRM_ID:null;
  if(!id)throw Error('FIXED_TARGET_REQUIRED');
- const token=await sheetsAccessToken({authJson,dedicated:target==='production'||requireDedicatedAuth,expectedPrincipal:target==='production'?CRM_BINDING.serviceAccountEmail:undefined,expectedProject:target==='production'?CRM_BINDING.credentialsProjectId:undefined,readOnly,fetchImpl});
+ const token=await sheetsAccessToken({authJson,dedicated:target==='production'||requireDedicatedAuth,expectedPrincipal:target==='production'||requireDedicatedAuth?CRM_BINDING.serviceAccountEmail:undefined,expectedProject:target==='production'||requireDedicatedAuth?CRM_BINDING.credentialsProjectId:undefined,readOnly,fetchImpl});
  const api=async(method,path,body)=>{
   if(readOnly&&method!=='GET')throw Error('READ_ONLY_SHEETS_CLIENT');
   const r=await fetchImpl('https://sheets.googleapis.com/v4/spreadsheets/'+id+path,{method,redirect:'error',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});

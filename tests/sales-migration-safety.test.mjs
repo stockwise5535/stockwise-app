@@ -16,7 +16,7 @@ test('production prohibition stops before client reads or writes, even with a su
 });
 test('dedicated preparation probe uses readonly scope and GETs against isolation only; transport rejects writes',async()=>{
  const{privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
- const authJson=JSON.stringify({type:'service_account',project_id:'isolated-research',client_email:'research@isolated-research.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
+ const authJson=JSON.stringify({type:'service_account',project_id:CRM_BINDING.credentialsProjectId,client_email:'research@'+CRM_BINDING.credentialsProjectId+'.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
  const Core=createRequire(import.meta.url)('../apps-script/sales-crm/Core.js');let reads=0;
  const fetchImpl=async(url,opts)=>{
   if(url==='https://oauth2.googleapis.com/token'){
@@ -74,4 +74,9 @@ test('dynamic discovery supplies 50 distinct research candidates and excludes CR
 test('source failures do not retry, pretend completion or grant contact permission',async()=>{
  let calls=0;const r=await discoverBusinessLeads({sources:[source],fetchImpl:async()=>{calls++;return new Response('failure',{status:429});},now});assert.equal(calls,1);assert.equal(r.status,'needs_attention');assert.equal(r.candidates.length,0);assert.equal(r.approvedToEmail,false);
  assert.throws(()=>discoveryQuery('regional',{excludedEntities:['Q1) SERVICE <https://evil.invalid>']}));
+});
+
+test('dedicated preparation rejects a service account from any other project before authentication',async()=>{
+ let calls=0;const authJson=JSON.stringify({type:'service_account',project_id:'other-project',client_email:'research@other-project.iam.gserviceaccount.com',private_key:'not-used'});
+ await assert.rejects(()=>checkDedicatedSheetsAuth({authJson,fetchImpl:async()=>{calls++;}}),/DEDICATED_SHEETS_IDENTITY_MISMATCH/);assert.equal(calls,0);
 });
