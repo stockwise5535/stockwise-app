@@ -16,7 +16,7 @@ test('production prohibition stops before client reads or writes, even with a su
 });
 test('dedicated preparation probe uses readonly scope and GETs against isolation only; transport rejects writes',async()=>{
  const{privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
- const authJson=JSON.stringify({type:'service_account',project_id:CRM_BINDING.credentialsProjectId,client_email:'research@'+CRM_BINDING.credentialsProjectId+'.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
+ const authJson=JSON.stringify({type:'service_account',project_id:CRM_BINDING.credentialsProjectId,client_email:CRM_BINDING.serviceAccountEmail||'research@'+CRM_BINDING.credentialsProjectId+'.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
  const Core=createRequire(import.meta.url)('../apps-script/sales-crm/Core.js');let reads=0;
  const fetchImpl=async(url,opts)=>{
   if(url==='https://oauth2.googleapis.com/token'){
