@@ -364,3 +364,9 @@ properties, Gmail identity/connection, queue rows, source and triggers are
 unchanged. Live limit application is held because LIVE_SENDING was already TRUE
 and the existing task behavior is unknown; changing its live cap could permit
 additional sends without the separately required start approval.
+
+The separate reviewer accepted the cap-only preparation conditionally. Source
+commit8b35f6b8c97c9026b6e01fd4153e840983444ee1 / critical digest
+184557873d8bf71d67daeff427e752b333b1d14538da1663317bf1b49c1e0c80.
+Recipient/subject/body/source message objects are byte-for-byte unchanged from
+the previous proposal. No sending or recurring permission was granted.
