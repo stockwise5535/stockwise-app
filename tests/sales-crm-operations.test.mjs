@@ -6,7 +6,7 @@ function world() {
  const properties=new Map(),tables={Settings:[{key:'SENDER_NAME',value:'NexOps'},{key:'SENDER_COMPANY',value:'NexOps'},
   {key:'SENDER_ADDRESS',value:'Verified test postal address'},{key:'LEGAL_REVIEW_COMPLETED',value:'TRUE'},{key:'LIVE_SENDING',value:'FALSE'},{key:'FOLLOW_UP_ENABLED',value:'FALSE'}],
   Leads:[{lead_id:'L1',company:'Company',contact_email:'contact@company.example',country:'JP',contact_basis:'EXPRESS_CONSENT'}],EmailQueue:[],ActivityLog:[],Suppression:[]};
- const ctx={console,Logger:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)||null,setProperty:(k,v)=>properties.set(k,v),getProperties:()=>Object.fromEntries(properties)})},
+ const ctx={console,Logger:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.has(k)?properties.get(k):null,setProperty:(k,v)=>properties.set(k,v),getProperties:()=>Object.fromEntries(properties)})},
   LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},
   SpreadsheetApp:{getUi:()=>({ButtonSet:{YES_NO:'YES_NO'},Button:{YES:'YES'},alert:()=> 'YES'})},
   GmailApp:new Proxy({},{get(){throw Error('NO_EMAIL_DURING_ARM_OR_REPORT');}}),
@@ -21,6 +21,7 @@ function world() {
  tables.EmailQueue.push(q);
  const deps={store,now:()=>new Date(),localParts:()=>({day:new Date().toISOString().slice(0,10),hour:10,dow:3}),safety:ctx.sendController_()};
  ctx.deps_=()=>deps;
+ properties.set('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED','true');
  properties.set('STOCKWISE_SALES_EXPECTED_FROM','owner@stockwise.test');
  properties.set('STOCKWISE_SALES_PILOT_QUEUE_IDS',JSON.stringify(['Q1']));
  properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify({senderAddressVerified:true,unsubscribeTestVerified:true,reviewedAt:new Date().toISOString(),reviewedBy:'owner',evidenceReference:'review record',countries:{JP:['EXPRESS_CONSENT']}}));
@@ -69,8 +70,8 @@ test('sender identity is pinned and a different executing user cannot arm or sen
  assert.equal(w.deps.safety.isAllowed(w.q),false);assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.ctx.armReviewedSalesPilot());
 });
 test('durable send intent survives an untouched Sheet and blocks automatic rearming',()=>{
- const w=world();w.ctx.armReviewedSalesPilot();w.deps.safety.reserveSend(w.q);
- assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.deps.safety.reserveSend(w.q));assert.throws(()=>w.ctx.armReviewedSalesPilot());
+ const w=world();w.ctx.armReviewedSalesPilot();w.deps.safety.reserveSend(w.q,{day:new Date().toISOString().slice(0,10),dailyLimit:100,sentToday:0});
+ assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.deps.safety.reserveSend(w.q,{day:new Date().toISOString().slice(0,10),dailyLimit:100,sentToday:0}));assert.throws(()=>w.ctx.armReviewedSalesPilot());
 });
 
 
@@ -80,9 +81,9 @@ test('Gmail daily budget counts real sender messages and stops at the hard cap',
  w.ctx.Utilities.parseDate=()=>new Date('2026-11-23T08:00:00Z');
  w.ctx.Utilities.formatDate=d=>new Date(new Date(d).getTime()-8*3600000).toISOString().slice(0,10);
  const message=(i,from='owner@stockwise.test')=>({getId:()=>String(i),getFrom:()=>from,getDate:()=>now,getSubject:()=>'<ADV> Try StockWise free'});
- const messages=[message('other','other@example.test'),...Array.from({length:12},(_,i)=>message(i))];
+ const messages=[message('other','other@example.test'),...Array.from({length:102},(_,i)=>message(i))];
  w.ctx.GmailApp={search:query=>{assert.match(query,/^in:sent after:/);return[{getMessages:()=>messages}];}};
- assert.equal(w.ctx.gmailAdapter_().sentToday(now),10);
+ assert.equal(w.ctx.gmailAdapter_().sentToday(now),100);
 });
 
 
@@ -91,5 +92,37 @@ test('Gmail acknowledgement verifies actual sent identity and content without a 
   const w=world();let sends=0;w.ctx.GmailApp={createDraft:(to,subject,body)=>({send:()=>{sends++;return{getFrom:()=> 'Existing Name <owner@stockwise.test>',getTo:()=>to,getSubject:()=>subject,getPlainBody:()=>wrong?'changed body':body+'\n',getId:()=> 'message-id',getThread:()=>({getId:()=> 'thread-id'})};}})};
   const run=()=>w.ctx.gmailAdapter_().send({to:'contact@company.example',subject:'Reviewed subject',body:'Reviewed body'});
   if(wrong)assert.throws(run,/CONTENT_UNCONFIRMED/);else assert.equal(run().messageId,'message-id');assert.equal(sends,1);
+ }
+});
+
+
+test('all routes must be coordinated before any pilot can be armed',()=>{
+ const w=world();w.properties.delete('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED');
+ assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.ctx.armReviewedSalesPilot(),/ALL_SENDING_ROUTES/);
+});
+test('serialized route callers share one durable 100-slot day budget despite lagging Gmail counts',()=>{
+ const w=world();w.ctx.armReviewedSalesPilot();const grant=JSON.parse(w.properties.get('STOCKWISE_SALES_SEND_GRANT'));grant.mode='recurring';w.properties.set('STOCKWISE_SALES_SEND_GRANT',JSON.stringify(grant));
+ const a=w.ctx.sendController_(),b=w.ctx.sendController_(),day=new Date().toISOString().slice(0,10),budget={day,dailyLimit:100,sentToday:0};
+ for(let i=0;i<100;i++){
+  const q={...w.q,queue_id:'Q'+i,to_email:'contact'+i+'@company.example'};const caller=i%2?a:b;
+  caller.reserveSend(q,budget);caller.completeSend(q,{messageId:'M'+i,threadId:'T'+i});
+ }
+ const q={...w.q,queue_id:'OVER',to_email:'overflow@company.example'};
+ assert.throws(()=>b.reserveSend(q,budget),/SHARED_DAILY_LIMIT_REACHED/);
+ assert.equal(JSON.parse(w.properties.get('STOCKWISE_SALES_SHARED_DAY_BUDGET')).used,100);
+});
+test('pre-existing sends reduce the shared budget and the pilot still accepts at most three IDs',()=>{
+ const w=world();w.ctx.armReviewedSalesPilot();const budget={day:new Date().toISOString().slice(0,10),dailyLimit:100,sentToday:99};
+ w.deps.safety.reserveSend(w.q,budget);w.deps.safety.completeSend(w.q,{messageId:'M',threadId:'T'});
+ assert.equal(JSON.parse(w.properties.get('STOCKWISE_SALES_SHARED_DAY_BUDGET')).used,100);
+ w.properties.set('STOCKWISE_SALES_PILOT_QUEUE_IDS',JSON.stringify(['1','2','3','4']));assert.throws(()=>w.ctx.armReviewedSalesPilot(),/1_TO_3/);
+});
+
+
+test('malformed shared budget cannot silently reset capacity',()=>{
+ for(const raw of ['{invalid','',JSON.stringify({day:'2099-01-01',used:0,ceiling:100}),JSON.stringify({day:'2000-02-31',used:0,ceiling:100})]){
+  const w=world();w.ctx.armReviewedSalesPilot();w.properties.set('STOCKWISE_SALES_SHARED_DAY_BUDGET',raw);
+  assert.throws(()=>w.deps.safety.reserveSend(w.q,{day:new Date().toISOString().slice(0,10),dailyLimit:100,sentToday:0}),/SHARED_DAILY_BUDGET_INVALID/);
+  assert.equal(w.properties.get('STOCKWISE_SALES_SHARED_DAY_BUDGET'),raw);
  }
 });

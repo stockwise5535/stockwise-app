@@ -2,7 +2,7 @@ import test from'node:test';import assert from'node:assert/strict';import{readFi
 const Core=createRequire(import.meta.url)('../apps-script/sales-crm/Core.js');
 const proposal=JSON.parse(readFileSync(new URL('../apps-script/sales-crm/deployment/pilot-proposal.json',import.meta.url)));
 test('the three resolved emails remain proposals, not authorization or an enabled recurring job',()=>{
- assert.equal(proposal.messages.length,3);assert.equal(proposal.sendAuthorized,false);assert.equal(proposal.recurringEnabled,false);assert.equal(proposal.maxDaily,10);
+ assert.equal(proposal.messages.length,3);assert.equal(proposal.sendAuthorized,false);assert.equal(proposal.recurringEnabled,false);assert.equal(proposal.maxDaily,100);
  assert.equal(new Set(proposal.messages.map(m=>m.email)).size,3);
  for(const m of proposal.messages){assert.equal(m.approvalStatus,'DRAFT');assert.equal(m.consentClaimed,false);assert.equal(m.country,'SG');assert.match(m.sourceUrl,/^https:/);assert.ok(!m.body.includes('[company]'));assert.ok(m.body.includes(m.company));assert.ok(m.body.includes(proposal.sender.email));}
 });
@@ -17,6 +17,6 @@ test('existing legal/limit blockers are not treated as satisfied by a drafted pr
 });
 test('selective patch evidence matches reviewed development source and retains every unrelated remote file',()=>{
  const patch=JSON.parse(readFileSync(new URL('../apps-script/sales-crm/deployment/sending-patch.review.json',import.meta.url)));
- assert.equal(patch.applyAuthorized,false);assert.equal(patch.mailSendAuthorized,false);assert.equal(patch.recurringEnableAuthorized,false);assert.deepEqual(patch.replaceFiles,['Main','Engine']);assert.equal(patch.retainEveryOtherRemoteFile,true);assert.equal(patch.retainCore,true);
- for(const name of patch.replaceFiles)assert.equal(createHash('sha256').update(readFileSync(new URL('../apps-script/sales-crm/'+name+'.js',import.meta.url))).digest('hex'),patch.preparedSourceHashes[name]);
+ assert.equal(patch.applyAuthorized,false);assert.equal(patch.mailSendAuthorized,false);assert.equal(patch.recurringEnableAuthorized,false);assert.deepEqual(patch.replaceFiles,['Main','Engine','Core']);assert.equal(patch.retainEveryOtherRemoteFile,true);assert.equal(patch.retainCoreExceptDailyLimit,true);
+ for(const name of ['Main','Engine'])assert.equal(createHash('sha256').update(readFileSync(new URL('../apps-script/sales-crm/'+name+'.js',import.meta.url))).digest('hex'),patch.preparedSourceHashes[name]);
 });

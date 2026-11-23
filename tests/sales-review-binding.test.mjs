@@ -13,7 +13,7 @@ test('review digest binds execution code and target identity, not the attestatio
 });
 test('a real but stale reviewed commit cannot authorize a changed implementation',t=>{
  const root=mkdtempSync(tmpdir()+'/stockwise-review-binding-');t.after(()=>rmSync(root,{recursive:true,force:true}));
- for(const dir of ['server','scripts','apps-script/sales-crm/deployment','.github/workflows'])mkdirSync(root+'/'+dir,{recursive:true});
+ for(const dir of ['server','scripts','apps-script/sales-crm/deployment','.github/workflows','tools/apps-script'])mkdirSync(root+'/'+dir,{recursive:true});
  writeFileSync(root+'/'+path,JSON.stringify(CRM_BINDING));writeFileSync(root+'/server/sales-example.mjs','export const limit=1;');
  const git=args=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:['ignore','pipe','ignore']});
  git(['init']);git(['add','.']);git(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','reviewed snapshot']);

@@ -6,7 +6,7 @@ const ROOT=fileURLToPath(new URL('../',import.meta.url));
 const excluded=new Set(['independentReviewCommit','independentReviewer','independentReviewDigest','independentReviewStatus','productionWritesAuthorized','dedicatedCredentialConfirmed','sheetsApiOwnerReportedEnabled','sheetsApiLiveVerified','isolatedViewerOwnerReported','isolatedReadConnectionVerified','credentialStorageReview','reason']);
 function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])]));return value;}
 const bindingPath='apps-script/sales-crm/deployment/crm-binding.json';
-const critical=p=>/^(server|scripts)\/sales-[^/]+\.mjs$/.test(p)||/^apps-script\/sales-crm\/(?:Main|Engine|Core)\.js$/.test(p)||/^apps-script\/sales-crm\/deployment\/[^/]+\.json$/.test(p)||p==='.github/workflows/sales-daily-research.yml';
+const critical=p=>/^(server|scripts)\/sales-[^/]+\.mjs$/.test(p)||/^apps-script\/sales-crm\/(?:Main|Engine|Core)\.js$/.test(p)||/^apps-script\/sales-crm\/deployment\/[^/]+\.json$/.test(p)||p==='tools/apps-script/send-limit-patch.mjs'||p==='.github/workflows/sales-daily-research.yml';
 export function reviewInputDigest(entries){
  const hash=createHash('sha256');
  for(const[path,raw]of [...entries].sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0)){
@@ -25,7 +25,7 @@ export function reviewedExecutionDigest({commit,root=ROOT}={}){
    paths=git(['ls-tree','-r','--name-only',commit]).split('\n').filter(critical);
    read=p=>git(['show',commit+':'+p]);
   }else{
-   paths=['server','scripts','apps-script/sales-crm','apps-script/sales-crm/deployment','.github/workflows'].flatMap(dir=>readdirSync(root+'/'+dir).map(name=>dir+'/'+name)).filter(critical);
+   paths=['server','scripts','apps-script/sales-crm','apps-script/sales-crm/deployment','.github/workflows','tools/apps-script'].flatMap(dir=>readdirSync(root+'/'+dir).map(name=>dir+'/'+name)).filter(critical);
    read=p=>readFileSync(root+'/'+p,'utf8');
   }
   if(!paths.includes(bindingPath))throw Error();

@@ -264,7 +264,7 @@ test('duplicate queue IDs cannot bypass pilot scope or duplicate-key safety',()=
  assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
 });
 test('live sending has hard daily and per-run limits even if Settings is changed',()=>{
- for(const config of [{DAILY_SEND_LIMIT:'11'},{RUN_SEND_LIMIT:'6'},{DAILY_SEND_LIMIT:'Infinity'}]){
+ for(const config of [{DAILY_SEND_LIMIT:'101'},{RUN_SEND_LIMIT:'6'},{DAILY_SEND_LIMIT:'Infinity'}]){
   const w=world({...LIVE,...config});ready(w);approveAll(w);Engine.processQueue(w.deps);
   assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/SEND_LIMIT_CONFIGURATION_INVALID/);
  }
@@ -291,7 +291,7 @@ test('body edit or suppression during reservation is noticed before Gmail',()=>{
  }
 });
 test('actual Gmail daily cap and prior-contact history override a stale CRM snapshot',()=>{
- for(const update of [w=>{w.deps.mail.sentToday=()=>10;},w=>{w.deps.mail.hasPriorSend=()=>true;}]){
+ for(const update of [w=>{w.deps.mail.sentToday=()=>100;},w=>{w.deps.mail.hasPriorSend=()=>true;}]){
   const w=world(LIVE);ready(w);approveAll(w);update(w);const r=Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.equal(r.deferred,1);
  }
 });

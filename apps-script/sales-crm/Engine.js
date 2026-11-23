@@ -97,7 +97,7 @@ var SalesEngine = (function () {
         var approvedHash = core.contentHash(q.subject,q.body,q.to_email), attempt = Number(q.attempts || 0) + 1;
         // ScriptProperties intent is persisted independently of buffered Sheet
         // cells. A crash/unknown result can never turn into an automatic retry.
-        deps.safety.reserveSend(q);
+        deps.safety.reserveSend(q,{day:ctx.localNow.day,dailyLimit:ctx.settings.dailyLimit,sentToday:ctx.sentToday});
         deps.store.update('EmailQueue',q._row,{status:'SENDING',attempts:attempt,blocked_reason:''}); flush();
         ctx = snapshot(q.queue_id); var current = ctx.item;
         if (!scheduledReady(current,ctx.nowMs) || current.status !== 'SENDING' || Number(current.attempts) !== attempt || current.sent_at || current.gmail_message_id || current.gmail_thread_id || core.contentHash(current.subject,current.body,current.to_email) !== approvedHash || !ctx.settings.liveSending || !deps.safety.isAllowed(current) || core.preSendChecks(ctx).length) throw Error('SEND_RESERVATION_READBACK_FAILED');

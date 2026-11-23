@@ -333,3 +333,34 @@ corrections; status is CONDITIONAL because the external sender/queue coordinatio
 owner approval and live application conditions remain unresolved. This is not
 a GitHub human approval. No passed live registration/authentication test was
 repeated. Fully resolved messages are also in SALES_PILOT_MESSAGES.txt.
+
+## Owner-approved cap change only: combined maximum100/day
+
+The owner superseded the proposed ten/day ceiling with a combined hundred/day
+ceiling across sending routes. This authorizes the limit change only, not any
+message, pilot start, remote code/settings update that could start sending,
+trigger enablement, or merge. Initial pilot maximum3, approved recipient/content,
+legal review, unsubscribe exclusion and unknown-result no-retry remain intact.
+
+Development Core default/ceiling and Gmail observation threshold are100. The
+existing per-run ceiling5 remains; pilot is still3. All participating routes
+must enter the same ScriptLock coordinator and durable day budget; reserve
+max(observed prior sends,persisted used)+1 before each send, never above100.
+Unknown attempts stop all later runs and their capacity is never automatically
+reused. Malformed/future budget state fails closed. A missing shared-route
+coordination review blocks arming and sending rather than assuming other tasks
+participate. Existing direct ChatGPT routes remain unidentified/unconnected;
+therefore no live global guarantee is claimed and no dispatcher is enabled.
+
+The proposed selective source payload now includes only the three daily-limit
+literals in fresh remote Core plus Main/Engine hardening. The pure builder
+checks base/prepared hashes and retains every other Core rule, manifest and
+Unicode/custom file. It does not copy the development-only research-policy
+expansion into live Core. It performs no network call or Google write.
+
+Proposal metadata records OWNER_APPROVED_LIMIT_ONLY, maxDaily100 and initial3,
+while send/apply/recurring permissions remain FALSE. Existing live Settings and
+properties, Gmail identity/connection, queue rows, source and triggers are
+unchanged. Live limit application is held because LIVE_SENDING was already TRUE
+and the existing task behavior is unknown; changing its live cap could permit
+additional sends without the separately required start approval.

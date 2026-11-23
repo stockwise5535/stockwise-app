@@ -55,7 +55,7 @@ function gmailAdapter_() {
       threads.some(function(t){return t.getMessages().some(function(m){
         var from=SalesCore.normalizeEmail((String(m.getFrom()).match(/<([^>]+)>/)||[0,m.getFrom()])[1]);
         if(!seen[m.getId()]&&from===self&&Utilities.formatDate(m.getDate(),tz,'yyyy-MM-dd')===day&&/stockwise|inventory visibility/i.test(m.getSubject())){seen[m.getId()]=true;count++;}
-        return count>=10;
+        return count>=100;
       });});
       return count;
     },
@@ -305,18 +305,30 @@ function sendController_() {
   }
   function allowed(queue) {
     var grant=salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT'),identity=sender();
-    if(!identity||grant.senderEmail!==identity||grant.senderName!==(props.getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME')||'')||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false')return false;
+    if(props.getProperty('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED')!=='true'||!identity||grant.senderEmail!==identity||grant.senderName!==(props.getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME')||'')||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false')return false;
     var lead=sheetsStore_().rows('Leads').filter(function(l){return l.lead_id===queue.lead_id;});
     if(lead.length!==1||!legalLaunchReviewed_(lead[0]))return false;
     return grant.mode==='recurring' || grant.mode==='pilot'&&grant.queue&&Object.keys(grant.queue).length<=3&&grant.queue[queue.queue_id]===SalesCore.contentHash(queue.subject,queue.body,queue.to_email);
   }
   return {
-    isStopped:function(){var grant=salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');return !sender()||grant.senderEmail!==sender()||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false'||['pilot','recurring'].indexOf(grant.mode)<0||pendingAttempt();},
+    isStopped:function(){var grant=salesPropertyJson_('STOCKWISE_SALES_SEND_GRANT');return props.getProperty('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED')!=='true'||!sender()||grant.senderEmail!==sender()||props.getProperty('STOCKWISE_SALES_EMERGENCY_STOP')!=='false'||['pilot','recurring'].indexOf(grant.mode)<0||pendingAttempt();},
     isAllowed:allowed,
     hasUnresolvedAttempts:pendingAttempt,
-    reserveSend:function(q){
+    reserveSend:function(q,budget){
       if(!allowed(q)||pendingAttempt())throw Error('SEND_AUTHORIZATION_CHANGED');
       var key=attemptKey(q);if(props.getProperty(key))throw Error('PREVIOUS_SEND_ATTEMPT_NO_RETRY');
+      var today=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd');
+      if(!budget||budget.day!==today||!Number.isSafeInteger(budget.dailyLimit)||budget.dailyLimit<1||budget.dailyLimit>100||!Number.isSafeInteger(budget.sentToday)||budget.sentToday<0)throw Error('SHARED_DAILY_BUDGET_REQUIRED');
+      var raw=props.getProperty('STOCKWISE_SALES_SHARED_DAY_BUDGET'),daily={};
+      if(raw!==null){try{daily=JSON.parse(raw);}catch(e){throw Error('SHARED_DAILY_BUDGET_INVALID');}
+        if(!daily||!/^\d{4}-\d{2}-\d{2}$/.test(daily.day||'')||!isFinite(Date.parse(daily.day+'T00:00:00Z'))||new Date(daily.day+'T00:00:00Z').toISOString().slice(0,10)!==daily.day||daily.day>today||!Number.isSafeInteger(daily.used)||daily.used<0||daily.used>100||daily.ceiling!==100)throw Error('SHARED_DAILY_BUDGET_INVALID');}
+      var used=Math.max(daily.day===today?daily.used:0,budget.sentToday);
+      if(used>=budget.dailyLimit)throw Error('SHARED_DAILY_LIMIT_REACHED');
+      // All participating routes must enter this same ScriptLock coordinator.
+      // Reserve capacity before intent; a crash may consume a slot, never reuse it.
+      var capacity=JSON.stringify({day:today,used:used+1,ceiling:100});
+      props.setProperty('STOCKWISE_SALES_SHARED_DAY_BUDGET',capacity);
+      if(props.getProperty('STOCKWISE_SALES_SHARED_DAY_BUDGET')!==capacity)throw Error('SHARED_DAILY_BUDGET_UNCONFIRMED');
       var value=JSON.stringify({phase:'SENDING',queueId:q.queue_id,hash:SalesCore.contentHash(q.subject,q.body,q.to_email),senderEmail:sender()});
       props.setProperty(key,value);if(props.getProperty(key)!==value)throw Error('SEND_INTENT_NOT_PERSISTED');
     },
@@ -339,6 +351,7 @@ function armReviewedSalesPilot() {
   return locked_(function () {
     var d = deps_(), s = SalesEngine.loadSettings(d), ids = salesPropertyJson_('STOCKWISE_SALES_PILOT_QUEUE_IDS');
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > 3 || ids.some(function (id, i) { return typeof id !== 'string' || ids.indexOf(id) !== i; })) throw new Error('PILOT_REQUIRES_1_TO_3_UNIQUE_QUEUE_IDS');
+    if(PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED')!=='true')throw Error('ALL_SENDING_ROUTES_MUST_SHARE_BUDGET');
     var identity=SalesCore.normalizeEmail(PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM'));
     if(!SalesCore.isValidEmail(identity)||identity!==SalesCore.normalizeEmail(Session.getEffectiveUser().getEmail()))throw Error('EXPECTED_SENDER_REQUIRED');
     var queue = d.store.rows('EmailQueue'), leads = d.store.rows('Leads'), grant = { mode: 'pilot', senderEmail:identity, senderName:PropertiesService.getScriptProperties().getProperty('STOCKWISE_SALES_EXPECTED_FROM_NAME')||'', queue: {} };
@@ -373,7 +386,7 @@ function armReviewedRecurringSales() {
     confirmedSalesOperation_('Confirm actual pilot delivery and unsubscribe handling were checked. Arm recurring processing of approved messages only? Sending switches stay unchanged.');
     if(sendController_().isStopped())throw Error('SEND_CONTROLLER_STOPPED');
     var settings=SalesEngine.loadSettings(deps_());
-    if(settings.dailyLimit!==10||settings.runLimit<1||settings.runLimit>5)throw Error('DAILY_TEN_CONFIGURATION_REQUIRED');
+    if(settings.dailyLimit!==100||settings.runLimit<1||settings.runLimit>5)throw Error('DAILY_HUNDRED_CONFIGURATION_REQUIRED');
     grant.mode = 'recurring'; props.setProperty('STOCKWISE_SALES_SEND_GRANT', JSON.stringify(grant));
     props.setProperty('STOCKWISE_SALES_RECURRING_ENABLED','true');
     props.setProperty('STOCKWISE_SALES_EMERGENCY_STOP', 'false');

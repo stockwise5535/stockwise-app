@@ -3,7 +3,7 @@
   "sendAuthorized": false,
   "recurringEnabled": false,
   "maxPilotTotal": 3,
-  "maxDaily": 10,
+  "maxDaily": 100,
   "sender": {
     "email": "nexops2026test@gmail.com",
     "displayName": "Ryan S",
@@ -15,7 +15,7 @@
     "Append the existing contact email to the existing footer so sender contact matches existing CRM gate."
   ],
   "unresolvedConditions": [
-    "Existing ChatGPT sending task identity and coordination are not yet known; Gmail sent search already returned at least 100 messages for 2026-11-22.",
+    "Existing ChatGPT sending task identity and coordination are not yet known; Gmail sent search already returned at least 100 messages (historical observation, not a sending authorization) for 2026-11-22.",
     "Country-specific launch review, reply/unsubscribe operation and runtime grant properties must be read or explicitly attested before arming.",
     "Reviewed sender hardening is development-only and has not been applied to the existing bound Apps Script."
   ],
@@ -29,7 +29,7 @@
       "country": "SG",
       "queueId": "Q-OWNER-PILOT-SG-1",
       "subject": "<ADV> Try StockWise free for Hup Soon & Company",
-      "body": "Hello,\n\nI\u2019m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI\u2019m reaching out because Hup Soon & Company appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe\u2019re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply \u201cunsubscribe\u201d and I will not contact you again.\n",
+      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Hup Soon & Company appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
@@ -46,7 +46,7 @@
       "country": "SG",
       "queueId": "Q-OWNER-PILOT-SG-2",
       "subject": "<ADV> Try StockWise free for Ban Leong Technologies Pte Ltd",
-      "body": "Hello,\n\nI\u2019m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI\u2019m reaching out because Ban Leong Technologies Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe\u2019re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply \u201cunsubscribe\u201d and I will not contact you again.\n",
+      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Ban Leong Technologies Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
@@ -63,7 +63,7 @@
       "country": "SG",
       "queueId": "Q-OWNER-PILOT-SG-3",
       "subject": "<ADV> Try StockWise free for A.C.T. Hardware Pte Ltd",
-      "body": "Hello,\n\nI\u2019m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI\u2019m reaching out because A.C.T. Hardware Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe\u2019re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply \u201cunsubscribe\u201d and I will not contact you again.\n",
+      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because A.C.T. Hardware Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
@@ -73,5 +73,14 @@
     }
   ],
   "preparedAt": "2026-11-22T23:44:50+00:00",
-  "requiresFreshChecksBeforeSend": true
+  "requiresFreshChecksBeforeSend": true,
+  "limitApproval": {
+    "status": "OWNER_APPROVED_LIMIT_ONLY",
+    "scope": "all_sending_routes_combined",
+    "maxPerDay": 100,
+    "initialMaxTotal": 3,
+    "sendStartAuthorized": false,
+    "recurringEnableAuthorized": false
+  },
+  "allRoutesBudgetConnected": false
 }
