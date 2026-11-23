@@ -61,7 +61,7 @@ function gmailAdapter_() {
         var id=String(q.gmail_message_id||'').trim(),key=id?'id:'+id:'unconfirmed-row:'+i;
         if(!seen[key]){seen[key]=true;count++;}
       });
-      var query='in:sent after:'+Math.floor(start.getTime()/1000)+' {StockWise "stockwise-homepage.vercel.app" "Inventory visibility"}';
+      var query='in:sent after:'+Math.floor(start.getTime()/1000)+' {StockWise "Inventory visibility"}';
       // GmailApp returns threads, including old messages. Continue pagination
       // until exhausted or the ceiling is already reached; never assume one
       // page of threads is a complete current-day message count.
