@@ -2,7 +2,7 @@
   "spreadsheetId": "12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk",
   "confirmedByOwner": true,
   "confirmedAt": "2026-11-22T03:28:16Z",
-  "independentReviewCommit": "8b35f6b8c97c9026b6e01fd4153e840983444ee1",
+  "independentReviewCommit": "677a786a68ff610dee2cb6a85d8912f814632db0",
   "independentReviewer": "Codex independent reviewer /root/pr32_independent_review (technical review; not a GitHub human approval)",
   "credentialsProjectId": "stockwise-lead-intake",
   "serviceAccountEmail": "stockwise-lead-intake@stockwise-lead-intake.iam.gserviceaccount.com",
@@ -17,7 +17,7 @@
   "sheetsApiOwnerReportedEnabled": true,
   "sheetsApiLiveVerified": true,
   "isolatedViewerOwnerReported": true,
-  "independentReviewDigest": "184557873d8bf71d67daeff427e752b333b1d14538da1663317bf1b49c1e0c80",
+  "independentReviewDigest": "71cfa552755034533ab9aa104c3b5c599bf660c4668a6fbd3d73c2c7cd791097",
   "isolatedReadConnectionVerified": true,
   "credentialStorageReview": "Desktop duplicate is under iCloud Desktop sync; actual upload history unknown. Not approved for production credential use.",
   "independentReviewStatus": "conditional"
