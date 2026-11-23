@@ -1,0 +1,5 @@
+{"sources":[
+ {"url":"https://query.wikidata.org/sparql","format":"wikidata-discovery","kind":"regional","freeSourceVerified":true,"termsReviewed":true,"reviewedBy":"Codex: official CC0 and WDQS access policy checked; discovery only","reviewedAt":"2026-11-21T00:00:00Z","license":"CC0-1.0","termsUrl":"https://www.wikidata.org/wiki/Wikidata:Licensing"},
+ {"url":"https://query.wikidata.org/sparql","format":"wikidata-discovery","kind":"supply_chain","freeSourceVerified":true,"termsReviewed":true,"reviewedBy":"Codex: official CC0 and WDQS access policy checked; discovery only","reviewedAt":"2026-11-21T00:00:00Z","license":"CC0-1.0","termsUrl":"https://www.wikidata.org/wiki/Wikidata:Licensing"},
+ {"url":"https://query.wikidata.org/sparql","format":"wikidata-discovery","kind":"ai_partner","freeSourceVerified":true,"termsReviewed":true,"reviewedBy":"Codex: official CC0 and WDQS access policy checked; discovery only","reviewedAt":"2026-11-21T00:00:00Z","license":"CC0-1.0","termsUrl":"https://www.wikidata.org/wiki/Wikidata:Licensing"}
+]}

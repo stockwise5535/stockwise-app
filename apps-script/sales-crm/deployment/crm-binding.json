@@ -1,0 +1,24 @@
+{
+  "spreadsheetId": "12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk",
+  "confirmedByOwner": true,
+  "confirmedAt": "2026-11-22T03:28:16Z",
+  "independentReviewCommit": "70b34df65a8301e6ec85eb0f39c155cb2bc6ba43",
+  "independentReviewer": "Codex independent reviewer /root/pr32_independent_review (technical review; not a GitHub human approval)",
+  "credentialsProjectId": "stockwise-lead-intake",
+  "serviceAccountEmail": "stockwise-lead-intake@stockwise-lead-intake.iam.gserviceaccount.com",
+  "dedicatedCredentialConfirmed": false,
+  "reason": "Owner explicitly confirmed canonical CRM in this conversation. Production writes remain prohibited; independent review and dedicated credential setup are pending.",
+  "newRoute": {
+    "emailSending": false,
+    "snsSending": false,
+    "followUp": false
+  },
+  "productionWritesAuthorized": false,
+  "sheetsApiOwnerReportedEnabled": true,
+  "sheetsApiLiveVerified": true,
+  "isolatedViewerOwnerReported": true,
+  "independentReviewDigest": "3771bffaa173fd87d4744a1566d8902fa0a66d799ca0bc5c591371c58d035c83",
+  "isolatedReadConnectionVerified": true,
+  "credentialStorageReview": "Desktop duplicate is under iCloud Desktop sync; actual upload history unknown. Not approved for production credential use.",
+  "independentReviewStatus": "conditional"
+}

@@ -12,7 +12,7 @@ var SalesCore = (function () {
     FOLLOW_UP_ENABLED: ['false', 'Keep FALSE. Follow-up drafts are created only when TRUE, and still need approval.'],
     LEGAL_REVIEW_COMPLETED: ['false', 'Set TRUE only after the owner (and counsel if needed) reviewed JP/SG/AU email rules.'],
     SIGNUP_JOURNEY_VERIFIED: ['false', 'TRUE adds the product link and trial sentence. Keep FALSE until the hosted signup journey is browser-verified.'],
-    DAILY_SEND_LIMIT: ['10', 'Max prospect emails per day (script time zone).'],
+    DAILY_SEND_LIMIT: ['100', 'Max prospect emails per day (script time zone).'],
     RUN_SEND_LIMIT: ['5', 'Max prospect emails per trigger run.'],
     SEND_WINDOW_START: ['9', 'Earliest send hour (script time zone, 0-23).'],
     SEND_WINDOW_END: ['17', 'Latest send hour, exclusive.'],
@@ -55,7 +55,7 @@ var SalesCore = (function () {
     return {
       raw: map, liveSending: isTrue(map.LIVE_SENDING), followUpEnabled: isTrue(map.FOLLOW_UP_ENABLED),
       legalReviewCompleted: isTrue(map.LEGAL_REVIEW_COMPLETED), signupVerified: isTrue(map.SIGNUP_JOURNEY_VERIFIED),
-      dailyLimit: num(map.DAILY_SEND_LIMIT, 10), runLimit: num(map.RUN_SEND_LIMIT, 5),
+      dailyLimit: num(map.DAILY_SEND_LIMIT, 100), runLimit: num(map.RUN_SEND_LIMIT, 5),
       windowStart: num(map.SEND_WINDOW_START, 9), windowEnd: num(map.SEND_WINDOW_END, 17),
       allowedCountries: String(map.ALLOWED_COUNTRIES).split(',').map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean),
       allowFreemail: isTrue(map.ALLOW_FREEMAIL), cooldownDays: num(map.DOMAIN_COOLDOWN_DAYS, 90),
@@ -155,7 +155,7 @@ var SalesCore = (function () {
     if (recent) r.push('DOMAIN_COOLDOWN');
     var lp = ctx.localNow; // {day, hour, dow}
     if (lp.dow === 0 || lp.dow === 6 || lp.hour < s.windowStart || lp.hour >= s.windowEnd) r.push('OUTSIDE_SEND_WINDOW');
-    if (!isFinite(s.dailyLimit) || !isFinite(s.runLimit) || s.dailyLimit < 1 || s.dailyLimit > 10 || s.runLimit < 1 || s.runLimit > 5) r.push('SEND_LIMIT_CONFIGURATION_INVALID');
+    if (!isFinite(s.dailyLimit) || !isFinite(s.runLimit) || s.dailyLimit < 1 || s.dailyLimit > 100 || s.runLimit < 1 || s.runLimit > 5) r.push('SEND_LIMIT_CONFIGURATION_INVALID');
     if (ctx.sentToday >= s.dailyLimit) r.push('DAILY_LIMIT_REACHED');
     if (ctx.sentThisRun >= s.runLimit) r.push('RUN_LIMIT_REACHED');
     return r;
@@ -171,7 +171,9 @@ var SalesCore = (function () {
     existing.forEach(function (row) { if (row.company) { var key = companyResearchKey(row); seen[key] = true; existingCounts[key] = (existingCounts[key] || 0) + 1; } });
     candidates.forEach(function (row) {
       var company = String(row.company || '').trim(), country = String(row.country || '').trim().toUpperCase();
-      if (!company || company.length > 200 || /^[=+@-]/.test(company) || ['JP','SG','AU'].indexOf(country) < 0 ||
+      var researchCountry = ['JP','SG','AU','NZ','KR','TH','VN','MY'].indexOf(country) >= 0 ||
+        (['inventory_consulting','supply_chain_services','ai_partner'].indexOf(row.segment) >= 0 && /^[A-Z]{2}$/.test(country) && ['XX','ZZ','EU','UN'].indexOf(country) < 0);
+      if (!company || company.length > 200 || /^[=+@-]/.test(company) || !researchCountry ||
         !/^https:\/\/[^\s]+$/i.test(String(row.source_url || '')) || String(row.source_url).length > 2048) throw new Error('INVALID_RESEARCH_CANDIDATE');
       var key = companyResearchKey({company:company,country:country});
       if (expected.indexOf(key) < 0) expected.push(key);

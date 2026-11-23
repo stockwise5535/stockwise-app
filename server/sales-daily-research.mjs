@@ -15,13 +15,25 @@ export function reviewedResearchSource(source,now=new Date()) {
    !/\.(local|internal|localhost|test|invalid|example)$/i.test(u.hostname);
  }catch{return false;}
 }
-async function limitedJson(response) {
+async function limitedJson(response,maxBytes=MAX_BYTES) {
  if(!/application\/(?:[a-z0-9.+-]*\+)?json/i.test(response.headers.get('content-type')||''))throw Error('SOURCE_NOT_JSON');
- const length=Number(response.headers.get('content-length'));if(length>MAX_BYTES)throw Error('SOURCE_TOO_LARGE');
+ const length=Number(response.headers.get('content-length'));if(length>maxBytes)throw Error('SOURCE_TOO_LARGE');
  const reader=response.body.getReader(),chunks=[];let bytes=0;
- try {while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>MAX_BYTES)throw Error('SOURCE_TOO_LARGE');chunks.push(value);}}
+ try {while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>maxBytes)throw Error('SOURCE_TOO_LARGE');chunks.push(value);}}
  finally {await reader.cancel().catch(()=>{});}
  return Buffer.concat(chunks).toString('utf8');
+}
+export function wikidataCandidate(raw,source){
+ const match=source.url.match(/^https:\/\/www\.wikidata\.org\/wiki\/Special:EntityData\/(Q[1-9][0-9]*)\.json$/);
+ if(!match||source.format!=='wikidata-entity'||source.segment!=='manufacturing')throw Error('INVALID_WIKIDATA_SOURCE');
+ const entity=JSON.parse(raw).entities?.[match[1]];
+ if(!entity||entity.id!==match[1])throw Error('ENTITY_MISMATCH');
+ const claims=property=>(entity.claims?.[property]||[]).filter(c=>c.rank!=='deprecated').map(c=>c.mainsnak?.datavalue?.value);
+ const countryIds=[...new Set(claims('P17').map(v=>v?.id))];
+ const country=({Q17:'JP',Q334:'SG',Q408:'AU'})[countryIds[0]];
+ if(countryIds.length!==1||!country)throw Error('COUNTRY_REVIEW_REQUIRED');
+ const website=claims('P856').find(v=>typeof v==='string'&&v.startsWith('https://'));
+ return JSON.stringify({candidates:[{companyName:entity.labels?.en?.value,countryCode:country,segment:source.segment,officialWebsite:website,evidenceUrls:['https://www.wikidata.org/wiki/'+match[1]]}]});
 }
 export async function runDailyCandidateResearch({sources=[],fetchImpl=globalThis.fetch,now=new Date()}={}) {
  if(!Array.isArray(sources)||sources.length>5)throw Error('INVALID_SOURCE_CONFIGURATION');
@@ -30,9 +42,13 @@ export async function runDailyCandidateResearch({sources=[],fetchImpl=globalThis
  for(const source of sources){
   if(!reviewedResearchSource(source,now)){result.sources.push({status:'review_required'});continue;}
   try{
-   const response=await fetchImpl(source.url,{method:'GET',redirect:'error',credentials:'omit',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)});
+   const wikidata=source.format==='wikidata-entity';
+   if(wikidata&&!/^https:\/\/www\.wikidata\.org\/wiki\/Special:EntityData\/Q[1-9][0-9]*\.json$/.test(source.url))throw Error('INVALID_WIKIDATA_SOURCE');
+   if(source.format&&!wikidata)throw Error('UNKNOWN_SOURCE_FORMAT');
+   const response=await fetchImpl(source.url,{method:'GET',redirect:'error',credentials:'omit',headers:{Accept:'application/json','User-Agent':'StockwiseResearchTest/1.0 (https://github.com/stockwise5535/stockwise-app)'},signal:AbortSignal.timeout(10000)});
    if(!response.ok)throw Error('SOURCE_REQUEST_FAILED');
-   const parsed=parseApacAiCandidates(await limitedJson(response),{maxCandidates:20});
+   const raw=await limitedJson(response,wikidata?524288:MAX_BYTES);
+   const parsed=parseApacAiCandidates(wikidata?wikidataCandidate(raw,source):raw,{maxCandidates:20});
    if(!parsed.ok)throw Error('SOURCE_SCHEMA_INVALID');
    let accepted=0;
    for(const candidate of parsed.candidates){

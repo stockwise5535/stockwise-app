@@ -1,0 +1,26 @@
+{
+  "sources": [
+    {
+      "url": "https://www.wikidata.org/wiki/Special:EntityData/Q8093.json",
+      "format": "wikidata-entity",
+      "segment": "manufacturing",
+      "freeSourceVerified": true,
+      "termsReviewed": true,
+      "reviewedBy": "Codex: CC0 structured data and sequential API policy review",
+      "reviewedAt": "2026-11-17T00:00:00Z",
+      "license": "CC0-1.0",
+      "termsUrl": "https://www.wikidata.org/wiki/Wikidata:Licensing"
+    },
+    {
+      "url": "https://www.wikidata.org/wiki/Special:EntityData/Q41187.json",
+      "format": "wikidata-entity",
+      "segment": "manufacturing",
+      "freeSourceVerified": true,
+      "termsReviewed": true,
+      "reviewedBy": "Codex: CC0 structured data and sequential API policy review",
+      "reviewedAt": "2026-11-17T00:00:00Z",
+      "license": "CC0-1.0",
+      "termsUrl": "https://www.wikidata.org/wiki/Wikidata:Licensing"
+    }
+  ]
+}

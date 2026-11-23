@@ -1,0 +1,54 @@
+{
+  "status": "PREPARED_NOT_APPLIED",
+  "scriptId": "10-3xUUzlKVCXZItlI4d1vaOknJ-VfAAqPre-0Gz5Pzl5lvFQChPIikXA",
+  "crmId": "12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk",
+  "replaceFiles": [
+    "Main",
+    "Engine",
+    "Core"
+  ],
+  "retainEveryOtherRemoteFile": true,
+  "retainManifest": true,
+  "retainCore": false,
+  "retainScriptProperties": true,
+  "expectedCurrentSourceHashes": {
+    "Main": "a4daaa6476f73cdeb4482478e92adc13efdad853669a78051c16204ed7436e51",
+    "Engine": "30e1bb85da296d36b462fb2044ddf85bf4dc64fa9e7636188623e315f98cd4cd",
+    "Core": "3dbc7e073c8aeb0befc8d7f678ee23884f84937551e4a0d26b203cf352a98c95"
+  },
+  "expectedCurrentManifestHash": "7d4b529cb1d0644ee6db89aec74fc7bc4e3097c9a449f40b9d1c042760b8fa16",
+  "preparedSourceHashes": {
+    "Main": "7168046ddb1e5f3a1f6b188f54535c3641627ce10651938378e09106ac92ecf3",
+    "Engine": "154e07fcc15dd3522aad0a46f1fc92b438ecbcd982ca0fb659223afb260c7408",
+    "Core": "00767b6da4a3cc44824c088993e25d21ecc40f7b21209d29881055043cd2806c"
+  },
+  "ownerApprovalReceived": false,
+  "applyAuthorized": false,
+  "mailSendAuthorized": false,
+  "recurringEnableAuthorized": false,
+  "initialMaxTotal": 3,
+  "dailyMax": 100,
+  "scopeNotes": [
+    "No Google write is currently authorized. Re-read the remote source and reconcile any changes before an explicitly approved application.",
+    "Apply only Main, Engine and only the daily-limit constants in Core into the full fresh remote files payload; retain all custom files including Unicode-named files, manifest and all other Core logic.",
+    "Use existing Gmail connection and sender; no OAuth replacement or paid API.",
+    "Read back exact source hashes after one write; never retry an unknown write result.",
+    "Existing ChatGPT task instructions are supplied; its executable identity must still be verified and coordinated before any claim of a global hundred-per-day bound."
+  ],
+  "retainCoreExceptDailyLimit": true,
+  "coreLimitPatchOnly": {
+    "from": 10,
+    "to": 100,
+    "preserveResearchPolicy": true,
+    "builder": "tools/apps-script/send-limit-patch.mjs"
+  },
+  "limitApproval": {
+    "status": "OWNER_APPROVED_LIMIT_ONLY",
+    "scope": "all_sending_routes_combined",
+    "maxPerDay": 100,
+    "initialMaxTotal": 3,
+    "sendStartAuthorized": false,
+    "recurringEnableAuthorized": false
+  },
+  "allRoutesBudgetConnected": false
+}
