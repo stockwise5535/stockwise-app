@@ -15,9 +15,10 @@
     "Append the existing contact email to the existing footer so sender contact matches existing CRM gate."
   ],
   "unresolvedConditions": [
-    "Existing ChatGPT sending task identity and coordination are not yet known; Gmail sent search already returned at least 100 messages (historical observation, not a sending authorization) for 2026-11-22.",
+    "Existing ChatGPT task instructions are supplied, but its executable identity and common-budget connection remain unverified.",
     "Country-specific launch review, reply/unsubscribe operation and runtime grant properties must be read or explicitly attested before arming.",
-    "Reviewed sender hardening is development-only and has not been applied to the existing bound Apps Script."
+    "Reviewed sender hardening is development-only and has not been applied to the existing bound Apps Script.",
+    "2026-11-22 PT reconciliation found 110 Gmail sends versus 50 CRM receipts: 60 Japanese-template sends lack CRM queue receipts; do not resend or restore rows automatically."
   ],
   "messages": [
     {
@@ -82,5 +83,28 @@
     "sendStartAuthorized": false,
     "recurringEnableAuthorized": false
   },
-  "allRoutesBudgetConnected": false
+  "allRoutesBudgetConnected": false,
+  "latestReadOnlyReconciliation": {
+    "observedAt": "2026-11-23T04:30:05Z",
+    "day": "2026-11-22",
+    "timeZone": "America/Los_Angeles",
+    "gmailAccount": "nexops2026test@gmail.com",
+    "gmailSends": 110,
+    "gmailPaginationComplete": true,
+    "crmReceipts": 50,
+    "matchedByMessageId": 50,
+    "gmailWithoutCrmReceipt": 60,
+    "crmWithoutGmailReceipt": 0,
+    "crmMatchedCountries": {
+      "SG": 29,
+      "UK": 14,
+      "NZ": 7
+    },
+    "unmatchedJapaneseTemplate": 60,
+    "taskInstructionsProvided": true,
+    "taskExecutableIdentityVerified": false,
+    "allRoutesBudgetConnected": false,
+    "liveBoundScriptHasSharedCounter": false,
+    "noRemoteMutation": true
+  }
 }

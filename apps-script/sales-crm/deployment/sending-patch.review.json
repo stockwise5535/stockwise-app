@@ -18,8 +18,8 @@
   },
   "expectedCurrentManifestHash": "7d4b529cb1d0644ee6db89aec74fc7bc4e3097c9a449f40b9d1c042760b8fa16",
   "preparedSourceHashes": {
-    "Main": "ae4d1edb84473a6ec0f51806fafa8e49d81f0114ec0ce60a3c5e6e092bd95c94",
-    "Engine": "a7db565da0b5483a06a87b86cfbd4100d774fc3e452687458c4ebb04becb0f03",
+    "Main": "803182ccd2e09800d7008464d9d610406ed27129d5a96be7e77cc04d4db8fd74",
+    "Engine": "154e07fcc15dd3522aad0a46f1fc92b438ecbcd982ca0fb659223afb260c7408",
     "Core": "00767b6da4a3cc44824c088993e25d21ecc40f7b21209d29881055043cd2806c"
   },
   "ownerApprovalReceived": false,
@@ -33,7 +33,7 @@
     "Apply only Main, Engine and only the daily-limit constants in Core into the full fresh remote files payload; retain all custom files including Unicode-named files, manifest and all other Core logic.",
     "Use existing Gmail connection and sender; no OAuth replacement or paid API.",
     "Read back exact source hashes after one write; never retry an unknown write result.",
-    "Current ChatGPT sender task must be identified/coordinated before any claim of a global hundred-per-day bound."
+    "Existing ChatGPT task instructions are supplied; its executable identity must still be verified and coordinated before any claim of a global hundred-per-day bound."
   ],
   "retainCoreExceptDailyLimit": true,
   "coreLimitPatchOnly": {

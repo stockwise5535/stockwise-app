@@ -2,6 +2,7 @@
    Defaults are safe: LIVE_SENDING=false and FOLLOW_UP_ENABLED=false. See README.md. */
 var SALES_TEST_CRM_ID = '12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
 var DATE_COLS = ['created_at', 'updated_at', 'last_contacted_at', 'approved_at', 'scheduled_at', 'sent_at', 'timestamp', 'added_at'];
+var SALES_ACTIVE_LOCK_ = null; // Invocation-local instance actually acquired by locked_.
 
 function sheetsStore_() {
   // A bound script can use its active spreadsheet; a standalone copy must specify an ID.
@@ -47,16 +48,34 @@ function gmailAdapter_() {
       if (!SalesCore.isValidEmail(to)) throw Error('INVALID_SEND_RECIPIENT');
       return GmailApp.search('in:sent to:'+SalesCore.normalizeEmail(to),0,1).length > 0;
     },
-    sentToday: function (now) {
+    sentToday: function (now, queue) {
       var tz=Session.getScriptTimeZone(),day=Utilities.formatDate(now,tz,'yyyy-MM-dd');
       var start=Utilities.parseDate(day+' 00:00:00',tz,'yyyy-MM-dd HH:mm:ss');
-      var threads=GmailApp.search('in:sent after:'+Math.floor(start.getTime()/1000)+' {subject:StockWise subject:"Inventory visibility"}',0,100);
       var seen={},count=0,self=SalesCore.normalizeEmail(Session.getEffectiveUser().getEmail());
-      threads.some(function(t){return t.getMessages().some(function(m){
-        var from=SalesCore.normalizeEmail((String(m.getFrom()).match(/<([^>]+)>/)||[0,m.getFrom()])[1]);
-        if(!seen[m.getId()]&&from===self&&Utilities.formatDate(m.getDate(),tz,'yyyy-MM-dd')===day&&/stockwise|inventory visibility/i.test(m.getSubject())){seen[m.getId()]=true;count++;}
-        return count>=100;
-      });});
+      // Bounced sends also consumed capacity. Merge receipts by message ID,
+      // rather than max(CRM count, Gmail count), which misses disjoint sends.
+      (queue||[]).forEach(function(q,i){
+        if(!q.sent_at){if(['SENT','BOUNCED'].indexOf(q.status)>=0||q.gmail_message_id||q.gmail_thread_id)throw Error('CRM_SENT_DATE_UNCONFIRMED');return;}
+        var date=new Date(q.sent_at);if(!isFinite(date.getTime()))throw Error('CRM_SENT_DATE_UNCONFIRMED');
+        if(Utilities.formatDate(date,tz,'yyyy-MM-dd')!==day)return;
+        var id=String(q.gmail_message_id||'').trim(),key=id?'id:'+id:'unconfirmed-row:'+i;
+        if(!seen[key]){seen[key]=true;count++;}
+      });
+      var query='in:sent after:'+Math.floor(start.getTime()/1000)+' {StockWise "stockwise-homepage.vercel.app" "Inventory visibility"}';
+      // GmailApp returns threads, including old messages. Continue pagination
+      // until exhausted or the ceiling is already reached; never assume one
+      // page of threads is a complete current-day message count.
+      for(var offset=0;count<100;offset+=100){
+        var threads=GmailApp.search(query,offset,100);
+        threads.some(function(t){return t.getMessages().some(function(m){
+          var from=SalesCore.normalizeEmail((String(m.getFrom()).match(/<([^>]+)>/)||[0,m.getFrom()])[1]);
+          var key='id:'+m.getId();
+          if(!seen[key]&&from===self&&Utilities.formatDate(m.getDate(),tz,'yyyy-MM-dd')===day&&
+            (/stockwise|inventory visibility/i.test(m.getSubject())||/stockwise|inventory visibility/i.test(m.getPlainBody()))){seen[key]=true;count++;}
+          return count>=100;
+        });});
+        if(threads.length<100)break;
+      }
       return count;
     },
     threadMessages: function (id) {
@@ -93,7 +112,8 @@ function locked_(fn) {
   ensureLoaded_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) { Logger.log('Another run is in progress; skipped.'); return { skipped: 'LOCKED' }; }
-  try { return fn(); } finally { lock.releaseLock(); }
+  var previous=SALES_ACTIVE_LOCK_;SALES_ACTIVE_LOCK_=lock;
+  try { return fn(); } finally { SALES_ACTIVE_LOCK_=previous;lock.releaseLock(); }
 }
 function toast_(msg) { try { SpreadsheetApp.getActiveSpreadsheet().toast(String(msg), 'Stockwise Sales', 8); } catch (e) { Logger.log(msg); } }
 
@@ -315,6 +335,7 @@ function sendController_() {
     isAllowed:allowed,
     hasUnresolvedAttempts:pendingAttempt,
     reserveSend:function(q,budget){
+      if(!SALES_ACTIVE_LOCK_||!SALES_ACTIVE_LOCK_.hasLock())throw Error('SHARED_SEND_LOCK_REQUIRED');
       if(!allowed(q)||pendingAttempt())throw Error('SEND_AUTHORIZATION_CHANGED');
       var key=attemptKey(q);if(props.getProperty(key))throw Error('PREVIOUS_SEND_ATTEMPT_NO_RETRY');
       var today=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd');
@@ -333,6 +354,7 @@ function sendController_() {
       props.setProperty(key,value);if(props.getProperty(key)!==value)throw Error('SEND_INTENT_NOT_PERSISTED');
     },
     completeSend:function(q,out){
+      if(!SALES_ACTIVE_LOCK_||!SALES_ACTIVE_LOCK_.hasLock())throw Error('SHARED_SEND_LOCK_REQUIRED');
       var key=attemptKey(q),record=salesPropertyJson_(key);
       if(record.phase!=='SENDING'||record.queueId!==q.queue_id||record.hash!==SalesCore.contentHash(q.subject,q.body,q.to_email)||!out.messageId||!out.threadId)throw Error('SEND_RECEIPT_UNCONFIRMED');
       var value=JSON.stringify({phase:'SENT',queueId:q.queue_id,hash:record.hash,senderEmail:record.senderEmail,messageId:out.messageId,threadId:out.threadId});

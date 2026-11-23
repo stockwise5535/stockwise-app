@@ -67,7 +67,7 @@ var SalesEngine = (function () {
       if (leads.length !== 1) throw Error('AMBIGUOUS_LEAD_ID');
       var sent = queue.filter(function (q) { return q.status === 'SENT' && q.sent_at && deps.localParts(new Date(q.sent_at)).day === local.day; }).length;
       var settings = loadSettings(deps);
-      if (settings.liveSending && typeof deps.mail.sentToday === 'function') sent = Math.max(sent,deps.mail.sentToday(now));
+      if (settings.liveSending && typeof deps.mail.sentToday === 'function') sent = Math.max(sent,deps.mail.sentToday(now,queue));
       return {item:matches[0],lead:leads[0],settings:settings,sup:core.suppressionSet(deps.store.rows('Suppression')),queue:queue,localNow:local,sentToday:sent,sentThisRun:res.sent,nowMs:now.getTime()};
     }
     function scheduledReady(q,now) { return !q.scheduled_at || isFinite(Date.parse(q.scheduled_at)) && Date.parse(q.scheduled_at) <= now; }

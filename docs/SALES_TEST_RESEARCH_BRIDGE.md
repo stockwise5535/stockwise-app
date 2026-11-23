@@ -368,5 +368,25 @@ additional sends without the separately required start approval.
 The separate reviewer accepted the cap-only preparation conditionally. Source
 commit8b35f6b8c97c9026b6e01fd4153e840983444ee1 / critical digest
 184557873d8bf71d67daeff427e752b333b1d14538da1663317bf1b49c1e0c80.
+
+The subsequent read-only reconciliation completed Gmail pagination for
+2026-11-22 PT:110 StockWise sent messages,50 CRM receipts matched by Gmail
+message ID,60 additional Japanese-template messages without queue receipts,
+and0 CRM-only receipts. CRM-matched countries were SG29/UK14/NZ7. Template
+language is not proof of the country of the60 unmatched recipients. Their
+Gmail headers indicate HTTPREST API submission; they do not identify which
+task executed it. Existing task instructions are now supplied, but its
+executable identity, execution history and shared-budget integration remain
+unverified. No queue restoration, CRM update or resend was performed.
+
+The development receipt counter now unions Gmail and CRM message IDs,
+includes BOUNCED sends, paginates past old matching threads and rejects
+missing/invalid receipt dates. Capacity reservation and completion require
+the same held ScriptLock. These are prepared protections, not a connection
+to the external task. The live bound source still has the previous Main/Engine
+and no shared counter. The supplied task must submit through the reviewed
+coordinator rather than a separate Gmail send action before it can be counted
+as coordinated. No task instruction, live source, property, setting or trigger
+was changed. Current110 sends leave no available capacity under the100 ceiling.
 Recipient/subject/body/source message objects are byte-for-byte unchanged from
 the previous proposal. No sending or recurring permission was granted.
