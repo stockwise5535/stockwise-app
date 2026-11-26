@@ -79,9 +79,9 @@ test('email copy: no product link or trial claim until signup journey verified; 
  assert.match(m0.body,/配信停止/);assert.match(m0.body,/Taro/);assert.match(m0.body,/Tokyo/);assert.match(m0.body,/公開ウェブサイト/);
  const s1=Core.settingsFrom([{key:'SENDER_NAME',value:'Taro'},{key:'SENDER_ADDRESS',value:'Tokyo'},{key:'PRODUCT_URL',value:'https://app.example'},{key:'SIGNUP_JOURNEY_VERIFIED',value:'TRUE'}]);
  const m1=Core.buildEmail(l,s1,1);
- assert.match(m1.body,/30日間の無料トライアル/);assert.match(m1.body,/英語/);assert.ok(!/日本語対応/.test(m1.body));
+ assert.doesNotMatch(m1.body,/無料|トライアル/);assert.ok(!/日本語対応/.test(m1.body));
  const en=Core.buildEmail(lead({country:'SG'}),s1,1);
- assert.equal(en.language,'en');assert.match(en.body,/30-day free trial/);assert.match(en.body,/unsubscribe/);
+ assert.equal(en.language,'en');assert.doesNotMatch(en.body,/free trial/);assert.match(en.body,/unsubscribe/);
  for(const m of [m0,m1,en])assert.deepEqual(Core.bannedPhrases(m.subject+m.body),[]);
  assert.ok(Core.bannedPhrases('Free forever, no credit card').length>=2);
 });
@@ -264,7 +264,7 @@ test('duplicate queue IDs cannot bypass pilot scope or duplicate-key safety',()=
  assert.equal(Engine.processQueue(w.deps).stopped,true);assert.equal(w.sent.length,0);
 });
 test('live sending has hard daily and per-run limits even if Settings is changed',()=>{
- for(const config of [{DAILY_SEND_LIMIT:'101'},{RUN_SEND_LIMIT:'6'},{DAILY_SEND_LIMIT:'Infinity'}]){
+ for(const config of [{DAILY_SEND_LIMIT:'101'},{RUN_SEND_LIMIT:'11'},{DAILY_SEND_LIMIT:'Infinity'}]){
   const w=world({...LIVE,...config});ready(w);approveAll(w);Engine.processQueue(w.deps);
   assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/SEND_LIMIT_CONFIGURATION_INVALID/);
  }
@@ -317,4 +317,13 @@ test('receipt writes re-resolve queue and lead IDs after a row reorder during Gm
  const send=w.deps.mail.send;let changed=false;w.deps.mail.send=m=>{const out=send(m);if(!changed){changed=true;w.tables.EmailQueue.reverse();w.tables.Leads.reverse();}return out;};
  const r=Engine.processQueue(w.deps);assert.equal(r.sent,2);assert.equal(w.sent.length,2);
  assert.ok(w.tables.EmailQueue.every(q=>q.status==='SENT'&&q.gmail_message_id));assert.ok(w.tables.Leads.every(l=>l.status==='CONTACTED'));
+});
+
+test('READY uses canonical recipient/content hashes; stale content approval is invalidated, not repaired live',()=>{
+ const w=world(LIVE);ready(w);approveAll(w);const q=w.tables.EmailQueue[0];q.status='READY';assert.equal(Engine.processQueue(w.deps).sent,1);
+ const changed=world(LIVE);ready(changed);approveAll(changed);const c=changed.tables.EmailQueue[0];c.status='READY';c.content_hash='legacy-incompatible';
+ Engine.processQueue(changed.deps);assert.equal(changed.sent.length,0);assert.equal(c.approval_status,'DRAFT');assert.equal(c.approved_hash,'');assert.match(c.blocked_reason,/EDITED_AFTER_APPROVAL/);
+});
+test('a human reply or bounce blocks even a first-step READY regardless of stale lead status',()=>{
+ for(const reply_status of ['HUMAN_REPLY','REPLIED','UNSUBSCRIBE','BOUNCED']){const w=world(LIVE);ready(w);approveAll(w);w.tables.Leads[0].reply_status=reply_status;w.tables.EmailQueue[0].status='READY';Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/LEAD_CLOSED/);}
 });

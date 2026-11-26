@@ -201,3 +201,86 @@ Google認証はMacで完了した旨をユーザーから受領。クラウド�
 
 現行Google TESTソースの照合（2026-11-08）：添付exportはinspect実行42545311161のremoteDigestと一致。コード.jsのmyFunction（空関数）を無変更で保持し、マニフェストもLos Angeles・自動scope推論設定を維持する。元ソースにGmailテスト関数は存在しない。既存関数の削除や改名は行わない。
 ユーザー確認で送信3ゲートは未設定。TEST初回bootstrapはコード追加のみで、Settingsの有効化やGmail送信は行わない。反映後、所有者がinitializeAndVerifyTestCrmを実行してGoogle実行権限を承認する。指定TEST以外・互換性のないシート/ダッシュボードでは書き込み前に停止。新規Settingsは既存の安全なfalse初期値で作成される。実行完了まではruntime未検証のままとする。
+
+## Sending-gate completion on top of PR #32 (not applied)
+
+This patch preserves PR #32's acquired ScriptLock, persisted daily reservation,
+independent send intent, fresh pre-send reads and verified receipt readback.
+It does not deploy, arm a pilot, update Settings, install triggers, or send.
+
+- READY already exists in PR #32; this patch also cancels READY after reply or
+  opt-out. `content_hash`, `approved_hash` and the current recipient/subject/body
+  must agree. A detected edit becomes DRAFT with approval identity/time/hash
+  cleared. No hash repair occurs in the send loop.
+- `prepareSelectedSalesReapproval()` is an explicit UI-confirmed migration of
+  only 1–3 configured queue IDs. It preserves sent/uncertain history, removes
+  unsupported free/setup/CEO claims and normalizes Stockwise / NexOps. Inc.
+  It does not approve or send the resulting copy.
+- The existing daily coordinator hard-caps participating routes at 100, merges
+  Gmail and CRM message IDs, includes bounced sends, and retains consumed
+  reservations even if Gmail's read model lags. Missing receipts stop rather
+  than estimate. No missing 60 historical receipts are restored or resent.
+- A new structured `STOCKWISE_SALES_ROUTE_REVIEW` is required in addition to
+  the old shared-budget boolean. Its fields are `mode=APPS_SCRIPT_SINGLE_WRITER_V1`,
+  the exact Task ID below, `chatgptDirectGmailDisabled=true`,
+  `otherDirectWritersDisabled=true`, actual `reviewedBy`, `reviewedAt`, and an
+  evidence reference. These are requirements, NOT facts established here.
+  No new property is set by deployment. Unconnected writers remain a blocker.
+- Per-lead version-2 launch review requires the exact email/country/source,
+  official website publication, DOMAIN/MX, generic role mailbox, relevance,
+  no refusal, a checkedAt within 7 days, and verified sender/opt-out evidence.
+  UK additionally needs corporate identity/registration proof; NZ needs explicit
+  or deemed-consent evidence; SG needs ADV. A generic Settings legal TRUE alone
+  never suffices. JP/US/CA/AU/HK/PH/IN remain blocked in this implementation;
+  their automatic legal gates are NOT implemented by this patch.
+- Existing non-empty sender settings are not overwritten by setup. The desired
+  reviewed identity is NexOps. Inc, and sender/receipt pinning remains required.
+  Neither FREE beta availability beyond the local one-item copy, free human
+  setup, nor the sender's CEO role was independently established; all three
+  claims are removed rather than recorded as verified.
+
+### Existing ChatGPT task: narrowly scoped change proposal (NOT applied)
+
+Task `Stockwise APAC営業運用`, ID
+`Automation_7a12ae0699908191845ffd320d9b3358`, is not connected to an editable
+controller here. The BEFORE text is the owner's supplied conversation text,
+not a verified export of the task's current live configuration.
+
+`docs/SALES_TASK_CHANGE_PROPOSAL.txt` limits replacement to:
+
+1. Direct Gmail send/send-draft instructions and their paired SENT updates:
+   replace with preparation/reporting for the sole Apps Script sender. Do not
+   call a nonexistent invocation API or represent preparation as sent.
+2. Automatic APPROVED/READY promotion and self-generated approved_hash:
+   new or edited content remains DRAFT with approval fields cleared. Existing
+   unedited owner-approved rows are not bulk-demoted or modified.
+3. Automatic LIVE_SENDING restoration: report the stop condition, never reset it.
+
+Keep company research, source validation, RESEARCH/QUALIFIED intake, DRAFT
+preparation, reply/bounce/opt-out handling, KPI analysis, all existing reports,
+Product Hunt/Reddit proposal preparation and the task's existing schedule.
+Do not replace the entire task with read-only instructions. The separate daily
+Harvester remains OFF; changing research ownership is outside this proposal.
+The 100/day mail ceiling remains separate from the Harvester intake ceiling.
+
+This does NOT implement a ChatGPT-to-Apps-Script execution endpoint. Future
+sending uses only the reviewed bound controller after separate authorization.
+Until actual direct writers are removed and evidenced, shared-route review
+must remain unconfirmed and the new sender must remain stopped.
+
+### Production application, separately approved
+
+1. Have the owner replace the task scope above and identify any other sender.
+   Record route-review evidence only after the actual changes are confirmed.
+2. Read remote source once at application time. Apply only the exact reviewed
+   Main/Engine/Core bytes, preserving the manifest, all unrelated remote files,
+   all Settings, properties, lead data and historical receipts. V2 patch building
+   refuses source/manifest drift. Prior conditional code reviews are stale for
+   this new source; the new patch is explicitly unreviewed and not authorized.
+3. Treat selected content migrations as a separate approval scope from source-only application: they become DRAFT, not READY.
+   Record actual country/sender/opt-out evidence; do not blanket-enable legal flags.
+4. Obtain fresh owner approval of each exact recipient/subject/body and canonical
+   hash. Arm only those three after all gates pass. Sending and any recurring
+   enablement remain separate owner approvals, not part of this preparation.
+
+The Harvester's 100 new RESEARCH records/day is unrelated to this mail ceiling.

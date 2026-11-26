@@ -21,8 +21,8 @@ var SalesCore = (function () {
     DOMAIN_COOLDOWN_DAYS: ['90', 'No second outreach to the same company domain within this many days.'],
     FOLLOW_UP_DELAY_DAYS: ['5', 'Days after step 1 before a follow-up draft may be created.'],
     MAX_FOLLOW_UPS: ['1', 'Maximum follow-ups per lead.'],
-    SENDER_NAME: ['NexOps', 'Real sender name shown in the email.'],
-    SENDER_COMPANY: ['NexOps', 'Legal/trading name of the sender.'],
+    SENDER_NAME: ['NexOps. Inc', 'Real sender name shown in the email.'],
+    SENDER_COMPANY: ['NexOps. Inc', 'Legal/trading name of the sender.'],
     SENDER_ADDRESS: ['', 'Postal address or contact details required in the footer.'],
     REPLY_TO: ['', 'Optional reply-to address. Blank = the sending Gmail account.'],
     PRODUCT_URL: ['', 'Landing/demo URL. Used only when SIGNUP_JOURNEY_VERIFIED=TRUE.']
@@ -117,19 +117,47 @@ var SalesCore = (function () {
       subject = step > 1 ? 'Re: 在庫管理のご案内(' + company + '様)' : '在庫管理のご案内(' + company + '様)';
       body = (name ? name + ' 様' : company + ' ご担当者様') + '\n\n' + basis[0] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
         (step > 1 ? '先日お送りしたメールのご確認です。' : '在庫や仕入れの管理で「今日どれを確認すべきか」を整理するツール「Stockwise」を開発しています。') + '\n' +
-        (showProduct ? 'デモワークスペースで、確認すべき例外と推奨アクションを試せます(30日間の無料トライアル。現在、登録画面は英語です)。\n' + settings.productUrl + '\n' : '興味をお持ちであれば、このメールにご返信いただければ詳細をご案内します。\n') +
+        (showProduct ? 'Stockwiseの製品情報はこちらです。\n' + settings.productUrl + '\n' : '興味をお持ちであれば、このメールにご返信いただければ詳細をご案内します。\n') +
         '\nご不要でしたら、このメールに「配信停止」とご返信ください。以後ご連絡しません。\n\n' + sender + '\n' + settings.senderAddress;
     } else {
       subject = (step > 1 ? 'Re: ' : '') + 'Inventory visibility for ' + company;
       body = (name ? 'Hi ' + name : 'Hello') + ',\n\n' + basis[1] + '\n\n' + (opening && step === 1 ? opening + '\n\n' : '') +
         (step > 1 ? 'Following up on my earlier note.' : 'I am building Stockwise, a tool that helps small businesses see which inventory exceptions need attention today.') + '\n' +
-        (showProduct ? 'You can try a demo workspace (30-day free trial; the signup screens are currently in English):\n' + settings.productUrl + '\n' : 'If this is relevant, reply and I will send details.\n') +
+        (showProduct ? 'Product information:\n' + settings.productUrl + '\n' : 'If this is relevant, reply and I will send details.\n') +
         '\nIf you do not want to hear from me, reply "unsubscribe" and I will not contact you again.\n\n' + sender + '\n' + settings.senderAddress;
     }
     return { subject: subject, body: body, language: lang };
   }
   function bannedPhrases(text) { var t = String(text).toLowerCase(); return BANNED.filter(function (b) { return t.indexOf(b.toLowerCase()) >= 0; }); }
   function contentHash(subject, body, to) { return hash(normalizeEmail(to) + '\n' + subject + '\n' + body); }
+
+  // Only explicit review records authorize contact. Settings alone cannot legalize it.
+  function countryLegalReasons(lead, item, review, nowMs) {
+    var r=[], country=String(lead.country||'').toUpperCase(), e=review && review.leads && review.leads[lead.lead_id];
+    if(['SG','NZ','UK'].indexOf(country)<0)return ['COUNTRY_LEGAL_REVIEW_REQUIRED'];
+    if(!review||review.version!==2||review.senderCompany!=='NexOps. Inc'||review.senderEmail!=='nexops2026test@gmail.com'||review.senderAddressVerified!==true||review.unsubscribeTestVerified!==true||!review.reviewedBy||!review.evidenceReference||!e)return ['COUNTRY_AND_LAUNCH_REVIEW_REQUIRED'];
+    var at=Date.parse(review.reviewedAt), checked=Date.parse(e.checkedAt);
+    if(!isFinite(at)||at>nowMs||nowMs-at>180*86400000||!isFinite(checked)||checked>nowMs||nowMs-checked>7*86400000)r.push('LEGAL_EVIDENCE_STALE');
+    if(e.country!==country||normalizeEmail(e.email)!==normalizeEmail(item.to_email)||e.sourceUrl!==lead.source_url||!/^https:\/\//.test(e.sourceUrl||''))r.push('LEGAL_EVIDENCE_MISMATCH');
+    if(e.domainExists!==true||e.mxExists!==true||e.officialEmailFound!==true||!/^https:\/\//.test(e.officialSourceUrl||'')||normalizeDomain(e.officialSourceUrl)!==normalizeDomain(lead.website||lead.domain)||e.genericBusinessMailbox!==true||e.businessRelevant!==true||e.noSolicitationRefusal!==true)r.push('PRE_SEND_EVIDENCE_REQUIRED');
+    if(!/^(sales|wholesale|info|orders?|support|enquir(?:y|ies)|partnerships)@/i.test(item.to_email||''))r.push('GENERIC_BUSINESS_MAILBOX_REQUIRED');
+    if(country==='UK'&&(e.corporateSubscriber!==true||!e.legalEntityName||!e.registrationNumber||!/^https:\/\//.test(e.corporateEvidenceUrl||'')))r.push('UK_CORPORATE_SUBSCRIBER_REQUIRED');
+    if(country==='NZ'&&['DEEMED_CONSENT','EXPRESS_CONSENT'].indexOf(e.consentBasis)<0)r.push('NZ_CONSENT_BASIS_REQUIRED');
+    if(country==='SG'&&!/^<ADV> /.test(item.subject||''))r.push('SG_ADV_REQUIRED');
+    return r;
+  }
+  function reReviewPatch(q) {
+    if(q.sent_at||['SENT','SENDING','FAILED','BOUNCED','CANCELLED'].indexOf(q.status)>=0)throw Error('DELIVERY_HISTORY_MUST_NOT_CHANGE');
+    var body=String(q.body||'').replace(/I[’']m the CEO of NexOps and the founder of StockWise, an /g,'Stockwise is an ')
+      .replace(/CEO, NexOps/g,'NexOps. Inc').replace(/StockWise/g,'Stockwise');
+    body=body.split(/\n\s*\n/).filter(function(p){return !/\bfree\b|at no cost|\bCEO\b|無料|無償/i.test(p);}).join('\n\n');
+    body=body.replace(/You can start here:/g,'Product information:').replace(/NexOps LinkedIn:/g,'NexOps. Inc LinkedIn:').replace(/(^|\n)NexOps(?=\n|$)/g,'$1NexOps. Inc');
+    if(body.indexOf('nexops2026test@gmail.com')<0)body=body.replace(/(NexOps\. Inc LinkedIn: [^\n]+)/,'$1\nnexops2026test@gmail.com');
+    if(!body.trim()||!/unsubscribe|配信停止/i.test(body)||body.indexOf('NexOps. Inc')<0||body.indexOf('Stockwise')<0)throw Error('REVIEWABLE_COPY_REQUIRED');
+    var subject=String(q.subject||'').replace(/StockWise/g,'Stockwise').replace(/Try Stockwise free for/g,'Stockwise for');
+    return {subject:subject,body:body,content_hash:contentHash(subject,body,q.to_email),approval_status:'DRAFT',approved_by:'',approved_at:'',approved_hash:'',status:'QUEUED',blocked_reason:'CONTENT_CHANGED_REAPPROVAL_REQUIRED'};
+  }
+
   function sendKey(leadId_, step) { return leadId_ + '#' + step; }
 
   /* Pre-send gate. Returns reason codes; empty array = allowed. ctx: {item, lead, settings, sup, queue, localNow, sentToday, sentThisRun, nowMs, senderEmail} */
@@ -137,16 +165,17 @@ var SalesCore = (function () {
     var r = [], it = ctx.item, lead = ctx.lead, s = ctx.settings;
     if (!lead) return ['LEAD_NOT_FOUND'];
     if (it.approval_status !== 'APPROVED' || !String(it.approved_by || '').trim()) r.push('NOT_APPROVED');
-    else if (!it.approved_hash || it.approved_hash !== contentHash(it.subject, it.body, it.to_email)) r.push('EDITED_AFTER_APPROVAL');
+    else if (!it.approved_hash || it.content_hash !== it.approved_hash || it.approved_hash !== contentHash(it.subject, it.body, it.to_email)) r.push('EDITED_AFTER_APPROVAL');
     if (normalizeEmail(it.to_email) !== normalizeEmail(lead.contact_email)) r.push('RECIPIENT_MISMATCH');
     if (!s.legalReviewCompleted) r.push('LEGAL_REVIEW_PENDING');
     if (!s.senderName || !s.senderAddress) r.push('SENDER_IDENTITY_MISSING');
     if (s.senderName && String(it.body).indexOf(s.senderName) < 0 || s.senderAddress && String(it.body).indexOf(s.senderAddress) < 0 || s.senderCompany && String(it.body).indexOf(s.senderCompany) < 0) r.push('SENDER_FOOTER_MISMATCH');
+    if (/\bCEO\b|\bfree\b|at no cost|無料|無償/i.test(it.subject+' '+it.body)) r.push('UNVERIFIED_OFFER_OR_ROLE');
     if (!/配信停止|unsubscribe/i.test(it.body)) r.push('NO_OPT_OUT_LINE');
     if (bannedPhrases(it.subject + ' ' + it.body).length) r.push('BANNED_CLAIM');
     var el = leadEligibility(lead, s, ctx.sup).filter(function (x) { return x.indexOf('LEAD_STATUS_') !== 0 || x === 'LEAD_STATUS_DUPLICATE' || x === 'LEAD_STATUS_UNSUBSCRIBED' || x === 'LEAD_STATUS_BOUNCED' || x === 'LEAD_STATUS_REPLIED' || x === 'LEAD_STATUS_DO_NOT_CONTACT'; });
     r = r.concat(el);
-    if (['REPLIED','UNSUBSCRIBED','BOUNCED'].indexOf(String(lead.reply_status)) >= 0 && Number(it.step) > 1) r.push('LEAD_CLOSED');
+    if (['REPLIED','HUMAN_REPLY','UNSUBSCRIBE','UNSUBSCRIBED','BOUNCE','BOUNCED'].indexOf(String(lead.reply_status)) >= 0) r.push('LEAD_CLOSED');
     var key = it.send_key;
     var dupe = (ctx.queue || []).some(function (q) { return q !== it && q.queue_id !== it.queue_id && q.send_key === key && (q.status === 'SENT' || q.status === 'SENDING'); });
     if (dupe) r.push('DUPLICATE_SEND_KEY');
@@ -155,7 +184,7 @@ var SalesCore = (function () {
     if (recent) r.push('DOMAIN_COOLDOWN');
     var lp = ctx.localNow; // {day, hour, dow}
     if (lp.dow === 0 || lp.dow === 6 || lp.hour < s.windowStart || lp.hour >= s.windowEnd) r.push('OUTSIDE_SEND_WINDOW');
-    if (!isFinite(s.dailyLimit) || !isFinite(s.runLimit) || s.dailyLimit < 1 || s.dailyLimit > 100 || s.runLimit < 1 || s.runLimit > 5) r.push('SEND_LIMIT_CONFIGURATION_INVALID');
+    if (!isFinite(s.dailyLimit) || !isFinite(s.runLimit) || Math.floor(s.dailyLimit) !== s.dailyLimit || Math.floor(s.runLimit) !== s.runLimit || s.dailyLimit < 1 || s.dailyLimit > 100 || s.runLimit < 1 || s.runLimit > 10) r.push('SEND_LIMIT_CONFIGURATION_INVALID');
     if (ctx.sentToday >= s.dailyLimit) r.push('DAILY_LIMIT_REACHED');
     if (ctx.sentThisRun >= s.runLimit) r.push('RUN_LIMIT_REACHED');
     return r;
@@ -207,6 +236,6 @@ var SalesCore = (function () {
     if (AUTO.some(function (k) { return body.indexOf(k) >= 0 || subj.indexOf(k) >= 0; })) return 'AUTO';
     return 'REPLY';
   }
-  return { TABLES: TABLES, companyResearchKey: companyResearchKey, planResearchCompanyImport: planResearchCompanyImport, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
+  return { countryLegalReasons:countryLegalReasons, reReviewPatch:reReviewPatch, TABLES: TABLES, companyResearchKey: companyResearchKey, planResearchCompanyImport: planResearchCompanyImport, DEFAULT_SETTINGS: DEFAULT_SETTINGS, CONTACT_BASES: CONTACT_BASES, TRANSIENT: TRANSIENT, isTrue: isTrue, normalizeEmail: normalizeEmail, isValidEmail: isValidEmail, domainOfEmail: domainOfEmail, normalizeDomain: normalizeDomain, isFreemail: isFreemail, hash: hash, leadId: leadId, settingsFrom: settingsFrom, suppressionSet: suppressionSet, isSuppressed: isSuppressed, leadEligibility: leadEligibility, findDuplicates: findDuplicates, buildEmail: buildEmail, bannedPhrases: bannedPhrases, contentHash: contentHash, sendKey: sendKey, preSendChecks: preSendChecks, stripQuoted: stripQuoted, classifyReply: classifyReply };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SalesCore;

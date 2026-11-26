@@ -12,3 +12,11 @@ test('fresh remote payload retains Unicode/custom files and does not accept sour
  const result=buildReviewedSendingPatch(remote,replacements,review);assert.equal(result.files.length,5);assert.equal(result.files.find(f=>f.name==='コード').source,'function myFunction(){}');assert.equal(result.files.find(f=>f.name==='appsscript').source,'{}');
  assert.equal(remote.files[0].source,'old Main');const drift=structuredClone(remote);drift.files[0].source='manual edit';assert.throws(()=>buildReviewedSendingPatch(drift,replacements,review),/REMOTE_SOURCE_CHANGED/);
 });
+
+test('v2 accepts only exact reviewed full Core replacement and retains all unrelated remote files',()=>{
+ const remote={files:[{name:'Main',source:'old-main'},{name:'Engine',source:'old-engine'},{name:'Core',source:core},{name:'appsscript',source:'{}'},{name:'Custom',source:'unchanged'}]};
+ const replacements={Main:'new-main',Engine:'new-engine',Core:'reviewed full Core including legal gates'};
+ const review={patchVersion:2,retainCoreExceptDailyLimit:false,expectedCurrentSourceHashes:{Main:sha('old-main'),Engine:sha('old-engine'),Core:sha(core)},expectedCurrentManifestHash:sha('{}'),preparedSourceHashes:Object.fromEntries(Object.entries(replacements).map(([k,v])=>[k,sha(v)]))};
+ const result=buildReviewedSendingPatch(remote,replacements,review);assert.equal(result.files.find(x=>x.name==='Core').source,replacements.Core);assert.equal(result.files.find(x=>x.name==='Custom').source,'unchanged');
+ assert.throws(()=>buildReviewedSendingPatch(remote,{...replacements,Core:'unreviewed'},review),/UNREVIEWED/);
+});
