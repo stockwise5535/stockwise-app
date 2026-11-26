@@ -324,3 +324,6 @@ test('READY uses canonical recipient/content hashes; stale content approval is i
  const changed=world(LIVE);ready(changed);approveAll(changed);const c=changed.tables.EmailQueue[0];c.status='READY';c.content_hash='legacy-incompatible';
  Engine.processQueue(changed.deps);assert.equal(changed.sent.length,0);assert.equal(c.approval_status,'DRAFT');assert.equal(c.approved_hash,'');assert.match(c.blocked_reason,/EDITED_AFTER_APPROVAL/);
 });
+test('a human reply or bounce blocks even a first-step READY regardless of stale lead status',()=>{
+ for(const reply_status of ['HUMAN_REPLY','REPLIED','UNSUBSCRIBE','BOUNCED']){const w=world(LIVE);ready(w);approveAll(w);w.tables.Leads[0].reply_status=reply_status;w.tables.EmailQueue[0].status='READY';Engine.processQueue(w.deps);assert.equal(w.sent.length,0);assert.match(w.tables.EmailQueue[0].blocked_reason,/LEAD_CLOSED/);}
+});

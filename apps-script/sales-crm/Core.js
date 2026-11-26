@@ -175,7 +175,7 @@ var SalesCore = (function () {
     if (bannedPhrases(it.subject + ' ' + it.body).length) r.push('BANNED_CLAIM');
     var el = leadEligibility(lead, s, ctx.sup).filter(function (x) { return x.indexOf('LEAD_STATUS_') !== 0 || x === 'LEAD_STATUS_DUPLICATE' || x === 'LEAD_STATUS_UNSUBSCRIBED' || x === 'LEAD_STATUS_BOUNCED' || x === 'LEAD_STATUS_REPLIED' || x === 'LEAD_STATUS_DO_NOT_CONTACT'; });
     r = r.concat(el);
-    if (['REPLIED','UNSUBSCRIBED','BOUNCED'].indexOf(String(lead.reply_status)) >= 0 && Number(it.step) > 1) r.push('LEAD_CLOSED');
+    if (['REPLIED','HUMAN_REPLY','UNSUBSCRIBE','UNSUBSCRIBED','BOUNCE','BOUNCED'].indexOf(String(lead.reply_status)) >= 0) r.push('LEAD_CLOSED');
     var key = it.send_key;
     var dupe = (ctx.queue || []).some(function (q) { return q !== it && q.queue_id !== it.queue_id && q.send_key === key && (q.status === 'SENT' || q.status === 'SENDING'); });
     if (dupe) r.push('DUPLICATE_SEND_KEY');
