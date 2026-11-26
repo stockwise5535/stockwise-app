@@ -239,37 +239,34 @@ It does not deploy, arm a pilot, update Settings, install triggers, or send.
   setup, nor the sender's CEO role was independently established; all three
   claims are removed rather than recorded as verified.
 
-### Existing ChatGPT task: exact replacement scope
+### Existing ChatGPT task: narrowly scoped change proposal (NOT applied)
 
 Task `Stockwise APAC営業運用`, ID
-`Automation_7a12ae0699908191845ffd320d9b3358`, is currently not connected to an
-editable task controller in this session. Its live instructions were NOT changed.
-Before treating the 100/day ceiling as globally enforced, remove/replace:
+`Automation_7a12ae0699908191845ffd320d9b3358`, is not connected to an editable
+controller here. The BEFORE text is the owner's supplied conversation text,
+not a verified export of the task's current live configuration.
 
-1. SEND steps that directly call Gmail send/send-draft, followed by CRM SENT
-   updates. Only the reviewed bound Apps Script controller may perform that pair.
-2. Automatic APPROVED/READY promotion, approved_hash generation on the task's
-   own authority, and any old-template approval reuse. Edited copy is DRAFT.
-3. Historical per-day exceptions, alternate cap settings, and instructions to
-   turn LIVE_SENDING back on. No task may reset emergency stops or safety flags.
-4. When the separately approved Harvester is eventually enabled, remove this
-   task's company-replenishment portions too. This patch does not enable it.
+`docs/SALES_TASK_CHANGE_PROPOSAL.txt` limits replacement to:
 
-Safe replacement text for that task (not yet applied):
+1. Direct Gmail send/send-draft instructions and their paired SENT updates:
+   replace with preparation/reporting for the sole Apps Script sender. Do not
+   call a nonexistent invocation API or represent preparation as sent.
+2. Automatic APPROVED/READY promotion and self-generated approved_hash:
+   new or edited content remains DRAFT with approval fields cleared. Existing
+   unedited owner-approved rows are not bulk-demoted or modified.
+3. Automatic LIVE_SENDING restoration: report the stop condition, never reset it.
 
-> Operate read-only for Gmail/CRM: summarize replies, bounces, opt-outs and queue
-> state. Do not send Gmail, send drafts, change Settings, approve recipients or
-> messages, generate approved_hash, or mark rows SENT. Do not override limits or
-> emergency stops. All prospect sending and receipt writes belong exclusively
-> to the reviewed bound Apps Script controller under its common ScriptLock and
-> durable 100/day budget. Do not discover/import leads while the independent
-> Harvester is intended as sole intake. Report missing route/approval/legal
-> evidence as blocked; never claim an unconnected route is globally managed.
+Keep company research, source validation, RESEARCH/QUALIFIED intake, DRAFT
+preparation, reply/bounce/opt-out handling, KPI analysis, all existing reports,
+Product Hunt/Reddit proposal preparation and the task's existing schedule.
+Do not replace the entire task with read-only instructions. The separate daily
+Harvester remains OFF; changing research ownership is outside this proposal.
+The 100/day mail ceiling remains separate from the Harvester intake ceiling.
 
-This replacement removes direct sending; it is not an implementation of a new
-remote ChatGPT-to-Apps-Script invocation API. No such endpoint is introduced.
-The existing manual processQueue entry/previously installed Apps Script trigger
-can become the sole writer only after separate approval and runtime verification.
+This does NOT implement a ChatGPT-to-Apps-Script execution endpoint. Future
+sending uses only the reviewed bound controller after separate authorization.
+Until actual direct writers are removed and evidenced, shared-route review
+must remain unconfirmed and the new sender must remain stopped.
 
 ### Production application, separately approved
 
@@ -280,7 +277,7 @@ can become the sole writer only after separate approval and runtime verification
    all Settings, properties, lead data and historical receipts. V2 patch building
    refuses source/manifest drift. Prior conditional code reviews are stale for
    this new source; the new patch is explicitly unreviewed and not authorized.
-3. Apply only the selected three content migrations: they become DRAFT, not READY.
+3. Treat selected content migrations as a separate approval scope from source-only application: they become DRAFT, not READY.
    Record actual country/sender/opt-out evidence; do not blanket-enable legal flags.
 4. Obtain fresh owner approval of each exact recipient/subject/body and canonical
    hash. Arm only those three after all gates pass. Sending and any recurring

@@ -1,0 +1,69 @@
+PROPOSAL ONLY — TASK NOT MODIFIED
+Task: Stockwise APAC営業運用
+ID: Automation_7a12ae0699908191845ffd320d9b3358
+
+BEFORE source: instructions supplied by the owner in this conversation.
+The live task controller/current text has NOT been read. Confirm the actual text
+before applying; do not assume its current wording is identical to these excerpts.
+
+1. Gmail direct sending — replace only the action, retain research and reporting
+
+BEFORE:
+「送信可能なREADYがある限りGmail送信アクションまで必ず実行する」
+「条件合格分を、その日の残枠とRUN_SEND_LIMITの小さい方までGmailから実送信」
+「調査→PRE-SEND VALIDATION→Leads/EmailQueue登録→APPROVED/READY化→実送信まで同一実行内で続ける」
+「実送信成功後に必ずCRM SENT更新」
+
+AFTER:
+「既存の企業調査、公開情報検証、重複・Suppression確認、RESEARCH/QUALIFIED登録、
+未承認メールのDRAFT準備、反応分析・レポートを継続する。
+このタスクからGmail送信・draft送信を実行しない。送信と対応するSENT更新は、
+別途承認されたApps Script共通送信元だけが実行する。
+既存の本人承認済み・未変更キューは、送信担当の処理待ちとして報告する。
+共通送信元への実行呼出APIは未実装なので、呼出済み・送信済みと扱わない。
+Gmail/CRMの実績読取りと結果集計は継続し、準備件数を実送信件数に算入しない。」
+
+The paired SENT receipt write is moved with its send action; unrelated CRM
+research/response handling is not disabled. Historical one-time SEND overrides
+cannot override this action boundary. Their unrelated research/report portions
+are not deleted.
+
+2. Automatic approval — replace only self-approval
+
+BEFORE:
+「法的条件とCRM重複確認を満たしたものだけAPPROVED/READYへ昇格」
+「content_hash/approved_hashを生成し、両者一致を確認してからREADYへ昇格」
+「Leads登録→承認済みEmailQueue作成→Gmail実送信」
+
+AFTER:
+「条件適合は調査・検証結果として記録し、送信承認とは区別する。
+新規キューはapproval_status=DRAFTで作成し、approved_by/approved_at/approved_hashは空欄。
+自分でAPPROVED化・READY昇格・approved_hash発行をしない。
+宛先・件名・本文の変更が必要な場合は、旧承認を失効させたDRAFTとして準備する。
+既存の未変更・本人承認済みキューの承認内容は勝手に変更しない。
+承認操作は本人の別途承認ワークフローだけが行う。」
+
+3. LIVE_SENDING automatic restoration — replace only the reset
+
+BEFORE:
+「LIVE_SENDINGがFALSEなら…Settingsの他ゲートと送信条件を確認した上でTRUEへ復旧し、
+理由をActivityLogへ記録する」
+
+AFTER:
+「LIVE_SENDINGがFALSE、緊急停止中、または他の送信条件が未成立なら、
+その状態と具体的blocked_reasonを報告する。TRUEへの復旧、緊急停止解除、
+法務フラグ変更、実送信・定期処理の有効化は行わない。
+営業メール全経路合算100件の承認は維持するが、上限承認を送信開始承認と扱わない。」
+
+UNCHANGED:
+- Existing schedule/timezone and country/industry/source research priorities.
+- RESEARCH/QUALIFIED intake, official source/DNS/MX validation and deduplication.
+- Draft preparation (not approval), research/quality/reaction/KPI reports.
+- Reply, bounce and unsubscribe handling and existing suppression rules.
+- Product Hunt/Reddit research and manual comment/post drafts; no automatic posts/DMs.
+- No paid API/credit addition, no personal/inferred email acquisition.
+- The independent daily Harvester is still OFF. No research ownership migration
+  or schedule enablement is authorized by this proposal.
+
+Apply as a scoped diff/explicit overriding addendum after comparing the live
+task text. Do not replace unrelated sections with read-only-only instructions.

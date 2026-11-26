@@ -7,7 +7,10 @@
   "sender": {
     "email": "nexops2026test@gmail.com",
     "displayName": "Ryan S",
-    "company": "NexOps. Inc"
+    "company": "NexOps. Inc",
+    "publicLegalIdentityVerified": false,
+    "ownerIdentityConfirmationPending": true,
+    "unsubscribeOperationVerified": false
   },
   "referenceSentMessageId": "1a203fe94895ec57",
   "bodyChanges": [
@@ -25,15 +28,15 @@
   ],
   "messages": [
     {
-      "company": "Francis Ward Ltd",
+      "company": "Francis Ward",
       "email": "sales@francisward.com",
       "sourceUrl": "https://www.francisward.com/",
       "website": "https://francisward.com",
       "country": "UK",
       "queueId": "Q-READY-R-READY-20261123-070",
-      "subject": "Stockwise for Francis Ward Ltd",
-      "body": "Hello,\n\nStockwise is an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Francis Ward Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nProduct information:\nhttps://stockwise-homepage.vercel.app\n\nNexOps. Inc\nStockwise: https://stockwise-homepage.vercel.app\nNexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.",
-      "contentHash": "ce0c79fcb3d8ca84",
+      "subject": "Stockwise for Francis Ward",
+      "body": "Hello,\n\nStockwise is an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Francis Ward appears to manage physical inventory, purchasing, or supplier operations.\n\nStockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nProduct information:\nhttps://stockwise-homepage.vercel.app\n\nNexOps. Inc\nStockwise: https://stockwise-homepage.vercel.app\nNexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.",
+      "contentHash": "5edff95886a2ad80",
       "approvedHash": null,
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
@@ -43,7 +46,27 @@
       "priorContactFound": false,
       "suppressionFound": false,
       "revalidationRequiredBeforeSend": true,
-      "sha256": "1c89239aa341cd98bb8edc1d08b68b8dca32629777d2136def08d7aa1fabfffd"
+      "sha256": "256d98a8e9501d477eb2290923f15b2e0f2a293ee13b2a74ebe99abb1cba6dcd",
+      "publicCompanyEvidence": {
+        "legalEntityName": "HAYWOOD ROTO MOULDING LIMITED",
+        "tradingName": "Francis Ward",
+        "registrationNumber": "03748468",
+        "registrationUrl": "https://find-and-update.company-information.service.gov.uk/company/03748468",
+        "companyStatusObserved": "Active",
+        "corporateTypeObserved": "Private limited Company",
+        "identityMappingSource": "https://www.francisward.com/",
+        "businessRelevance": "Industrial containers and plastic products manufacturing.",
+        "observedAt": "2026-11-26T01:32:13.854Z"
+      },
+      "publicLegalBasis": {
+        "status": "PUBLIC_EVIDENCE_PREPARED_NOT_SEND_APPROVAL",
+        "country": "UK",
+        "officialGuidance": "https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/business-to-business-marketing/",
+        "basisCandidate": "CORPORATE_SUBSCRIBER",
+        "senderIdentityAndOptOutOperationPending": true,
+        "publicMailbox": "sales@francisward.com",
+        "refusalCheckScope": "No refusal observed on the reviewed official contact/about pages; recheck before send; no assertion about all site content."
+      }
     },
     {
       "company": "Building Materials Nationwide",
@@ -64,7 +87,26 @@
       "priorContactFound": false,
       "suppressionFound": false,
       "revalidationRequiredBeforeSend": true,
-      "sha256": "57db90714f1eb682c2d961b54866ec8afa16399d72cf66272c6fc543782426da"
+      "sha256": "57db90714f1eb682c2d961b54866ec8afa16399d72cf66272c6fc543782426da",
+      "publicCompanyEvidence": {
+        "legalEntityName": "BUILDING MATERIALS NATIONWIDE LIMITED",
+        "registrationNumber": "08370227",
+        "registrationUrl": "https://find-and-update.company-information.service.gov.uk/company/08370227",
+        "companyStatusObserved": "Active",
+        "corporateTypeObserved": "Private limited Company",
+        "identityMappingSource": "https://www.buildingmaterials.co.uk/terms-and-conditions",
+        "businessRelevance": "Building materials wholesale/trade supply.",
+        "observedAt": "2026-11-26T01:32:13.861Z"
+      },
+      "publicLegalBasis": {
+        "status": "PUBLIC_EVIDENCE_PREPARED_NOT_SEND_APPROVAL",
+        "country": "UK",
+        "officialGuidance": "https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/business-to-business-marketing/",
+        "basisCandidate": "CORPORATE_SUBSCRIBER",
+        "senderIdentityAndOptOutOperationPending": true,
+        "publicMailbox": "sales@buildingmaterials.co.uk",
+        "refusalCheckScope": "No refusal observed on the reviewed official contact/about pages; recheck before send; no assertion about all site content."
+      }
     },
     {
       "company": "Minipack Quickshrink Ltd",
@@ -85,7 +127,24 @@
       "priorContactFound": false,
       "suppressionFound": false,
       "revalidationRequiredBeforeSend": true,
-      "sha256": "240be2f216df66a45c3dee7a91bc7517f5d29b4cc01e7039b9cecf447fa1f905"
+      "sha256": "240be2f216df66a45c3dee7a91bc7517f5d29b4cc01e7039b9cecf447fa1f905",
+      "publicCompanyEvidence": {
+        "legalEntityNameOnOfficialSite": "Minipack Quickshrink Limited",
+        "registrationNumber": null,
+        "primaryRegisterVerification": "UNCONFIRMED",
+        "identityMappingSource": "https://www.minipack.co.nz/about/",
+        "businessRelevance": "Packaging machinery and film/consumables distribution.",
+        "observedAt": "2026-11-26T01:32:13.862Z"
+      },
+      "publicLegalBasis": {
+        "status": "PUBLIC_EVIDENCE_PREPARED_NOT_SEND_APPROVAL",
+        "country": "NZ",
+        "officialGuidance": "https://www.dia.govt.nz/Spam-Three-Steps",
+        "basisCandidate": "DEEMED_CONSENT",
+        "senderIdentityAndOptOutOperationPending": true,
+        "publicMailbox": "info@minipack.co.nz",
+        "refusalCheckScope": "No refusal observed on the reviewed official contact/about pages; recheck before send; no assertion about all site content."
+      }
     }
   ],
   "preparedAt": "2026-11-22T23:44:50+00:00",

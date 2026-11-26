@@ -1,0 +1,76 @@
+PROPOSED PRODUCTION SOURCE APPLICATION — NOT AUTHORIZED, NOT APPLIED
+
+This approval scope is separate from message approval, actual sending, recurring
+enablement, a main merge, and task instruction changes. None is implied.
+
+Target
+- Bound Apps Script: 10-3xUUzlKVCXZItlI4d1vaOknJ-VfAAqPre-0Gz5Pzl5lvFQChPIikXA
+- Parent CRM: 12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk
+- Exact code: b0697c4e36d58de898e7ec8181456a798df8634b
+- Replace only Core, Engine, Main. Preserve the other six remote files,
+  including the manifest and Unicode-named custom file.
+- Source hashes: apps-script/sales-crm/deployment/sending-patch.review.json.
+  This is a full, pinned Core replacement, not a daily-limit-only patch.
+
+Behavioral changes versus the current live source
+- READY processing with matching content_hash/approved_hash/recomputed content.
+- Invalidation of edited approvals; explicit selected-message re-review helper.
+- Fresh pre-send and receipt readback, acquired ScriptLock, persistent send
+  intent and shared 100/day capacity reservation, Gmail/CRM ID reconciliation.
+- Exact Gmail account pin, structured single-writer evidence, per-recipient
+  SG/NZ/UK legal evidence, first-step reply/bounce blocks, READY cancellation.
+- Remove unverified offer/role claims; Stockwise / NexOps. Inc default branding.
+- Separate isolated TEST ID from canonical production in TEST-only entry points.
+
+Not part of source-only application
+- No Settings values, Leads, EmailQueue, Suppression or ActivityLog writes.
+- No company renaming or three-message migration in the live CRM.
+- No APPROVED/READY promotion, approval-hash recording, pilot/recurring arming.
+- No legal flag or LIVE_SENDING reset, trigger creation, function execution,
+  Gmail message, web deployment, OAuth replacement, main merge or intake job.
+- The mailbox/task schedule and research/reports are not changed by source upload.
+
+Backup actually prepared (read-only)
+- Snapshot: 2026-11-26T01:29:56Z (2026-11-25 17:29 PT).
+- Local directory:
+  ~/.local/state/stockwise-sales-apply/2026-11-26T01-29-56-404Z/
+- backup.enc.json: complete nine-file source + manifest + project metadata,
+  AES-256-GCM. Key is a separate private 0600 file outside Git; never displayed.
+- Encrypt/decrypt roundtrip verified against the exact fetched source content.
+- prepared-payload.enc.json: complete retained-file payload, with only the
+  exact three proposed replacements. Source/manifest drift checks passed.
+- source-change.diff: private 0600 reviewable diff of the three target files.
+- API audit: 2 project GETs, source writes=0, script executions=0, Gmail sends=0.
+- ScriptProperties and trigger configuration were NOT fetched/backed up.
+  No spreadsheet data backup is claimed; this approval never edits sheet data.
+
+Required safety conditions before any future source write
+1. Confirm the scoped ChatGPT direct-send changes are actually applied and no
+   competing send is in flight. Until then route connection stays unconfirmed.
+2. Ensure STOCKWISE_SALES_EMERGENCY_STOP is already true. If not, a separate
+   explicitly authorized safety-stop operation must first record its previous
+   value privately and set ONLY that key true. The source-only approval does
+   not silently authorize property changes. Do not run a prospect-send function.
+3. Re-read project binding and complete source immediately before application.
+   If any baseline source or manifest differs, stop and rebuild/review the diff.
+4. One source PUT at most, followed by GET/readback of all nine source hashes.
+   No automatic retry, no invocation/trigger activation. Leave sending stopped.
+5. The independent/owner source-approval status remains pending. CI success
+   and a prepared payload are not production-application authorization.
+
+Recovery proposal — also requires explicit authorization
+- If upload response is unknown, GET only to determine whether old, proposed,
+  or mixed source exists; do not repeat the PUT or trigger a send.
+- Before rollback, ensure emergency stop remains true. Compare the fresh
+  current three target hashes with the expected post-application hashes.
+- Build a rollback payload from a FRESH full remote read, replacing only
+  Main/Engine/Core with their backed-up originals. Keep current unrelated files
+  and manifest; never blindly restore the whole project snapshot over changes.
+- If any of those three files changed after application, stop for manual review.
+- One rollback PUT at most, then verify original three hashes and retention of
+  every unrelated file. Do not reset the stop flag to false, re-arm sending,
+  restore old message approvals, or replay any message.
+
+Separate later approval: migrate/reapprove at most the three exact proposed
+messages, satisfy sender/country/opt-out evidence, and only then authorize a
+maximum-three live send. This document does not request or grant that send.

@@ -30,18 +30,13 @@
   "dailyMax": 100,
   "scopeNotes": [
     "No Google write is currently authorized. Re-read the remote source and reconcile any changes before an explicitly approved application.",
-    "Apply only Main, Engine and only the daily-limit constants in Core into the full fresh remote files payload; retain all custom files including Unicode-named files, manifest and all other Core logic.",
+    "Replace the complete exact reviewed Main, Engine and Core source; preserve the six other remote files and manifest. This is NOT a daily-limit-only Core patch.",
     "Use existing Gmail connection and sender; no OAuth replacement or paid API.",
     "Read back exact source hashes after one write; never retry an unknown write result.",
     "Existing ChatGPT task instructions are supplied; its executable identity must still be verified and coordinated before any claim of a global hundred-per-day bound."
   ],
   "retainCoreExceptDailyLimit": false,
-  "coreLimitPatchOnly": {
-    "from": 10,
-    "to": 100,
-    "preserveResearchPolicy": true,
-    "builder": "tools/apps-script/send-limit-patch.mjs"
-  },
+  "coreLimitPatchOnly": false,
   "limitApproval": {
     "status": "OWNER_APPROVED_LIMIT_ONLY",
     "scope": "all_sending_routes_combined",
@@ -52,5 +47,13 @@
   },
   "allRoutesBudgetConnected": false,
   "patchVersion": 2,
-  "sourceReviewStatus": "UNREVIEWED_NEW_SOURCE"
+  "sourceReviewStatus": "UNREVIEWED_NEW_SOURCE",
+  "preparedCodeCommit": "b0697c4e36d58de898e7ec8181456a798df8634b",
+  "sourceOnlyApplication": {
+    "settingsWrites": 0,
+    "crmRowWrites": 0,
+    "grantArming": false,
+    "triggerChanges": false,
+    "sendActions": 0
+  }
 }

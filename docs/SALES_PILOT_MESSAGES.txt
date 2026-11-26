@@ -1,16 +1,16 @@
 PENDING OWNER APPROVAL — NO SENDING OR SCHEDULE AUTHORIZED
 
 To: sales@francisward.com
-Subject: Stockwise for Francis Ward Ltd
+Subject: Stockwise for Francis Ward
 Queue: Q-READY-R-READY-20261123-070
-SHA256(recipient, subject, body): 1c89239aa341cd98bb8edc1d08b68b8dca32629777d2136def08d7aa1fabfffd
-Source (prior verified, recheck before send): https://www.francisward.com/
+SHA256(recipient, subject, body): 256d98a8e9501d477eb2290923f15b2e0f2a293ee13b2a74ebe99abb1cba6dcd
+Source (recheck before send): https://www.francisward.com/
 
 Hello,
 
 Stockwise is an inventory and purchasing operations platform for inventory-based businesses.
 
-I’m reaching out because Francis Ward Ltd appears to manage physical inventory, purchasing, or supplier operations.
+I’m reaching out because Francis Ward appears to manage physical inventory, purchasing, or supplier operations.
 
 Stockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
 
@@ -30,7 +30,7 @@ To: sales@buildingmaterials.co.uk
 Subject: Stockwise for Building Materials Nationwide
 Queue: Q-READY-R-READY-20261123-078
 SHA256(recipient, subject, body): 57db90714f1eb682c2d961b54866ec8afa16399d72cf66272c6fc543782426da
-Source (prior verified, recheck before send): https://www.buildingmaterials.co.uk/contact-us
+Source (recheck before send): https://www.buildingmaterials.co.uk/contact-us
 
 Hello,
 
@@ -56,7 +56,7 @@ To: info@minipack.co.nz
 Subject: Stockwise for Minipack Quickshrink Ltd
 Queue: Q-READY-R-READY-20261123-046
 SHA256(recipient, subject, body): 240be2f216df66a45c3dee7a91bc7517f5d29b4cc01e7039b9cecf447fa1f905
-Source (prior verified, recheck before send): https://www.minipack.co.nz/contact/
+Source (recheck before send): https://www.minipack.co.nz/contact/
 
 Hello,
 
