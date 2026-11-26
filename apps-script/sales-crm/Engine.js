@@ -48,7 +48,7 @@ var SalesEngine = (function () {
     var core = C(), n = 0, now = iso(deps.now());
     deps.store.rows('EmailQueue').forEach(function (q) {
       if (q.approval_status === 'APPROVED' && String(q.approved_by || '').trim() && !q.approved_hash && !q.sent_at && ['QUEUED','READY','DRY_RUN_OK'].indexOf(String(q.status)) >= 0) {
-        deps.store.update('EmailQueue', q._row, { approved_hash: core.contentHash(q.subject, q.body, q.to_email), approved_at: q.approved_at || now }); n++;
+        deps.store.update('EmailQueue', q._row, { content_hash: core.contentHash(q.subject, q.body, q.to_email), approved_hash: core.contentHash(q.subject, q.body, q.to_email), approved_at: q.approved_at || now }); n++;
         log(deps, 'APPROVAL_RECORDED', q.lead_id, q.queue_id, 'by ' + q.approved_by);
       }
     });
@@ -89,7 +89,7 @@ var SalesEngine = (function () {
         if (readyStatuses.indexOf(String(q.status)) < 0 || q.sent_at || q.gmail_message_id || q.gmail_thread_id || !scheduledReady(q,ctx.nowMs)) { res.deferred++; return; }
         if (ctx.settings.liveSending && (deps.safety.isStopped() || !deps.safety.isAllowed(q))) { res.deferred++; return; }
         var reasons = core.preSendChecks(ctx), hard = hardReasons(ctx);
-        if (hard.length) { deps.store.update('EmailQueue',q._row,{status:'BLOCKED',blocked_reason:hard.join(',')}); res.blocked++; return; }
+        if (hard.length) { var patch={status:'BLOCKED',blocked_reason:hard.join(',')};if(hard.indexOf('EDITED_AFTER_APPROVAL')>=0){patch.approval_status='DRAFT';patch.approved_by='';patch.approved_at='';patch.approved_hash='';patch.content_hash=core.contentHash(q.subject,q.body,q.to_email);}deps.store.update('EmailQueue',q._row,patch); res.blocked++; return; }
         if (reasons.length) { res.deferred++; return; }
         if (!ctx.settings.liveSending) { deps.store.update('EmailQueue',q._row,{status:'DRY_RUN_OK',blocked_reason:''}); res.dryRunOk++; return; }
         if (typeof deps.safety.reserveSend !== 'function' || typeof deps.safety.completeSend !== 'function' || typeof deps.mail.sentToday !== 'function' || typeof deps.mail.hasPriorSend !== 'function') throw Error('DURABLE_SEND_CONTROLLER_REQUIRED');
@@ -129,7 +129,7 @@ var SalesEngine = (function () {
   }
   function cancelPending(deps, leadId, why) {
     deps.store.rows('EmailQueue').forEach(function (q) {
-      if (q.lead_id === leadId && ['QUEUED', 'DRY_RUN_OK', 'BLOCKED', ''].indexOf(String(q.status)) >= 0) deps.store.update('EmailQueue', q._row, { status: 'CANCELLED', blocked_reason: why });
+      if (q.lead_id === leadId && ['READY', 'QUEUED', 'DRY_RUN_OK', 'BLOCKED', ''].indexOf(String(q.status)) >= 0) deps.store.update('EmailQueue', q._row, { status: 'CANCELLED', blocked_reason: why });
     });
   }
 

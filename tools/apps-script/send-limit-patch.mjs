@@ -17,7 +17,7 @@ export function buildReviewedSendingPatch(remote,replacements,review){
  }
  const manifest=remote.files.find(f=>f.name==='appsscript');
  if(!manifest||sha(manifest.source)!==review.expectedCurrentManifestHash)throw Error('REMOTE_MANIFEST_CHANGED');
- const changes={Main:replacements.Main,Engine:replacements.Engine,Core:patchDailyLimitCore(remote.files.find(f=>f.name==='Core').source)};
+ const changes={Main:replacements.Main,Engine:replacements.Engine,Core:review.patchVersion===2&&review.retainCoreExceptDailyLimit===false?replacements.Core:patchDailyLimitCore(remote.files.find(f=>f.name==='Core').source)};
  for(const name of Object.keys(changes))if(typeof changes[name]!=='string'||sha(changes[name])!==review.preparedSourceHashes[name])throw Error('UNREVIEWED_PREPARED_SOURCE');
  return{files:remote.files.map(f=>({name:f.name,type:f.type,source:changes[f.name]??f.source}))};
 }

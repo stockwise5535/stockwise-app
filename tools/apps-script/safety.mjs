@@ -1,7 +1,7 @@
 import {createHash, randomBytes, createCipheriv, createDecipheriv} from 'node:crypto';
 import vm from 'node:vm';
 export const FILES = ['Core.js', 'Engine.js', 'Main.js', 'コード.js', 'appsscript.json'];
-export const TEST_CRM = '12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
+export const TEST_CRM = '1frj0e0YmGqOlGkEip6QNoTTI3oFHw3Tc_diCdT2j8TY';
 export function requireSafe(condition, code) { if (!condition) throw new Error(code); }
 export const hash = text => createHash('sha256').update(text).digest('hex');
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])])) : value;

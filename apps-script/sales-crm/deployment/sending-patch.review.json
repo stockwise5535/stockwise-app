@@ -1,5 +1,5 @@
 {
-  "status": "PREPARED_NOT_APPLIED",
+  "status": "PREPARED_NOT_APPLIED_REQUIRES_NEW_SOURCE_REVIEW",
   "scriptId": "10-3xUUzlKVCXZItlI4d1vaOknJ-VfAAqPre-0Gz5Pzl5lvFQChPIikXA",
   "crmId": "12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk",
   "replaceFiles": [
@@ -18,9 +18,9 @@
   },
   "expectedCurrentManifestHash": "7d4b529cb1d0644ee6db89aec74fc7bc4e3097c9a449f40b9d1c042760b8fa16",
   "preparedSourceHashes": {
-    "Main": "7168046ddb1e5f3a1f6b188f54535c3641627ce10651938378e09106ac92ecf3",
-    "Engine": "154e07fcc15dd3522aad0a46f1fc92b438ecbcd982ca0fb659223afb260c7408",
-    "Core": "00767b6da4a3cc44824c088993e25d21ecc40f7b21209d29881055043cd2806c"
+    "Main": "7573b62ba2d8560e2f05efaef0952f97d0ae71be16714e10986027a09701dcf6",
+    "Engine": "3f618ddb033e1cc4f660b0fbe775322777e84699c53f9241325d6ff1ab4af8c1",
+    "Core": "52283cd272b6df9b531ed406ce94a21f5c0aad0f565f4943c995ec24f7fda64c"
   },
   "ownerApprovalReceived": false,
   "applyAuthorized": false,
@@ -35,7 +35,7 @@
     "Read back exact source hashes after one write; never retry an unknown write result.",
     "Existing ChatGPT task instructions are supplied; its executable identity must still be verified and coordinated before any claim of a global hundred-per-day bound."
   ],
-  "retainCoreExceptDailyLimit": true,
+  "retainCoreExceptDailyLimit": false,
   "coreLimitPatchOnly": {
     "from": 10,
     "to": 100,
@@ -50,5 +50,7 @@
     "sendStartAuthorized": false,
     "recurringEnableAuthorized": false
   },
-  "allRoutesBudgetConnected": false
+  "allRoutesBudgetConnected": false,
+  "patchVersion": 2,
+  "sourceReviewStatus": "UNREVIEWED_NEW_SOURCE"
 }

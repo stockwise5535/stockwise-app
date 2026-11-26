@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const require=createRequire(import.meta.url),Core=require('../apps-script/sales-crm/Core.js');
 const source=readFileSync(new URL('../apps-script/sales-crm/Main.js',import.meta.url),'utf8');
-const TEST_ID='12uDNmpfEANnzzTRoT6eyjmlNg1wj2B9f6BUPWH9X3pk';
+const TEST_ID='1frj0e0YmGqOlGkEip6QNoTTI3oFHw3Tc_diCdT2j8TY';
 function world(settings,options={}){
  const writes=[],opened=[],sheets=new Map();let released=0;
  function sheet(name,initial=[]){
@@ -39,13 +39,13 @@ function world(settings,options={}){
 }
 const value=(w,key)=>w.sheets.get('Settings').rows.find(r=>r[0].trim()===key)?.[1];
 test('new setup defaults name/company to NexOps while address and safe switch defaults stay unchanged',()=>{
- const w=world(null);w.ctx.setupSheets();assert.equal(value(w,'SENDER_NAME'),'NexOps');assert.equal(value(w,'SENDER_COMPANY'),'NexOps');
+ const w=world(null);w.ctx.setupSheets();assert.equal(value(w,'SENDER_NAME'),'NexOps. Inc');assert.equal(value(w,'SENDER_COMPANY'),'NexOps. Inc');
  assert.equal(value(w,'SENDER_ADDRESS'),'');assert.equal(value(w,'LIVE_SENDING'),'false');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'false');assert.equal(w.released,1);
  assert.equal(Core.DEFAULT_SETTINGS.SENDER_ADDRESS[0],'');
 });
 test('setup fills only empty sender cells, preserves existing values/descriptions and is repeatable',()=>{
  const w=world([['SENDER_NAME','Existing Sender','keep name note'],['SENDER_COMPANY','','keep company note'],['SENDER_ADDRESS','Existing address','keep'],['LIVE_SENDING','TRUE','keep'],['FOLLOW_UP_ENABLED','TRUE','keep']]);
- w.ctx.setupSheets();assert.equal(value(w,'SENDER_NAME'),'Existing Sender');assert.equal(value(w,'SENDER_COMPANY'),'NexOps');assert.equal(value(w,'SENDER_ADDRESS'),'Existing address');
+ w.ctx.setupSheets();assert.equal(value(w,'SENDER_NAME'),'Existing Sender');assert.equal(value(w,'SENDER_COMPANY'),'NexOps. Inc');assert.equal(value(w,'SENDER_ADDRESS'),'Existing address');
  assert.equal(value(w,'LIVE_SENDING'),'TRUE');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'TRUE');assert.equal(w.sheets.get('Settings').rows[2][2],'keep company note');
  const snapshot=JSON.stringify(w.sheets.get('Settings').rows);w.ctx.setupSheets();assert.equal(JSON.stringify(w.sheets.get('Settings').rows),snapshot);
 });
@@ -53,7 +53,7 @@ test('TEST-only function fills missing/blank sender keys without touching other 
  const w=world([['SENDER_NAME','','original description'],['SENDER_ADDRESS','','keep'],['LIVE_SENDING','TRUE','keep'],['FOLLOW_UP_ENABLED','FALSE','keep'],['OTHER','custom','keep']]);
  const leads=w.sheet('Leads',[['existing'],['unchanged']]);const q=w.sheet('EmailQueue',[['existing'],['unchanged']]);
  const result=JSON.parse(JSON.stringify(w.ctx.applyNexOpsSenderDefaultsToTestCrm()));assert.deepEqual(result,{added:['SENDER_COMPANY'],filled:['SENDER_NAME']});
- assert.equal(value(w,'SENDER_NAME'),'NexOps');assert.equal(value(w,'SENDER_COMPANY'),'NexOps');assert.equal(value(w,'SENDER_ADDRESS'),'');assert.equal(value(w,'LIVE_SENDING'),'TRUE');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'FALSE');
+ assert.equal(value(w,'SENDER_NAME'),'NexOps. Inc');assert.equal(value(w,'SENDER_COMPANY'),'NexOps. Inc');assert.equal(value(w,'SENDER_ADDRESS'),'');assert.equal(value(w,'LIVE_SENDING'),'TRUE');assert.equal(value(w,'FOLLOW_UP_ENABLED'),'FALSE');
  assert.deepEqual(leads.rows,[['existing'],['unchanged']]);assert.deepEqual(q.rows,[['existing'],['unchanged']]);assert.ok(w.writes.every(x=>x.sheet==='Settings'));assert.equal(w.opened.length,0);
  const before=JSON.stringify(w.sheets.get('Settings').rows);const writes=w.writes.length;w.ctx.applyNexOpsSenderDefaultsToTestCrm();assert.equal(JSON.stringify(w.sheets.get('Settings').rows),before);assert.equal(w.writes.length,writes);
 });
@@ -70,7 +70,7 @@ test('production binding/configuration or missing active sheet fails before any 
  for(const options of [{activeId:'PRODUCTION_CRM'},{configuredId:'PRODUCTION_CRM'},{activeId:'OTHER_TEST'},{noActive:true}]){
   const w=world([],options);assert.throws(()=>w.ctx.applyNexOpsSenderDefaultsToTestCrm(),/TEST_CRM_ONLY/);assert.equal(w.writes.length,0);assert.equal(w.opened.length,0);assert.equal(w.released,1);
  }
- const w=world([],{configuredId:TEST_ID});w.ctx.applyNexOpsSenderDefaultsToTestCrm();assert.equal(value(w,'SENDER_NAME'),'NexOps');
+ const w=world([],{configuredId:TEST_ID});w.ctx.applyNexOpsSenderDefaultsToTestCrm();assert.equal(value(w,'SENDER_NAME'),'NexOps. Inc');
 });
 test('incompatible/missing settings and duplicate sender keys fail without partial Settings changes',()=>{
  const missing=world(null);assert.throws(()=>missing.ctx.applyNexOpsSenderDefaultsToTestCrm(),/SETTINGS_SHEET_MISSING/);assert.equal(missing.writes.length,0);

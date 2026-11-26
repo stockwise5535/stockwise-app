@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 function world() {
- const properties=new Map(),tables={Settings:[{key:'SENDER_NAME',value:'NexOps'},{key:'SENDER_COMPANY',value:'NexOps'},
+ const properties=new Map(),tables={Settings:[{key:'ALLOWED_COUNTRIES',value:'SG,NZ,UK'},{key:'SENDER_NAME',value:'NexOps. Inc'},{key:'SENDER_COMPANY',value:'NexOps. Inc'},
   {key:'SENDER_ADDRESS',value:'Verified test postal address'},{key:'LEGAL_REVIEW_COMPLETED',value:'TRUE'},{key:'LIVE_SENDING',value:'FALSE'},{key:'FOLLOW_UP_ENABLED',value:'FALSE'}],
-  Leads:[{lead_id:'L1',company:'Company',contact_email:'contact@company.example',country:'JP',contact_basis:'EXPRESS_CONSENT'}],EmailQueue:[],ActivityLog:[],Suppression:[]};
+  Leads:[{lead_id:'L1',company:'Company',contact_email:'info@company.example',country:'NZ',contact_basis:'EXPRESS_CONSENT',website:'https://company.example',source_url:'https://company.example/contact'}],EmailQueue:[],ActivityLog:[],Suppression:[]};
  const ctx={console,Logger:{log(){}},PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.has(k)?properties.get(k):null,setProperty:(k,v)=>properties.set(k,v),getProperties:()=>Object.fromEntries(properties)})},
   LockService:{getScriptLock:()=>({tryLock:()=>true,hasLock:()=>true,releaseLock(){}})},
   SpreadsheetApp:{getUi:()=>({ButtonSet:{YES_NO:'YES_NO'},Button:{YES:'YES'},alert:()=> 'YES'})},
   GmailApp:new Proxy({},{get(){throw Error('NO_EMAIL_DURING_ARM_OR_REPORT');}}),
-  Utilities:{formatDate:()=>new Date().toISOString().slice(0,10)},Session:{getScriptTimeZone:()=> 'Asia/Tokyo',getEffectiveUser:()=>({getEmail:()=> 'owner@stockwise.test'})}};
+  Utilities:{formatDate:()=>new Date().toISOString().slice(0,10)},Session:{getScriptTimeZone:()=> 'America/Los_Angeles',getEffectiveUser:()=>({getEmail:()=> 'nexops2026test@gmail.com'})}};
  vm.createContext(ctx);
  for(const file of ['Core.js','Engine.js','Main.js'])vm.runInContext(readFileSync(new URL('../apps-script/sales-crm/'+file,import.meta.url),'utf8'),ctx);
  // Controller unit fixtures run inside an explicitly held invocation scope.
@@ -19,14 +19,15 @@ function world() {
  ctx.sheetsStore_=()=>store;
  const settings=ctx.SalesCore.settingsFrom(tables.Settings),mail=ctx.SalesCore.buildEmail(tables.Leads[0],settings,1);
  const q={queue_id:'Q1',lead_id:'L1',step:1,send_key:'L1#1',to_email:tables.Leads[0].contact_email,subject:mail.subject,body:mail.body,
-  status:'QUEUED',approval_status:'APPROVED',approved_by:'reviewer',approved_hash:ctx.SalesCore.contentHash(mail.subject,mail.body,tables.Leads[0].contact_email)};
+  status:'QUEUED',content_hash:ctx.SalesCore.contentHash(mail.subject,mail.body,tables.Leads[0].contact_email),approval_status:'APPROVED',approved_by:'reviewer',approved_hash:ctx.SalesCore.contentHash(mail.subject,mail.body,tables.Leads[0].contact_email)};
  tables.EmailQueue.push(q);
  const deps={store,now:()=>new Date(),localParts:()=>({day:new Date().toISOString().slice(0,10),hour:10,dow:3}),safety:ctx.sendController_()};
  ctx.deps_=()=>deps;
  properties.set('STOCKWISE_SALES_SHARED_BUDGET_REVIEWED','true');
- properties.set('STOCKWISE_SALES_EXPECTED_FROM','owner@stockwise.test');
+ properties.set('STOCKWISE_SALES_ROUTE_REVIEW',JSON.stringify({mode:'APPS_SCRIPT_SINGLE_WRITER_V1',taskId:'Automation_7a12ae0699908191845ffd320d9b3358',chatgptDirectGmailDisabled:true,otherDirectWritersDisabled:true,reviewedBy:'owner',evidenceReference:'reviewed replacement',reviewedAt:new Date().toISOString()}));
+ properties.set('STOCKWISE_SALES_EXPECTED_FROM','nexops2026test@gmail.com');
  properties.set('STOCKWISE_SALES_PILOT_QUEUE_IDS',JSON.stringify(['Q1']));
- properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify({senderAddressVerified:true,unsubscribeTestVerified:true,reviewedAt:new Date().toISOString(),reviewedBy:'owner',evidenceReference:'review record',countries:{JP:['EXPRESS_CONSENT']}}));
+ properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify({senderAddressVerified:true,unsubscribeTestVerified:true,reviewedAt:new Date().toISOString(),reviewedBy:'owner',evidenceReference:'review record',version:2,senderCompany:'NexOps. Inc',senderEmail:'nexops2026test@gmail.com',leads:{L1:{country:'NZ',email:'info@company.example',sourceUrl:'https://company.example/contact',officialSourceUrl:'https://company.example/contact',checkedAt:new Date().toISOString(),domainExists:true,mxExists:true,officialEmailFound:true,genericBusinessMailbox:true,businessRelevant:true,noSolicitationRefusal:true,consentBasis:'EXPRESS_CONSENT'}}}));
  return {ctx,properties,tables,q,deps};
 }
 test('source delivery starts unarmed regardless of legacy LIVE switch and owner can stop immediately',()=>{
@@ -82,7 +83,7 @@ test('Gmail daily budget counts real sender messages and stops at the hard cap',
  w.ctx.Session.getScriptTimeZone=()=> 'America/Los_Angeles';
  w.ctx.Utilities.parseDate=()=>new Date('2026-11-23T08:00:00Z');
  w.ctx.Utilities.formatDate=d=>new Date(new Date(d).getTime()-8*3600000).toISOString().slice(0,10);
- const message=(i,from='owner@stockwise.test')=>({getId:()=>String(i),getFrom:()=>from,getDate:()=>now,getSubject:()=>'<ADV> Try StockWise free'});
+ const message=(i,from='nexops2026test@gmail.com')=>({getId:()=>String(i),getFrom:()=>from,getDate:()=>now,getSubject:()=>'<ADV> Try StockWise free'});
  const messages=[message('other','other@example.test'),...Array.from({length:102},(_,i)=>message(i))];
  w.ctx.GmailApp={search:query=>{assert.match(query,/^in:sent after:/);return[{getMessages:()=>messages}];}};
  assert.equal(w.ctx.gmailAdapter_().sentToday(now),100);
@@ -93,14 +94,15 @@ test('daily receipts merge disjoint Gmail and CRM sends, include bounces and ded
  const w=world(),now=new Date('2026-11-23T18:00:00Z');
  w.ctx.Utilities.parseDate=()=>new Date('2026-11-23T08:00:00Z');
  w.ctx.Utilities.formatDate=d=>new Date(new Date(d).getTime()-8*3600000).toISOString().slice(0,10);
- const message=(id,subject='StockWise',body='')=>({getId:()=>id,getFrom:()=> 'owner@stockwise.test',getDate:()=>now,getSubject:()=>subject,getPlainBody:()=>body});
+ const message=(id,subject='StockWise',body='')=>({getId:()=>id,getFrom:()=> 'nexops2026test@gmail.com',getDate:()=>now,getSubject:()=>subject,getPlainBody:()=>body});
  w.ctx.GmailApp={search:()=>[{getMessages:()=>[message('matched'),message('gmail-only'),message('body-only','Free trial','https://stockwise-homepage.vercel.app'),message('old-brand-only','在庫管理のご案内','Stockwiseをご紹介します。')]}]};
  const queue=[{status:'SENT',sent_at:now.toISOString(),gmail_message_id:'matched'},
   {status:'BOUNCED',sent_at:now.toISOString(),gmail_message_id:'crm-only'},
   {status:'SENT',sent_at:now.toISOString(),gmail_message_id:'matched'},
   {status:'SENT',sent_at:now.toISOString()},
   {status:'SENT',sent_at:'2026-11-22T18:00:00Z',gmail_message_id:'yesterday'}];
- assert.equal(w.ctx.gmailAdapter_().sentToday(now,queue),6);
+ assert.throws(()=>w.ctx.gmailAdapter_().sentToday(now,queue),/CRM_RECEIPT_UNCONFIRMED/);
+ assert.equal(w.ctx.gmailAdapter_().sentToday(now,queue.filter(x=>x.gmail_message_id)),5);
  assert.throws(()=>w.ctx.gmailAdapter_().sentToday(now,[{status:'SENT'}]),/CRM_SENT_DATE_UNCONFIRMED/);
  for(const row of [{status:'BOUNCED'},{status:'READY',gmail_message_id:'unconfirmed'},{status:'FAILED',gmail_thread_id:'unconfirmed'}])assert.throws(()=>w.ctx.gmailAdapter_().sentToday(now,[row]),/CRM_SENT_DATE_UNCONFIRMED/);
  assert.throws(()=>w.ctx.gmailAdapter_().sentToday(now,[{status:'BOUNCED',sent_at:'invalid'}]),/CRM_SENT_DATE_UNCONFIRMED/);
@@ -109,15 +111,15 @@ test('daily receipt scan pages past threads that only have older matching mail',
  const w=world(),now=new Date('2026-11-23T18:00:00Z'),offsets=[];
  w.ctx.Utilities.parseDate=()=>new Date('2026-11-23T08:00:00Z');
  w.ctx.Utilities.formatDate=d=>new Date(new Date(d).getTime()-8*3600000).toISOString().slice(0,10);
- const message=(id,date)=>({getId:()=>id,getFrom:()=> 'owner@stockwise.test',getDate:()=>date,getSubject:()=> 'StockWise'});
+ const message=(id,date)=>({getId:()=>id,getFrom:()=> 'nexops2026test@gmail.com',getDate:()=>date,getSubject:()=> 'StockWise'});
  w.ctx.GmailApp={search:(query,offset)=>{offsets.push(offset);return offset===0?Array.from({length:100},(_,i)=>({getMessages:()=>[message('old'+i,new Date('2026-11-22T18:00:00Z'))]})):[{getMessages:()=>[message('today',now)]}];}};
  assert.equal(w.ctx.gmailAdapter_().sentToday(now,[]),1);assert.deepEqual(offsets,[0,100]);
 });
 
 test('Gmail acknowledgement verifies actual sent identity and content without a second send',()=>{
  for(const wrong of [false,true]){
-  const w=world();let sends=0;w.ctx.GmailApp={createDraft:(to,subject,body)=>({send:()=>{sends++;return{getFrom:()=> 'Existing Name <owner@stockwise.test>',getTo:()=>to,getSubject:()=>subject,getPlainBody:()=>wrong?'changed body':body+'\n',getId:()=> 'message-id',getThread:()=>({getId:()=> 'thread-id'})};}})};
-  const run=()=>w.ctx.gmailAdapter_().send({to:'contact@company.example',subject:'Reviewed subject',body:'Reviewed body'});
+  const w=world();let sends=0;w.ctx.GmailApp={createDraft:(to,subject,body)=>({send:()=>{sends++;return{getFrom:()=> 'Existing Name <nexops2026test@gmail.com>',getTo:()=>to,getSubject:()=>subject,getPlainBody:()=>wrong?'changed body':body+'\n',getId:()=> 'message-id',getThread:()=>({getId:()=> 'thread-id'})};}})};
+  const run=()=>w.ctx.gmailAdapter_().send({to:'info@company.example',subject:'Reviewed subject',body:'Reviewed body'});
   if(wrong)assert.throws(run,/CONTENT_UNCONFIRMED/);else assert.equal(run().messageId,'message-id');assert.equal(sends,1);
  }
 });
@@ -147,10 +149,10 @@ test('serialized route callers share one durable 100-slot day budget despite lag
  const w=world();w.ctx.armReviewedSalesPilot();const grant=JSON.parse(w.properties.get('STOCKWISE_SALES_SEND_GRANT'));grant.mode='recurring';w.properties.set('STOCKWISE_SALES_SEND_GRANT',JSON.stringify(grant));
  const a=w.ctx.sendController_(),b=w.ctx.sendController_(),day=new Date().toISOString().slice(0,10),budget={day,dailyLimit:100,sentToday:0};
  for(let i=0;i<100;i++){
-  const q={...w.q,queue_id:'Q'+i,to_email:'contact'+i+'@company.example'};const caller=i%2?a:b;
+  const q={...w.q,queue_id:'Q'+i,to_email:'info@company'+i+'.example'};const caller=i%2?a:b; const review=JSON.parse(w.properties.get('STOCKWISE_SALES_LAUNCH_REVIEW'));review.leads.L1.email=q.to_email;w.tables.Leads[0].contact_email=q.to_email;w.properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify(review));
   caller.reserveSend(q,budget);caller.completeSend(q,{messageId:'M'+i,threadId:'T'+i});
  }
- const q={...w.q,queue_id:'OVER',to_email:'overflow@company.example'};
+ const q={...w.q,queue_id:'OVER',to_email:'info@overflow.example'};const review=JSON.parse(w.properties.get('STOCKWISE_SALES_LAUNCH_REVIEW'));review.leads.L1.email=q.to_email;w.tables.Leads[0].contact_email=q.to_email;w.properties.set('STOCKWISE_SALES_LAUNCH_REVIEW',JSON.stringify(review));
  assert.throws(()=>b.reserveSend(q,budget),/SHARED_DAILY_LIMIT_REACHED/);
  assert.equal(JSON.parse(w.properties.get('STOCKWISE_SALES_SHARED_DAY_BUDGET')).used,100);
 });
@@ -169,3 +171,5 @@ test('malformed shared budget cannot silently reset capacity',()=>{
   assert.equal(w.properties.get('STOCKWISE_SALES_SHARED_DAY_BUDGET'),raw);
  }
 });
+
+test('structured route review is mandatory even when the old boolean is true',()=>{const w=world();w.properties.delete('STOCKWISE_SALES_ROUTE_REVIEW');assert.equal(w.deps.safety.isStopped(),true);assert.throws(()=>w.ctx.armReviewedSalesPilot(),/ALL_SENDING_ROUTES/);});

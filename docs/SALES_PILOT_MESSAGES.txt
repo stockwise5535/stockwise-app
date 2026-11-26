@@ -1,94 +1,80 @@
-営業メール初回3件：承認前の提案（未送信）
-送信元: Ryan S <nexops2026test@gmail.com>
-日次有効化・正本変更・本番適用は承認されていません。
-公開B2B窓口は送信先確認の根拠であり、受信同意取得済みという意味ではありません。
+PENDING OWNER APPROVAL — NO SENDING OR SCHEDULE AUTHORIZED
 
-====================================================================
-1. Hup Soon & Company
-To: enquiry@hupsooncompany.com
-Subject: <ADV> Try StockWise free for Hup Soon & Company
-公式情報源: https://hupsooncompany.com/pages/contact
-事業関連性: Cleaning and household goods wholesaler serving contractors, retailers and commercial businesses.
-本文:
+To: sales@francisward.com
+Subject: Stockwise for Francis Ward Ltd
+Queue: Q-READY-R-READY-20261123-070
+SHA256(recipient, subject, body): 1c89239aa341cd98bb8edc1d08b68b8dca32629777d2136def08d7aa1fabfffd
+Source (prior verified, recheck before send): https://www.francisward.com/
+
 Hello,
 
-I’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.
+Stockwise is an inventory and purchasing operations platform for inventory-based businesses.
 
-I’m reaching out because Hup Soon & Company appears to manage physical inventory, purchasing, or supplier operations.
+I’m reaching out because Francis Ward Ltd appears to manage physical inventory, purchasing, or supplier operations.
 
-StockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
+Stockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
 
-We’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.
-
-You can start here:
+Product information:
 https://stockwise-homepage.vercel.app
 
-If you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.
-
-CEO, NexOps
-StockWise: https://stockwise-homepage.vercel.app
-NexOps LinkedIn: https://www.linkedin.com/company/nexops2026/
+NexOps. Inc
+Stockwise: https://stockwise-homepage.vercel.app
+NexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/
 nexops2026test@gmail.com
 
 If you do not want to hear from me, reply “unsubscribe” and I will not contact you again.
 
+================================================================
 
-====================================================================
-2. Ban Leong Technologies Pte Ltd
-To: sales@banleong.com.sg
-Subject: <ADV> Try StockWise free for Ban Leong Technologies Pte Ltd
-公式情報源: https://www.banleong.com.sg/pages/contact
-事業関連性: IT hardware distributor with commercial and consumer product ranges; inventory and purchasing relevance.
-本文:
+To: sales@buildingmaterials.co.uk
+Subject: Stockwise for Building Materials Nationwide
+Queue: Q-READY-R-READY-20261123-078
+SHA256(recipient, subject, body): 57db90714f1eb682c2d961b54866ec8afa16399d72cf66272c6fc543782426da
+Source (prior verified, recheck before send): https://www.buildingmaterials.co.uk/contact-us
+
 Hello,
 
-I’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.
+Stockwise is an inventory and purchasing operations platform for inventory-based businesses.
 
-I’m reaching out because Ban Leong Technologies Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.
+I’m reaching out because Building Materials Nationwide appears to manage physical inventory, purchasing, or supplier operations.
 
-StockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
+Stockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
 
-We’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.
-
-You can start here:
+Product information:
 https://stockwise-homepage.vercel.app
 
-If you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.
-
-CEO, NexOps
-StockWise: https://stockwise-homepage.vercel.app
-NexOps LinkedIn: https://www.linkedin.com/company/nexops2026/
+NexOps. Inc
+Stockwise: https://stockwise-homepage.vercel.app
+NexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/
 nexops2026test@gmail.com
 
 If you do not want to hear from me, reply “unsubscribe” and I will not contact you again.
 
+================================================================
 
-====================================================================
-3. A.C.T. Hardware Pte Ltd
-To: enquiry@acthardware.com.sg
-Subject: <ADV> Try StockWise free for A.C.T. Hardware Pte Ltd
-公式情報源: https://www.acthardware.com.sg/contact-us/
-事業関連性: Hardware dealer with showrooms, warehouse and a wholesale hub supplying trade customers.
-本文:
+To: info@minipack.co.nz
+Subject: Stockwise for Minipack Quickshrink Ltd
+Queue: Q-READY-R-READY-20261123-046
+SHA256(recipient, subject, body): 240be2f216df66a45c3dee7a91bc7517f5d29b4cc01e7039b9cecf447fa1f905
+Source (prior verified, recheck before send): https://www.minipack.co.nz/contact/
+
 Hello,
 
-I’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.
+Stockwise is an inventory and purchasing operations platform for inventory-based businesses.
 
-I’m reaching out because A.C.T. Hardware Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.
+I’m reaching out because Minipack Quickshrink Ltd appears to manage physical inventory, purchasing, or supplier operations.
 
-StockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
+Stockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.
 
-We’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.
-
-You can start here:
+Product information:
 https://stockwise-homepage.vercel.app
 
-If you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.
-
-CEO, NexOps
-StockWise: https://stockwise-homepage.vercel.app
-NexOps LinkedIn: https://www.linkedin.com/company/nexops2026/
+NexOps. Inc
+Stockwise: https://stockwise-homepage.vercel.app
+NexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/
 nexops2026test@gmail.com
 
 If you do not want to hear from me, reply “unsubscribe” and I will not contact you again.
+
+================================================================
 

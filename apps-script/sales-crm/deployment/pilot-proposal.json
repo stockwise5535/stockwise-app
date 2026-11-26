@@ -7,70 +7,85 @@
   "sender": {
     "email": "nexops2026test@gmail.com",
     "displayName": "Ryan S",
-    "company": "NexOps"
+    "company": "NexOps. Inc"
   },
   "referenceSentMessageId": "1a203fe94895ec57",
   "bodyChanges": [
-    "Company name substitution only in the business-relevance sentence.",
-    "Append the existing contact email to the existing footer so sender contact matches existing CRM gate."
+    "Remove unverified free provision, no-cost setup and CEO/founder claims.",
+    "Use Stockwise and NexOps. Inc; retain existing product description and opt-out.",
+    "Clear all previous approval fields. Reapproval required for the exact recipient/subject/body."
   ],
   "unresolvedConditions": [
     "Existing ChatGPT task instructions are supplied, but its executable identity and common-budget connection remain unverified.",
     "Country-specific launch review, reply/unsubscribe operation and runtime grant properties must be read or explicitly attested before arming.",
     "Reviewed sender hardening is development-only and has not been applied to the existing bound Apps Script.",
-    "2026-11-22 PT reconciliation found 110 Gmail sends versus 50 CRM receipts: 60 Japanese-template sends lack CRM queue receipts; do not resend or restore rows automatically."
+    "2026-11-22 PT reconciliation found 110 Gmail sends versus 50 CRM receipts: 60 Japanese-template sends lack CRM queue receipts; do not resend or restore rows automatically.",
+    "New source is not deployed. Structured single-writer route review and per-recipient country evidence remain unpopulated; no gate is set TRUE.",
+    "Previous owner approvals are not valid for these changed messages."
   ],
   "messages": [
     {
-      "company": "Hup Soon & Company",
-      "email": "enquiry@hupsooncompany.com",
-      "sourceUrl": "https://hupsooncompany.com/pages/contact",
-      "website": "https://hupsooncompany.com/",
-      "relevance": "Cleaning and household goods wholesaler serving contractors, retailers and commercial businesses.",
-      "country": "SG",
-      "queueId": "Q-OWNER-PILOT-SG-1",
-      "subject": "<ADV> Try StockWise free for Hup Soon & Company",
-      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Hup Soon & Company appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
+      "company": "Francis Ward Ltd",
+      "email": "sales@francisward.com",
+      "sourceUrl": "https://www.francisward.com/",
+      "website": "https://francisward.com",
+      "country": "UK",
+      "queueId": "Q-READY-R-READY-20261123-070",
+      "subject": "Stockwise for Francis Ward Ltd",
+      "body": "Hello,\n\nStockwise is an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Francis Ward Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nProduct information:\nhttps://stockwise-homepage.vercel.app\n\nNexOps. Inc\nStockwise: https://stockwise-homepage.vercel.app\nNexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.",
+      "contentHash": "ce0c79fcb3d8ca84",
+      "approvedHash": null,
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
+      "sourceReviewedAt": "2026-11-24T05:36:39Z",
       "approvalStatus": "DRAFT",
       "priorContactFound": false,
-      "suppressionFound": false
+      "suppressionFound": false,
+      "revalidationRequiredBeforeSend": true,
+      "sha256": "1c89239aa341cd98bb8edc1d08b68b8dca32629777d2136def08d7aa1fabfffd"
     },
     {
-      "company": "Ban Leong Technologies Pte Ltd",
-      "email": "sales@banleong.com.sg",
-      "sourceUrl": "https://www.banleong.com.sg/pages/contact",
-      "website": "https://www.banleong.com.sg/",
-      "relevance": "IT hardware distributor with commercial and consumer product ranges; inventory and purchasing relevance.",
-      "country": "SG",
-      "queueId": "Q-OWNER-PILOT-SG-2",
-      "subject": "<ADV> Try StockWise free for Ban Leong Technologies Pte Ltd",
-      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Ban Leong Technologies Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
+      "company": "Building Materials Nationwide",
+      "email": "sales@buildingmaterials.co.uk",
+      "sourceUrl": "https://www.buildingmaterials.co.uk/contact-us",
+      "website": "https://buildingmaterials.co.uk",
+      "country": "UK",
+      "queueId": "Q-READY-R-READY-20261123-078",
+      "subject": "Stockwise for Building Materials Nationwide",
+      "body": "Hello,\n\nStockwise is an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Building Materials Nationwide appears to manage physical inventory, purchasing, or supplier operations.\n\nStockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nProduct information:\nhttps://stockwise-homepage.vercel.app\n\nNexOps. Inc\nStockwise: https://stockwise-homepage.vercel.app\nNexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.",
+      "contentHash": "79605424ab24e2e9",
+      "approvedHash": null,
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
+      "sourceReviewedAt": "2026-11-24T05:36:39Z",
       "approvalStatus": "DRAFT",
       "priorContactFound": false,
-      "suppressionFound": false
+      "suppressionFound": false,
+      "revalidationRequiredBeforeSend": true,
+      "sha256": "57db90714f1eb682c2d961b54866ec8afa16399d72cf66272c6fc543782426da"
     },
     {
-      "company": "A.C.T. Hardware Pte Ltd",
-      "email": "enquiry@acthardware.com.sg",
-      "sourceUrl": "https://www.acthardware.com.sg/contact-us/",
-      "website": "https://www.acthardware.com.sg/",
-      "relevance": "Hardware dealer with showrooms, warehouse and a wholesale hub supplying trade customers.",
-      "country": "SG",
-      "queueId": "Q-OWNER-PILOT-SG-3",
-      "subject": "<ADV> Try StockWise free for A.C.T. Hardware Pte Ltd",
-      "body": "Hello,\n\nI’m the CEO of NexOps and the founder of StockWise, an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because A.C.T. Hardware Pte Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockWise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nWe’re currently offering StockWise free while we continue improving the product, so you can try it with your own inventory workflow at no cost during this trial period.\n\nYou can start here:\nhttps://stockwise-homepage.vercel.app\n\nIf you prefer, you can also send me a sample Excel or CSV inventory file and I can help set up a StockWise dashboard using your actual workflow at no cost.\n\nCEO, NexOps\nStockWise: https://stockwise-homepage.vercel.app\nNexOps LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.\n",
+      "company": "Minipack Quickshrink Ltd",
+      "email": "info@minipack.co.nz",
+      "sourceUrl": "https://www.minipack.co.nz/contact/",
+      "website": "https://quickshrink.co.nz",
+      "country": "NZ",
+      "queueId": "Q-READY-R-READY-20261123-046",
+      "subject": "Stockwise for Minipack Quickshrink Ltd",
+      "body": "Hello,\n\nStockwise is an inventory and purchasing operations platform for inventory-based businesses.\n\nI’m reaching out because Minipack Quickshrink Ltd appears to manage physical inventory, purchasing, or supplier operations.\n\nStockwise helps teams identify inventory exceptions, purchase-order priorities, and supplier follow-ups without relying on repeated manual spreadsheet checks.\n\nProduct information:\nhttps://stockwise-homepage.vercel.app\n\nNexOps. Inc\nStockwise: https://stockwise-homepage.vercel.app\nNexOps. Inc LinkedIn: https://www.linkedin.com/company/nexops2026/\nnexops2026test@gmail.com\n\nIf you do not want to hear from me, reply “unsubscribe” and I will not contact you again.",
+      "contentHash": "d1040ad86115d710",
+      "approvedHash": null,
       "contactBasis": "PUBLISHED_BUSINESS_CONTACT",
       "consentClaimed": false,
       "sourceReviewed": true,
+      "sourceReviewedAt": "2026-11-24T05:36:39Z",
       "approvalStatus": "DRAFT",
       "priorContactFound": false,
-      "suppressionFound": false
+      "suppressionFound": false,
+      "revalidationRequiredBeforeSend": true,
+      "sha256": "240be2f216df66a45c3dee7a91bc7517f5d29b4cc01e7039b9cecf447fa1f905"
     }
   ],
   "preparedAt": "2026-11-22T23:44:50+00:00",
@@ -106,5 +121,11 @@
     "allRoutesBudgetConnected": false,
     "liveBoundScriptHasSharedCounter": false,
     "noRemoteMutation": true
+  },
+  "claimVerification": {
+    "freeProvision": "UNCONFIRMED_REMOVED",
+    "freeSetup": "UNCONFIRMED_REMOVED",
+    "CEO": "UNCONFIRMED_REMOVED",
+    "basis": "Local App.jsx only describes a limited one-item free beta; that does not establish the broader offer or role. No production signup re-audit performed."
   }
 }

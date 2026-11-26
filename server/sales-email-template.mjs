@@ -40,7 +40,7 @@ I'm reaching out from ${sender} about Stockwise.
 
 ${COPY[segment]}
 
-If inventory planning is a current priority for ${business}, you can learn more about the free trial here:
+If inventory planning is a current priority for ${business}, you can learn more about the product here:
 ${url}
 
 If this isn't relevant, no action is needed.
